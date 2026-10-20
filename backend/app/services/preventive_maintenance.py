@@ -150,3 +150,52 @@ def list_occurrences(db: Session, actor: User, schedule_id: int,
         Property.id == schedule.property_id,
         Property.organization_id == actor.organization_id,
     ).order_by(Occurrence.due_date.desc(), Occurrence.id.desc()).offset(offset).limit(limit).all()
+
+
+def sweep_due(db: Session, *, as_of: date, catchup_limit: int = 12) -> dict[str, int]:
+    """Daily worker pass, with bounded per-schedule catch-up and live actor reauthorization.
+
+    This does not impersonate tenants or authorize dispatch, entry, or payments.
+    All business writes and occurrence keys go through generate_due().
+    """
+    if as_of > date.today():
+        raise ValueError("Cannot sweep a future date")
+    if catchup_limit < 1 or catchup_limit > 120:
+        raise ValueError("Invalid catch-up limit")
+    counts = {"created": 0, "skipped": 0, "backlog": 0}
+    cursor = 0
+    while True:
+        rows = db.query(Schedule.id, Schedule.organization_id, Schedule.created_by_id).filter(
+            Schedule.id > cursor,
+            Schedule.active.is_(True),
+            Schedule.next_due_date <= as_of,
+        ).order_by(Schedule.id).limit(100).all()
+        if not rows:
+            break
+        for schedule_id, org_id, creator_id in rows:
+            cursor = schedule_id
+            actor = db.query(User).filter(
+                User.id == creator_id, User.organization_id == org_id,
+            ).first()
+            if actor is None:
+                counts["skipped"] += 1
+                continue
+            for _ in range(catchup_limit):
+                try:
+                    _, fresh = generate_due(db, actor, schedule_id, as_of=as_of)
+                except HTTPException:
+                    db.rollback()
+                    counts["skipped"] += 1
+                    break
+                if not fresh:
+                    break
+                counts["created"] += 1
+                updated = db.query(Schedule).filter(Schedule.id == schedule_id).one()
+                if not updated.active or updated.next_due_date > as_of:
+                    break
+            if db.query(Schedule.id).filter(
+                Schedule.id == schedule_id, Schedule.active.is_(True),
+                Schedule.next_due_date <= as_of,
+            ).first() is not None:
+                counts["backlog"] += 1
+    return counts

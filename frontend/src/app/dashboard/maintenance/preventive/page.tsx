@@ -95,7 +95,7 @@ export default function PreventiveMaintenancePage() {
       if (!Number.isSafeInteger(created?.id)) throw new Error("Invalid saved schedule.");
       setSchedules((previous) => [created, ...previous.filter((row) => row.id !== created.id)]);
       setTitle(""); setDescription(""); setDueDate("");
-      setNotice("Preventive schedule saved. No work order was generated automatically.");
+      setNotice("Schedule saved. No work order was generated at creation; due dates are checked daily.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Schedule could not be saved.");
     } finally { setSaving(false); }
@@ -151,8 +151,8 @@ export default function PreventiveMaintenancePage() {
     <header>
       <h1 className="text-2xl font-semibold">Preventive maintenance schedules</h1>
       <p className="mt-1 text-sm text-slate-600">
-        Set up recurring preventive work. Generating a due work order requires an explicit action;
-        there is no automatic dispatch, entry authorization, or tenant charge.
+        Active schedules are checked daily for due work orders. Staff can also generate a due order
+        manually. No automatic dispatch, entry authorization, or tenant charge occurs.
       </p>
     </header>
     {error && <p role="alert" className="rounded-lg border p-3 text-sm text-red-700">{error}</p>}

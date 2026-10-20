@@ -850,3 +850,5 @@ access boundary.
 | Phase 5 tenantless staff/manual work orders | capability | /dashboard/maintenance/work-orders/new | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Null tenant_id for staff-created work orders, real requester provenance and tenant isolation preserved; additive column loosening and SQLite/PostgreSQL migration regressions; recurrence still gated |
 
 | Phase 5 preventive schedules and manual occurrence generation | capability | /api/maintenance/preventive/schedules | core | yes | Authorized ADMIN/MANAGER property scope | no | 🔧 CI gated | Persistent daily-interval policy, active pause, tenantless manual due occurrence with database uniqueness and audit; background scheduler and UI not released |
+
+| Phase 5 preventive staff dashboard and daily due worker | capability | /dashboard/maintenance/preventive | core | yes | Scoped ADMIN/MANAGER | no | 🔧 detached; CI gated | Staff schedule creation, pause/resume, due generation, occurrence history, browser test; durable daily cron and catch-up with creator reauthorization; no dispatch or financial posting |

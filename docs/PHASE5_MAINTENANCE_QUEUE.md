@@ -539,3 +539,7 @@ Prepared nullable work_orders.tenant_id migration 5a9e3c7d1b2f and staff creatio
 ## Preventive maintenance schedules / manual due generation (CI gated)
 
 A new authorized /api/maintenance/preventive API creates/reads schedules, pauses/resumes and explicitly generates due work orders. It rechecks actual active property, unit, role, organization and manager assignment; parent schedule row is locked during due generation and a unique (schedule_id,due_date) occurrence provides database defense. Work order, first activity, occurrence and audit share one transaction and no tenant ID, entry consent or expense is invented. Background due jobs, UI, skipped-period catch-up, admin release gates and full recurring workflow remain to be built and verified.
+
+## Daily preventive due worker and customer staff interface (detached; CI gated)
+
+Adds a customer staff UI and daily idempotent JobRun/Arq cron sweep (17:40 UTC) for active due schedules. Work orders are created through existing tenantless unique occurrence and append-only audit transactions, with creator role and scoped property rechecked. Multiple missed periods are caught up in bounded batches. Staff can inspect occurrence history and replay due work without creating duplicates. History denies corrupt foreign work-order association. No payment, tenant charge, entry permission, auto-assignment or vendor dispatch is implied; exact six-job CI remains required.

@@ -511,3 +511,7 @@ New staff-originated work orders currently inherit submitting staff ID in legacy
 ## Phase 5 preventive schedules (2026-10-19; CI gated)
 
 Initial explicit-due foundation: organization-scoped schedule records with property/unit association, interval days, next due, active state, and actor audit. Authorized staff may manually materialize one due occurrence into a tenantless, no-entry-consent, unbilled work order. Duplicate schedule/date prohibited by DB uniqueness; a row-level lock serializes PostgreSQL workers. No automatic scheduler, automatic catch-up, self-service feature release, dispatch, or financial posting. Exact six-job CI is required.
+
+## Phase 5 preventive daily sweep and staff UI (2026-10-19; detached)
+
+Prepared signed-in staff schedule page, per-schedule activity history, duplicate-safe due generation, pause/resume and daily Arq due sweep. The durable scheduled JobRun is per UTC date. Worker reuses the audited occurrence transaction; a per-schedule bounded catch-up of 12 periods prevents unlimited burst. Creator identity, role, organization, active property/unit and manager assignment are revalidated. Automatic work orders neither grant entry permission nor post tenant charges. UTC due policy and full operations/release gates need further refinement before marking complete.

@@ -135,6 +135,60 @@ def test_preventive_history_omits_corrupted_cross_org_work_order_binding():
         engine.dispose()
 
 
+def test_daily_preventive_due_sweep_catches_up_bounded_without_duplicate_tenants():
+    db, engine, actors, _, units = seeded()
+    try:
+        admin, manager, tenant, outside = actors
+        schedule = pm.create_schedule(
+            db, admin, unit_id=units[0].id, title="Inspect window locks",
+            description="Quarterly safety walk and window hardware check",
+            interval_days=1, next_due_date=date.today(),
+        )
+        schedule.next_due_date = date.today() - timedelta(days=3)
+        db.commit()
+        first = pm.sweep_due(db, as_of=date.today(), catchup_limit=2)
+        assert first == {"created": 2, "skipped": 0, "backlog": 1}
+        second = pm.sweep_due(db, as_of=date.today(), catchup_limit=2)
+        assert second == {"created": 2, "skipped": 0, "backlog": 0}
+        assert pm.sweep_due(db, as_of=date.today()) == {
+            "created": 0, "skipped": 0, "backlog": 0,
+        }
+        assert db.query(PreventiveMaintenanceOccurrence).count() == 4
+        assert db.query(WorkOrder).count() == 4
+        assert all(order.tenant_id is None and not order.permission_to_enter
+                   and order.total_cost is None for order in db.query(WorkOrder).all())
+        assert db.query(AuditLog).filter_by(
+            entity_type="preventive_maintenance_occurrence",
+            action="generated",
+        ).count() == 4
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_daily_preventive_due_sweep_rechecks_creator_authority():
+    db, engine, actors, _, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        schedule = pm.create_schedule(
+            db, manager, unit_id=units[0].id, title="Review utility room",
+            description="Scheduled inspection of utility-room safety devices",
+            interval_days=30, next_due_date=date.today(),
+        )
+        assignment = db.query(PropertyAssignment).filter_by(user_id=manager.id).one()
+        assignment.is_active = False
+        db.commit()
+        result = pm.sweep_due(db, as_of=date.today())
+        assert result == {"created": 0, "skipped": 1, "backlog": 1}
+        assert db.query(WorkOrder).count() == 0
+        assert db.query(PreventiveMaintenanceOccurrence).count() == 0
+        with pytest.raises(ValueError):
+            pm.sweep_due(db, as_of=date.today() + timedelta(days=1))
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_schedule_denies_tenants_foreign_org_and_unassigned_manager():
     db, engine, actors, props, units = seeded()
     try:
@@ -166,3 +220,11 @@ def test_preventive_schedule_denies_tenants_foreign_org_and_unassigned_manager()
     finally:
         db.close()
         engine.dispose()
+
+
+def test_preventive_daily_job_handler_is_registered():
+    from app.jobs import handlers
+    from app.jobs.registry import get_job_handler
+    assert get_job_handler("maintenance.preventive.generate_due") is (
+        handlers.preventive_maintenance_generate_due
+    )

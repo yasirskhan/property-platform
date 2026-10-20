@@ -178,6 +178,25 @@ async def schedule_daily_recurring_bills(ctx):
         db.close()
 
 
+async def schedule_daily_preventive_maintenance(ctx):
+    """Reserve one durable preventive due-generation sweep per UTC date."""
+    now = datetime.now(timezone.utc)
+    db = SessionLocal()
+    try:
+        row, created = reserve_job_run(
+            db,
+            job_name="maintenance.preventive.generate_due",
+            idempotency_key=f"preventive-maintenance-due:{now.strftime('%Y%m%d')}",
+            payload={"as_of": now.date().isoformat()},
+            max_attempts=3,
+        )
+        if created or row.status in {JobStatus.PENDING, JobStatus.RETRYING}:
+            await enqueue_job_run(db, ctx["redis"], row)
+        return {"job_run_id": row.id, "created": created}
+    finally:
+        db.close()
+
+
 class WorkerSettings:
     on_startup = worker_startup
     functions = [execute_job]
@@ -208,6 +227,14 @@ class WorkerSettings:
             schedule_daily_recurring_bills,
             hour={0},
             minute={20},
+            second=0,
+            unique=True,
+            max_tries=1,
+        ),
+        cron(
+            schedule_daily_preventive_maintenance,
+            hour={17},
+            minute={40},
             second=0,
             unique=True,
             max_tries=1,

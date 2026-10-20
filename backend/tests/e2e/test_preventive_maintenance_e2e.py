@@ -33,7 +33,7 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             page.get_by_label("Preventive first due date").fill(date.today().isoformat())
             page.get_by_role("button", name="Save schedule").click()
             pw.expect(page.get_by_role("status").filter(
-                has_text="No work order was generated automatically."
+                has_text="No work order was generated at creation"
             )).to_be_visible(timeout=15_000)
             card = page.locator("article").filter(has_text="E2E HVAC scheduled filter check").first
             pw.expect(card).to_contain_text("Active")

@@ -14,6 +14,7 @@ from app.jobs.registry import register_job_handler
 from app.services.fraud import refresh_checkout_velocity_cases
 from app.services.recurring_journal_entries import post_due_recurring_journal_entries
 from app.services.bill_workflows import post_due_recurring_bills
+from app.services.preventive_maintenance import sweep_due as sweep_preventive_due
 
 
 @register_job_handler("health.noop")
@@ -55,5 +56,16 @@ async def recurring_bills_post_due(payload: dict[str, Any]) -> dict[str, int]:
     db = SessionLocal()
     try:
         return post_due_recurring_bills(db, as_of=as_of)
+    finally:
+        db.close()
+
+
+@register_job_handler("maintenance.preventive.generate_due")
+async def preventive_maintenance_generate_due(payload: dict[str, Any]) -> dict[str, int]:
+    """Use the audited, per-schedule tenantless occurrence transaction."""
+    as_of = date.fromisoformat(str(payload.get("as_of") or date.today().isoformat()))
+    db = SessionLocal()
+    try:
+        return sweep_preventive_due(db, as_of=as_of)
     finally:
         db.close()
