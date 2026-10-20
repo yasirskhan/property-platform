@@ -11,8 +11,8 @@ import init_db  # noqa: F401 - import complete model registry
 from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
-from app.models.work_order import WorkOrderTimeCorrection, WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, list_maintenance_preferred_vendors, replace_maintenance_preferred_vendors, list_maintenance_vendor_candidates, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.models.work_order import MaintenanceOnCallShift, WorkOrderTimeCorrection, WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, get_work_order_time_ledger, pending_crew_time_corrections, list_maintenance_preferred_vendors, replace_maintenance_preferred_vendors, list_maintenance_vendor_candidates, list_maintenance_on_call_shifts, schedule_maintenance_on_call_shift, cancel_maintenance_on_call_shift, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.vendor import Vendor, MaintenancePreferredVendor
 from app.models.vendor_insurance import VendorInsurance
@@ -21,7 +21,7 @@ from app.services import unit_inspections
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
 from app.models.lease import Lease, LeaseStatus
-from app.schemas.work_order import MaintenanceVendorPreferencesUpdate, WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderRecall, WorkOrderEta, WorkOrderTimeCreate, WorkOrderTimeCorrectionCreate, WorkOrderTimeCorrectionDecision, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
+from app.schemas.work_order import MaintenanceOnCallShiftCreate, MaintenanceOnCallShiftCancel, MaintenanceVendorPreferencesUpdate, WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderRecall, WorkOrderEta, WorkOrderTimeCreate, WorkOrderTimeCorrectionCreate, WorkOrderTimeCorrectionDecision, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
 from app.schemas.user import UserUpdate
 from app.core import auth as auth_logic
 from app.core.security import create_access_token, create_two_factor_challenge_token
@@ -2202,6 +2202,100 @@ def test_preferred_vendor_ranks_are_shared_by_property_and_trade_not_work_order(
         assert json.loads(audits[-1].old_value)["vendor_ids"] == [first.id, second.id]
         assert json.loads(audits[-1].new_value)["vendor_ids"] == [second.id, first.id]
         assert db.query(MaintenancePreferredVendor).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
+
+
+
+def test_on_call_crew_schedule_conflicts_idempotency_and_scoped_cancellation():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _, crew, external_admin = actors
+        start = (datetime.now(timezone.utc) + timedelta(days=3)).replace(second=0, microsecond=0)
+        payload = MaintenanceOnCallShiftCreate(crew_user_id=crew.id,
+                                                starts_at=start, ends_at=start + timedelta(hours=8))
+        for actor in (tenant, crew, external_admin):
+            with pytest.raises(HTTPException):
+                schedule_maintenance_on_call_shift(orders[0].id, payload, db=db, current_user=actor)
+        scheduled = schedule_maintenance_on_call_shift(orders[0].id, payload, db=db, current_user=manager)
+        assert scheduled.crew_user_id == crew.id
+        assert schedule_maintenance_on_call_shift(orders[0].id, payload, db=db, current_user=manager).id == scheduled.id
+        with pytest.raises(HTTPException) as conflict:
+            schedule_maintenance_on_call_shift(orders[0].id, MaintenanceOnCallShiftCreate(
+                crew_user_id=crew.id, starts_at=start + timedelta(hours=1),
+                ends_at=start + timedelta(hours=9)), db=db, current_user=admin)
+        assert conflict.value.status_code == 409
+        with pytest.raises(HTTPException) as invalid:
+            schedule_maintenance_on_call_shift(orders[0].id, MaintenanceOnCallShiftCreate(
+                crew_user_id=crew.id, starts_at=datetime.utcnow(),
+                ends_at=datetime.utcnow() + timedelta(hours=3)), db=db, current_user=admin)
+        assert invalid.value.status_code == 422
+        assert [x.id for x in list_maintenance_on_call_shifts(
+            orders[0].id, db=db, current_user=manager)] == [scheduled.id]
+        for actor in (tenant, crew, external_admin):
+            with pytest.raises(HTTPException):
+                list_maintenance_on_call_shifts(orders[0].id, db=db, current_user=actor)
+        with pytest.raises(HTTPException):
+            cancel_maintenance_on_call_shift(orders[0].id, scheduled.id,
+                MaintenanceOnCallShiftCancel(reason="Not permitted by tenant"), db=db, current_user=tenant)
+        cancelled = cancel_maintenance_on_call_shift(orders[0].id, scheduled.id,
+            MaintenanceOnCallShiftCancel(reason="Crew shifted to another property"),
+            db=db, current_user=admin)
+        assert cancelled.cancelled_at is not None
+        assert cancel_maintenance_on_call_shift(orders[0].id, scheduled.id,
+            MaintenanceOnCallShiftCancel(reason="Crew shifted to another property"),
+            db=db, current_user=admin).id == scheduled.id
+        with pytest.raises(HTTPException) as conflict:
+            cancel_maintenance_on_call_shift(orders[0].id, scheduled.id,
+                MaintenanceOnCallShiftCancel(reason="Different cancellation reason"),
+                db=db, current_user=admin)
+        assert conflict.value.status_code == 409
+        assert db.query(MaintenanceOnCallShift).count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="maintenance_on_call_shift", entity_id=scheduled.id, action="scheduled").count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="maintenance_on_call_shift", entity_id=scheduled.id, action="cancelled").count() == 1
+        replacement = schedule_maintenance_on_call_shift(orders[0].id, payload, db=db, current_user=admin)
+        assert replacement.id != scheduled.id
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_on_call_crew_schedule_rejects_wrong_org_wrong_property_and_revocation():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, _, _, crew, foreign = actors
+        start = (datetime.now(timezone.utc) + timedelta(days=5)).replace(second=0, microsecond=0)
+        payload = MaintenanceOnCallShiftCreate(
+            crew_user_id=crew.id, starts_at=start, ends_at=start + timedelta(hours=6))
+        for work_order in (orders[2], orders[3]):
+            with pytest.raises(HTTPException):
+                schedule_maintenance_on_call_shift(work_order.id, payload,
+                                                   db=db, current_user=manager)
+        for crew_id in (foreign.id, 999998):
+            with pytest.raises(HTTPException) as blocked:
+                schedule_maintenance_on_call_shift(orders[0].id, MaintenanceOnCallShiftCreate(
+                    crew_user_id=crew_id, starts_at=start, ends_at=start + timedelta(hours=6)),
+                    db=db, current_user=admin)
+            assert blocked.value.status_code == 404
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=props[0].id, user_id=crew.id).one()
+        assignment.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as blocked:
+            schedule_maintenance_on_call_shift(orders[0].id, payload, db=db, current_user=admin)
+        assert blocked.value.status_code == 404
+        assignment.is_active = True
+        manager_assignment = db.query(PropertyAssignment).filter_by(
+            property_id=props[0].id, user_id=manager.id).one()
+        manager_assignment.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as blocked:
+            schedule_maintenance_on_call_shift(orders[0].id, payload, db=db, current_user=manager)
+        assert blocked.value.status_code == 403
+        assert db.query(MaintenanceOnCallShift).count() == 0
     finally:
         db.close()
         engine.dispose()
