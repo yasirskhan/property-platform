@@ -37,6 +37,32 @@ def _schedule(db: Session, actor: User, schedule_id: int):
         raise HTTPException(status_code=404, detail="Schedule parent mismatch")
     return schedule
 
+def read_schedule(db: Session, actor: User, schedule_id: int):
+    """Scope historical schedule evidence without requiring active inventory."""
+    if not actor.is_active or actor.deleted_at is not None or actor.role not in (
+        UserRole.ADMIN, UserRole.MANAGER,
+    ):
+        raise HTTPException(status_code=403, detail="Preventive maintenance requires authorized staff")
+    query = db.query(Schedule).join(Unit, Unit.id == Schedule.unit_id).join(
+        Property, Property.id == Unit.property_id,
+    ).filter(
+        Schedule.id == schedule_id, Schedule.organization_id == actor.organization_id,
+        Schedule.property_id == Unit.property_id,
+        Property.organization_id == actor.organization_id,
+    )
+    if actor.role == UserRole.MANAGER:
+        assigned = db.query(PropertyAssignment.property_id).filter(
+            PropertyAssignment.user_id == actor.id,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        )
+        query = query.filter(Property.id.in_(assigned))
+    row = query.first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return row
+
+
 def create_schedule(db: Session, actor: User, *, unit_id: int, title: str,
                     description: str, interval_days: int, next_due_date: date, end_date: date | None = None):
     unit = _scope(db, actor, unit_id)
@@ -74,8 +100,6 @@ def list_schedules(db: Session, actor: User, *, limit: int = 100, offset: int = 
         Schedule.organization_id == actor.organization_id,
         Property.organization_id == actor.organization_id,
         Schedule.property_id == Unit.property_id,
-        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
-        Property.is_active.is_(True), Property.deleted_at.is_(None),
     )
     if actor.role == UserRole.MANAGER:
         authorized_properties = db.query(PropertyAssignment.property_id).filter(
@@ -219,8 +243,7 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
 def list_occurrences(db: Session, actor: User, schedule_id: int,
                      *, limit: int = 100, offset: int = 0):
     """Authorized durable evidence for every generated occurrence."""
-    _schedule(db, actor, schedule_id)
-    schedule = _schedule(db, actor, schedule_id)
+    schedule = read_schedule(db, actor, schedule_id)
     # Join through the real work-order unit/property, not untrusted historical
     # label columns: a corrupted occurrence must never expose foreign work IDs.
     return db.query(Occurrence).join(

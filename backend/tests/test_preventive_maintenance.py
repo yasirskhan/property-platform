@@ -261,6 +261,43 @@ def test_schedule_end_date_validated_on_create_and_pause_only_edit():
         engine.dispose()
 
 
+def test_retired_inventory_retains_scoped_history_but_disables_generation():
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        row = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Review shutoff valves", description="Check valves and emergency hardware",
+            interval_days=30, next_due_date=date.today())
+        work, fresh = pm.generate_due(db, admin, row.id, as_of=date.today())
+        assert fresh
+        props[0].is_active = False
+        units[0].is_active = False
+        db.commit()
+        assert [x.id for x in pm.list_schedules(db, admin)] == [row.id]
+        assert [x.id for x in pm.list_schedules(db, manager)] == [row.id]
+        assert pm.read_schedule(db, admin, row.id).id == row.id
+        assert pm.list_occurrences(db, manager, row.id)[0].work_order_id == work.id
+        with pytest.raises(HTTPException):
+            pm.generate_due(db, admin, row.id, as_of=date.today())
+        with pytest.raises(HTTPException):
+            pm.set_active(db, admin, row.id, False)
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=props[0].id, user_id=manager.id,
+        ).one()
+        assignment.is_active = False
+        db.commit()
+        assert pm.list_schedules(db, manager) == []
+        with pytest.raises(HTTPException):
+            pm.list_occurrences(db, manager, row.id)
+        with pytest.raises(HTTPException):
+            pm.read_schedule(db, outsider, row.id)
+        with pytest.raises(HTTPException):
+            pm.read_schedule(db, tenant, row.id)
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_history_omits_corrupted_cross_org_work_order_binding():
     db, engine, actors, props, units = seeded()
     try:
