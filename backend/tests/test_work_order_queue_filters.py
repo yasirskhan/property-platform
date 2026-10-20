@@ -2318,10 +2318,14 @@ def test_on_call_calendar_has_bounded_dates_and_live_manager_crew_visibility():
             assert [x.id for x in observed] == [shift.id]
             assert observed[0].crew_name
             assert observed[0].property_name == props[0].name
-        for user in (tenant, external):
-            with pytest.raises(HTTPException):
-                list_maintenance_on_call_calendar(
-                    start=target, days=7, include_cancelled=False, db=db, current_user=user)
+        with pytest.raises(HTTPException) as forbidden_tenant:
+            list_maintenance_on_call_calendar(
+                start=target, days=7, include_cancelled=False, db=db, current_user=tenant)
+        assert forbidden_tenant.value.status_code == 403
+        # A separately authorized admin of another organization has its own
+        # empty calendar, never an error revealing a foreign organization's shifts.
+        assert list_maintenance_on_call_calendar(
+            start=target, days=7, include_cancelled=False, db=db, current_user=external) == []
         assert list_maintenance_on_call_calendar(
             start=target + timedelta(days=10), days=7,
             include_cancelled=False, db=db, current_user=admin) == []
