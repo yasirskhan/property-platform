@@ -1,3 +1,9 @@
+## 2026-10-20 | Phase 5 crew-time correction workflow — CI GATED
+
+Crew-original time evidence remains immutable. Assigned original crew may propose amended completed work intervals with a required explanation; an independently authorized organization admin/owner or live property manager must approve/deny with separate reason. Pending request retries are idempotent, overlapping crew time evidence cannot be approved, role/revocation/tenant isolation and actual unit/property/org scope are enforced under work-order row lock, both actions append work-order activity and immutable old/new audit. Correction decisions never edit original time entries and never post payroll or tenant charges. Additive Alembic b5d0c8e7a214 plus SQLite/PostgreSQL/bootstrap parity and regression coverage. Repairs malformed PostgreSQL dollar quoting in prior crew time trigger migration. Six hosted CI jobs required before VERIFIED.
+
+---
+
 ## Phase 5 dispatch and crew work evidence — CI gated (2026-10-20)
 
 Maintenance Work Orders now has prepared staff recall of pending or accepted crew offers, scoped acceptance/rejection, explicit arrival ETA, and crew time interval recording while IN_PROGRESS. Crew time record visibility is admin/owner/manager and assigned crew only, never tenant; PostgreSQL/SQLite ORM and database triggers keep time evidence append-only. Work order time records do not post accounting entries or payroll. Revision f4b82c1a9d60 follows a6c8d0e24519; all features remain **CI gated** until six hosted jobs pass on the exact branch SHA. Full crew portal/schedule, messaging, dispatch groups, SLA, work-order-to-bill and purchase approvals remain unfinished.

@@ -86,6 +86,35 @@ class WorkOrderTimeOut(BaseModel):
         from_attributes = True
 
 
+class WorkOrderTimeCorrectionCreate(BaseModel):
+    started_at: datetime
+    ended_at: datetime
+    reason: str = Field(..., min_length=5, max_length=1000)
+
+
+class WorkOrderTimeCorrectionDecision(BaseModel):
+    approve: bool
+    reason: str = Field(..., min_length=5, max_length=1000)
+
+
+class WorkOrderTimeCorrectionOut(BaseModel):
+    id: int
+    work_order_id: int
+    time_entry_id: int
+    requested_by_user_id: int
+    proposed_started_at: datetime
+    proposed_ended_at: datetime
+    duration_minutes: int
+    reason: str
+    status: str
+    reviewed_by_user_id: Optional[int] = None
+    reviewed_at: Optional[datetime] = None
+    review_reason: Optional[str] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
 class WorkOrderEta(BaseModel):
     """Arrival estimate submitted only by the currently accepted crew."""
     eta_at: datetime

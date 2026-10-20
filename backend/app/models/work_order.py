@@ -176,6 +176,29 @@ class WorkOrderTimeEntry(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
+class WorkOrderTimeCorrection(Base):
+    """Reviewed proposed replacement; original time entry never changes."""
+    __tablename__ = "work_order_time_corrections"
+    __table_args__ = (
+        CheckConstraint("duration_minutes BETWEEN 1 AND 1440", name="ck_time_correction_minutes"),
+        CheckConstraint("proposed_ended_at > proposed_started_at", name="ck_time_correction_order"),
+        CheckConstraint("status IN ('pending','approved','denied')", name="ck_time_correction_status"),
+    )
+    id = Column(Integer, primary_key=True)
+    work_order_id = Column(Integer, ForeignKey("work_orders.id", ondelete="RESTRICT"), nullable=False, index=True)
+    time_entry_id = Column(Integer, ForeignKey("work_order_time_entries.id", ondelete="RESTRICT"), nullable=False, index=True)
+    requested_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    proposed_started_at = Column(DateTime, nullable=False)
+    proposed_ended_at = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer, nullable=False)
+    reason = Column(String(1000), nullable=False)
+    status = Column(String(12), nullable=False, default="pending")
+    reviewed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    review_reason = Column(String(1000), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 def _reject_crew_time_mutation(*_args, **_kwargs) -> None:
     raise RuntimeError("work_order_time_entries is append-only")
 

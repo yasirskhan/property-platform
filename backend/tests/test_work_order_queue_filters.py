@@ -11,15 +11,15 @@ import init_db  # noqa: F401 - import complete model registry
 from app.core.database import Base
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import Organization, User, UserRole
-from app.models.work_order import WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
-from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
+from app.models.work_order import WorkOrderTimeCorrection, WorkOrderTimeEntry, WorkOrder, WorkOrderStatus, WorkOrderCategory, WorkOrderPriority, WorkOrderUpdate
+from app.routers.work_orders import (list_work_orders, work_order_queue_summary, emergency_work_order_triage, _user_can_access_work_order, get_work_order, start_work_order, complete_work_order, update_work_order, assign_work_order, accept_work_order_assignment, reject_work_order_assignment, recall_work_order_assignment, update_crew_eta, create_work_order_time_entry, list_work_order_time_entries, request_work_order_time_correction, list_work_order_time_corrections, review_work_order_time_correction, submit_work_order, acknowledge_work_order, cancel_work_order, add_comment, requestable_work_order_units, possible_duplicate_work_orders)
 from app.models.audit_log import AuditLog
 from app.models.unit_inspection import UnitInspectionRecord
 from app.services import unit_inspections
 from app.routers.properties import check_property_access, visible_properties_query
 from app.routers.users import assign_user_to_property, list_assignments, remove_assignment, update_user, deactivate_user
 from app.models.lease import Lease, LeaseStatus
-from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderRecall, WorkOrderEta, WorkOrderTimeCreate, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
+from app.schemas.work_order import WorkOrderComplete, WorkOrderUpdateFields, WorkOrderAssign, WorkOrderReject, WorkOrderRecall, WorkOrderEta, WorkOrderTimeCreate, WorkOrderTimeCorrectionCreate, WorkOrderTimeCorrectionDecision, WorkOrderCreate, WorkOrderComment, WorkOrderCancel
 from app.schemas.user import UserUpdate
 from app.core import auth as auth_logic
 from app.core.security import create_access_token, create_two_factor_challenge_token
@@ -1791,3 +1791,84 @@ def test_crew_time_entries_are_authorized_nonoverlapping_and_audited():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_crew_time_correction_two_person_scope_replay_and_immutable_original():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, tenant, _, crew, foreign = actors
+        wo = orders[0]
+        wo.status = WorkOrderStatus.IN_PROGRESS
+        db.commit()
+        start = (datetime.now(timezone.utc) - timedelta(hours=5)).replace(second=0, microsecond=0)
+        original = create_work_order_time_entry(wo.id, WorkOrderTimeCreate(
+            started_at=start, ended_at=start + timedelta(hours=1)), db=db, current_user=crew)
+        proposal = WorkOrderTimeCorrectionCreate(
+            started_at=start, ended_at=start + timedelta(minutes=90),
+            reason="Original interval ended too soon")
+        for actor in (admin, manager, tenant, foreign):
+            with pytest.raises(HTTPException):
+                request_work_order_time_correction(wo.id, original.id, proposal, db=db, current_user=actor)
+        req = request_work_order_time_correction(wo.id, original.id, proposal, db=db, current_user=crew)
+        assert req.status == "pending"
+        assert request_work_order_time_correction(wo.id, original.id, proposal, db=db, current_user=crew).id == req.id
+        for actor in (crew, tenant, foreign):
+            with pytest.raises(HTTPException):
+                review_work_order_time_correction(wo.id, req.id,
+                    WorkOrderTimeCorrectionDecision(approve=True, reason="Verified repair duration"),
+                    db=db, current_user=actor)
+        assert len(list_work_order_time_corrections(wo.id, db=db, current_user=manager)) == 1
+        with pytest.raises(HTTPException):
+            list_work_order_time_corrections(wo.id, db=db, current_user=tenant)
+        approved = review_work_order_time_correction(wo.id, req.id,
+            WorkOrderTimeCorrectionDecision(approve=True, reason="Verified repair duration"),
+            db=db, current_user=manager)
+        assert approved.status == "approved"
+        assert db.get(WorkOrderTimeEntry, original.id).duration_minutes == 60
+        assert db.query(AuditLog).filter_by(entity_type="work_order", entity_id=wo.id,
+                                            action="crew_time_correction_requested").count() == 1
+        assert db.query(AuditLog).filter_by(entity_type="work_order", entity_id=wo.id,
+                                            action="crew_time_correction_reviewed").count() == 1
+        with pytest.raises(HTTPException) as repeat:
+            review_work_order_time_correction(wo.id, req.id,
+                WorkOrderTimeCorrectionDecision(approve=False, reason="Repeat review"), db=db, current_user=admin)
+        assert repeat.value.status_code == 409
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_crew_time_correction_conflict_denial_and_revoked_manager():
+    db, engine, actors, props, orders = _seed_queue()
+    try:
+        admin, manager, _, _, crew, foreign = actors
+        wo = orders[0]
+        wo.status = WorkOrderStatus.IN_PROGRESS
+        db.commit()
+        start = (datetime.now(timezone.utc) - timedelta(hours=5)).replace(second=0, microsecond=0)
+        first = create_work_order_time_entry(wo.id, WorkOrderTimeCreate(
+            started_at=start, ended_at=start + timedelta(hours=1)), db=db, current_user=crew)
+        create_work_order_time_entry(wo.id, WorkOrderTimeCreate(
+            started_at=start + timedelta(hours=2), ended_at=start + timedelta(hours=3)),
+            db=db, current_user=crew)
+        req = request_work_order_time_correction(wo.id, first.id, WorkOrderTimeCorrectionCreate(
+            started_at=start, ended_at=start + timedelta(minutes=150),
+            reason="Repair took more time"), db=db, current_user=crew)
+        with pytest.raises(HTTPException) as conflict:
+            review_work_order_time_correction(wo.id, req.id,
+                WorkOrderTimeCorrectionDecision(approve=True, reason="Verify against second entry"),
+                db=db, current_user=admin)
+        assert conflict.value.status_code == 409
+        assignment = db.query(PropertyAssignment).filter_by(property_id=props[0].id, user_id=manager.id).one()
+        assignment.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as blocked:
+            review_work_order_time_correction(wo.id, req.id,
+                WorkOrderTimeCorrectionDecision(approve=False, reason="Correction overlaps"),
+                db=db, current_user=manager)
+        assert blocked.value.status_code == 403
+        denied = review_work_order_time_correction(wo.id, req.id,
+            WorkOrderTimeCorrectionDecision(approve=False, reason="Conflicts with other time record"),
+            db=db, current_user=admin)
+        assert denied.status == "denied"
+    finally:
+        db.close(); engine.dispose()

@@ -46,6 +46,7 @@ from app.models.work_order import (
     WorkOrder,
     WorkOrderUpdate,
     WorkOrderTimeEntry,
+    WorkOrderTimeCorrection,
     WorkOrderStatus,
     WorkOrderPriority,
     WorkOrderCategory,
@@ -63,6 +64,9 @@ from app.schemas.work_order import (
     WorkOrderEta,
     WorkOrderTimeCreate,
     WorkOrderTimeOut,
+    WorkOrderTimeCorrectionCreate,
+    WorkOrderTimeCorrectionDecision,
+    WorkOrderTimeCorrectionOut,
     WorkOrderVendorAssign,
     WorkOrderVendorOut,
     WorkOrderComplete,
@@ -1139,6 +1143,144 @@ def create_work_order_time_entry(
     )
     db.commit()
     db.refresh(row)
+    return row
+
+
+# ------------------------------------------------------------
+# AUDITED CREW TIME CORRECTION REQUEST / INDEPENDENT REVIEW
+# ------------------------------------------------------------
+@router.get("/{wo_id}/time-corrections", response_model=List[WorkOrderTimeCorrectionOut])
+def list_work_order_time_corrections(
+    wo_id: int,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).first()
+    if wo is None:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _require_crew_time_access(db, wo, current_user)
+    return db.query(WorkOrderTimeCorrection).filter(
+        WorkOrderTimeCorrection.work_order_id == wo_id,
+    ).order_by(WorkOrderTimeCorrection.id.asc()).offset(offset).limit(limit).all()
+
+
+@router.post("/{wo_id}/time-entries/{entry_id}/corrections",
+             response_model=WorkOrderTimeCorrectionOut, status_code=201)
+def request_work_order_time_correction(
+    wo_id: int, entry_id: int, payload: WorkOrderTimeCorrectionCreate,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    if current_user.role != UserRole.CREW:
+        raise HTTPException(status_code=403, detail="Only original crew can request a correction")
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).with_for_update().first()
+    if wo is None:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _require_crew_time_access(db, wo, current_user)
+    entry = db.query(WorkOrderTimeEntry).filter(
+        WorkOrderTimeEntry.id == entry_id, WorkOrderTimeEntry.work_order_id == wo_id,
+    ).first()
+    if entry is None or entry.crew_user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Crew time entry not found")
+    if (payload.started_at.tzinfo is None or payload.started_at.utcoffset() is None
+            or payload.ended_at.tzinfo is None or payload.ended_at.utcoffset() is None):
+        raise HTTPException(status_code=422, detail="Correction timestamps must contain timezones")
+    start = payload.started_at.astimezone(timezone.utc).replace(tzinfo=None)
+    end = payload.ended_at.astimezone(timezone.utc).replace(tzinfo=None)
+    seconds = (end - start).total_seconds()
+    if seconds < 60 or seconds > 86400 or seconds % 60 != 0 or end > datetime.utcnow():
+        raise HTTPException(status_code=422, detail="Corrected time must be 1-1440 completed whole minutes")
+    reason = payload.reason.strip()
+    if len(reason) < 5:
+        raise HTTPException(status_code=422, detail="Correction reason is required")
+    if start == entry.started_at and end == entry.ended_at:
+        raise HTTPException(status_code=409, detail="Correction must change the time evidence")
+    pending = db.query(WorkOrderTimeCorrection).filter(
+        WorkOrderTimeCorrection.time_entry_id == entry.id,
+        WorkOrderTimeCorrection.status == "pending",
+    ).first()
+    if pending is not None:
+        if pending.proposed_started_at == start and pending.proposed_ended_at == end and pending.reason == reason:
+            return pending
+        raise HTTPException(status_code=409, detail="Time correction already awaiting review")
+    row = WorkOrderTimeCorrection(
+        work_order_id=wo.id, time_entry_id=entry.id, requested_by_user_id=current_user.id,
+        proposed_started_at=start, proposed_ended_at=end, duration_minutes=int(seconds // 60),
+        reason=reason, status="pending",
+    )
+    db.add(row); db.flush()
+    db.add(WorkOrderUpdate(work_order_id=wo.id, user_id=current_user.id,
+                           message=f"Crew time correction #{row.id} requested for entry #{entry.id}"))
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="crew_time_correction_requested",
+        old_value={"entry_id": entry.id, "started_at": entry.started_at,
+                   "ended_at": entry.ended_at, "minutes": entry.duration_minutes},
+        new_value={"correction_id": row.id, "started_at": start, "ended_at": end,
+                   "minutes": row.duration_minutes, "reason": reason},
+    )
+    db.commit(); db.refresh(row)
+    return row
+
+
+@router.post("/{wo_id}/time-corrections/{correction_id}/decision",
+             response_model=WorkOrderTimeCorrectionOut)
+def review_work_order_time_correction(
+    wo_id: int, correction_id: int, payload: WorkOrderTimeCorrectionDecision,
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+):
+    _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
+    wo = db.query(WorkOrder).filter(WorkOrder.id == wo_id).with_for_update().first()
+    if wo is None:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    _require_crew_time_access(db, wo, current_user)
+    row = db.query(WorkOrderTimeCorrection).filter(
+        WorkOrderTimeCorrection.id == correction_id,
+        WorkOrderTimeCorrection.work_order_id == wo_id,
+    ).with_for_update().first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Correction not found")
+    if row.status != "pending":
+        raise HTTPException(status_code=409, detail="Correction already reviewed")
+    reason = payload.reason.strip()
+    if len(reason) < 5:
+        raise HTTPException(status_code=422, detail="Review reason is required")
+    entry = db.query(WorkOrderTimeEntry).filter(
+        WorkOrderTimeEntry.id == row.time_entry_id,
+        WorkOrderTimeEntry.work_order_id == wo_id,
+    ).first()
+    if entry is None or entry.crew_user_id != row.requested_by_user_id:
+        raise HTTPException(status_code=409, detail="Invalid correction evidence")
+    if payload.approve:
+        for other in db.query(WorkOrderTimeEntry).filter(
+            WorkOrderTimeEntry.work_order_id == wo_id,
+            WorkOrderTimeEntry.crew_user_id == entry.crew_user_id,
+            WorkOrderTimeEntry.id != entry.id,
+        ).all():
+            accepted = db.query(WorkOrderTimeCorrection).filter(
+                WorkOrderTimeCorrection.time_entry_id == other.id,
+                WorkOrderTimeCorrection.status == "approved",
+            ).order_by(WorkOrderTimeCorrection.id.desc()).first()
+            start = accepted.proposed_started_at if accepted is not None else other.started_at
+            end = accepted.proposed_ended_at if accepted is not None else other.ended_at
+            if start < row.proposed_ended_at and end > row.proposed_started_at:
+                raise HTTPException(status_code=409, detail="Corrected interval overlaps other crew time")
+    row.status = "approved" if payload.approve else "denied"
+    row.reviewed_by_user_id = current_user.id
+    row.reviewed_at = datetime.utcnow()
+    row.review_reason = reason
+    db.add(WorkOrderUpdate(work_order_id=wo.id, user_id=current_user.id,
+                           message=f"Crew time correction #{row.id} {row.status}"))
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=current_user.organization_id,
+        entity_type="work_order", entity_id=wo.id, action="crew_time_correction_reviewed",
+        old_value={"correction_id": row.id, "status": "pending"},
+        new_value={"correction_id": row.id, "status": row.status, "reason": reason,
+                   "original_minutes": entry.duration_minutes,
+                   "corrected_minutes": row.duration_minutes},
+    )
+    db.commit(); db.refresh(row)
     return row
 
 

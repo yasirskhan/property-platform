@@ -1,3 +1,9 @@
+## 2026-10-20 | Phase 5 crew-time correction workflow — CI GATED
+
+Crew-original time evidence remains immutable. Assigned original crew may propose amended completed work intervals with a required explanation; an independently authorized organization admin/owner or live property manager must approve/deny with separate reason. Pending request retries are idempotent, overlapping crew time evidence cannot be approved, role/revocation/tenant isolation and actual unit/property/org scope are enforced under work-order row lock, both actions append work-order activity and immutable old/new audit. Correction decisions never edit original time entries and never post payroll or tenant charges. Additive Alembic b5d0c8e7a214 plus SQLite/PostgreSQL/bootstrap parity and regression coverage. Repairs malformed PostgreSQL dollar quoting in prior crew time trigger migration. Six hosted CI jobs required before VERIFIED.
+
+---
+
 ## 2026-10-20 | Crew time evidence immutability — DETACHED / CI GATED
 
 Extended the new time-entry workflow with ORM before-update/delete rejection and database-enforced append-only triggers on PostgreSQL and SQLite, installed for both fresh Base.metadata bootstraps and Alembic upgrades. Existing populated time logs cannot be downgraded away. SQLite and PostgreSQL smoke tests assert trigger presence. Crew entries remain separate from payroll and tenant charges; completed time history is preserved and correction workflow is still pending. Prepared descendant is not published or CI verified.

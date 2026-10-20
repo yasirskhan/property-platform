@@ -10,8 +10,8 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "f4b82c1a9d60"
-EXPECTED_MODEL_TABLES = 205
+EXPECTED_HEAD = "b5d0c8e7a214"
+EXPECTED_MODEL_TABLES = 206
 
 
 def _run(command: list[str], database_url: str) -> subprocess.CompletedProcess[str]:
@@ -70,6 +70,7 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
         assert columns["assignment_response"][3] == 0
         assert columns["assignment_responded_at"][3] == 0
         assert columns["crew_eta_at"][3] == 0
+        assert "work_order_time_corrections" in {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert "work_order_time_entries" in {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type=\u0027table\u0027")}
         time_triggers = {row[0] for row in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='work_order_time_entries'"
