@@ -555,3 +555,7 @@ An authorized staff member can pause a preventive maintenance schedule, edit tas
 ## Retired-property preventive history retention (detached; CI gated)
 
 Read-only authorized schedule lists/details and occurrence history remain accessible after a unit/property is retired. Real Unit→Property→Organization alignment and live manager assignment are enforced, so no foreign or revoked access is introduced. Creation, pausing/resuming, editing and work generation still require active inventory; no due order can be generated from a retired unit. Backend regression covers history retention, denied generation, revocation and foreign/tenant denial. Requires exact six-job hosted CI.
+
+## Paged preventive occurrence history (detached; hosted CI gate)
+
+The staff preventive schedules page retrieves past occurrence/work-order links in bounded role-scoped pages of up to 100 with stable descending order and ID deduplication. The existing backend authorization remains mandatory for every page, including archived inventory only for authorized managers/admins; tests verify pagination, history integrity and tenant denial. This does not authorize automatic dispatch or financial posting.

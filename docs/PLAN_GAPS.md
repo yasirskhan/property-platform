@@ -527,3 +527,7 @@ Staff can pause a schedule, then edit its title, instructions, interval and opti
 ## Phase 5 retired maintenance schedule evidence (2026-10-20; detached)
 
 Historical schedules and occurrence work-order references remain readable by current organization-authorized staff even when property or unit is inactive; manager assignments must remain currently valid. Such inventory cannot be used for new recurrence, activation changes, or schedule settings edits. The feature requires six-job hosted CI; automatic dispatch, on-call policy, mobile inspection approval, purchasing and inventory are still unfinished.
+
+## Phase 5 preventive occurrence history paging (2026-10-20; detached)
+
+Staff can load older recurring work-order occurrences in bounded authorized pages, with deduplication and chronological ordering. The history API already enforced unit/property/org scope; backend tests cover pagination and tenant denial. Exact successor six-job CI remains mandatory. Purchase orders, inventory and full dispatch still remain open.

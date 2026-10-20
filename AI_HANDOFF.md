@@ -1,3 +1,9 @@
+# 2026-10-20 | PREVENTIVE OCCURRENCE HISTORY PAGING — DETACHED / CI GATED
+
+Prepared successor `f231f3a83f361ae5c1c51ab4b0b59278761bcd21`: staff UI uses existing role/property-scoped occurrence list API with bounded offset paging and deduplication; backend regression covers chronology, authorization and page boundaries. This follows pause-only auditable schedule settings, end-date cutoffs, historical archived schedule access. Published base `e8ca6888903b517427e6e6902e77ef3fd041206f` passed CI `39366507342` all six jobs. Before publishing inspect exact live HEAD then non-force expected-SHA CAS; successor CI required. Full dispatch, inventory and purchasing are not delivered.
+
+---
+
 # 2026-10-20 | RETIRED PREVENTIVE HISTORY — DETACHED / CI GATED
 
 Prepared `4b9ed1da70d034aa11182ae1d52e6c3bb9736857` adds read-only access to archived preventive schedule records and occurrences for currently authorized organization staff, including live manager property assignments; denies tenant/foreign/revoked roles and never permits generation or edits on retired inventory. Backend regressions included. This is a descendant of the pause-only settings and optional end-date implementation. Parent published `e8ca6888903b517427e6e6902e77ef3fd041206f` has hosted CI `39366507342` pending full six-job pass. Before advancing branch: verify exact SHA/all six, inspect live HEAD for concurrency and promote only with nonforce expected-SHA CAS; successor needs six-job CI and forward fixes. Full dispatch, mobile inspections, purchasing, and inventory remain open.
