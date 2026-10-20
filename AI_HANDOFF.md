@@ -1,3 +1,9 @@
+## 2026-10-20 | Preferred vendors normalized-trade follow-up — DETACHED / CI GATED
+
+Latest detached candidate includes whitespace/case-normalized vendor trade matching (e.g., " PLUMBING " matches plumbing), an explicit notice to verify insurance/compliance/contracts before real dispatch, and a regression proving ranked companies are shared by all same-property/same-trade work orders but not unrelated properties/categories. Candidate descends from published 8a27379a40520b2665e3049c7fccce88610faa20, CI 39463404881 must finish all six SUCCESS before promotion. No automatic dispatch, notifications, financial posting, or tenant charges. Before publishing inspect live branch HEAD and use force=false expected-SHA CAS; subsequent six-job CI required.
+
+---
+
 ## 2026-10-20 | Ranked preferred vendors by property/trade — DETACHED / CI REQUIRED
 
 Following published pending crew-time correction review inbox at 8a27379a40520b2665e3049c7fccce88610faa20, prepared Phase 5 vendor preference ranking: up to three unique active vendors by property and category, protected by same-organization and live property-manager assignment/active location checks, serialized property-row lock and explicit audit before/after. Current staff work order detail supports read/edit, candidate selection and save; backend regression tests protect duplicate/foreign/inactive/mismatched company, property retirement, role scope, shared same-property categories and idempotent audit, plus authenticated browser panel. New additive migration d3f7c0a198be after b5d0c8e7a214, expected table count 207, all migration expectations advanced. Ranking is advisory only; no vendor alert, automatic dispatch, approval, invoice or tenant charge. This descendant is NOT PUBLISHED and may only be promoted after exact parent six-job CI success, live ref CAS with force=false, then full successor six-job CI. Continue complete dispatch settings, purchase orders, inventory and mobile inspections.
