@@ -311,6 +311,8 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
             admin.get_by_role("button", name="Approve correction").click()
             pw.expect(admin.get_by_text("Time correction approved. Original time evidence remains intact.",
                                          exact=True)).to_be_visible(timeout=15_000)
+            pw.expect(admin.get_by_text(re.compile(r"Reviewed work evidence: 60 minutes"))).to_be_visible(timeout=15_000)
+            pw.expect(admin.get_by_text(re.compile(r"Original work evidence: 1 entries, 30 minutes"))).to_be_visible(timeout=15_000)
             crew_page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(first),
                            wait_until="domcontentloaded")
             pw.expect(crew_page.get_by_text(re.compile(r"Reviewed correction:"))).to_be_visible(timeout=15_000)
