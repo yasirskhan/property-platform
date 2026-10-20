@@ -48,6 +48,7 @@ from app.models.work_order import (
     WorkOrderUpdate,
     WorkOrderTimeEntry,
     WorkOrderTimeCorrection,
+    MaintenanceOnCallShift,
     WorkOrderStatus,
     WorkOrderPriority,
     WorkOrderCategory,
@@ -72,6 +73,9 @@ from app.schemas.work_order import (
     PendingCrewTimeCorrectionOut,
     WorkOrderVendorAssign,
     WorkOrderVendorOut,
+    MaintenanceOnCallShiftCreate,
+    MaintenanceOnCallShiftCancel,
+    MaintenanceOnCallShiftOut,
     MaintenanceVendorPreferencesUpdate,
     MaintenanceVendorPreferenceOut,
     MaintenanceVendorCandidateOut,
@@ -650,6 +654,136 @@ def set_work_order_vendor(
     db.commit()
     db.refresh(row)
     return _vendor_work_order_out(row)
+
+
+# ------------------------------------------------------------
+# PROPERTY ON-CALL PRIMARY CREW: SCHEDULE ONLY, NEVER AUTO-DISPATCH
+# ------------------------------------------------------------
+@router.get("/{wo_id}/on-call-shifts", response_model=List[MaintenanceOnCallShiftOut])
+def list_maintenance_on_call_shifts(
+    wo_id: int,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _wo, prop = _maintenance_vendor_scope(db, wo_id, current_user)
+    return db.query(MaintenanceOnCallShift).filter(
+        MaintenanceOnCallShift.organization_id == prop.organization_id,
+        MaintenanceOnCallShift.property_id == prop.id,
+    ).order_by(MaintenanceOnCallShift.starts_at.desc(),
+               MaintenanceOnCallShift.id.desc()).offset(offset).limit(limit).all()
+
+
+@router.post("/{wo_id}/on-call-shifts", response_model=MaintenanceOnCallShiftOut, status_code=201)
+def schedule_maintenance_on_call_shift(
+    wo_id: int, payload: MaintenanceOnCallShiftCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if payload.starts_at.tzinfo is None or payload.starts_at.utcoffset() is None or (
+        payload.ends_at.tzinfo is None or payload.ends_at.utcoffset() is None
+    ):
+        raise HTTPException(status_code=422, detail="On-call times must include a timezone")
+    start = payload.starts_at.astimezone(timezone.utc).replace(tzinfo=None)
+    end = payload.ends_at.astimezone(timezone.utc).replace(tzinfo=None)
+    now = datetime.utcnow()
+    if start <= now or start > now + timedelta(days=366) or end <= start or end - start > timedelta(hours=72):
+        raise HTTPException(status_code=422, detail="Future start within 366 days and 1-72 hour shift required")
+    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user, write=True)
+    candidate = db.query(User).filter(
+        User.id == payload.crew_user_id,
+        User.organization_id == prop.organization_id,
+        User.role == UserRole.CREW,
+        User.is_active.is_(True), User.deleted_at.is_(None),
+    ).first()
+    membership = db.query(PropertyAssignment).filter(
+        PropertyAssignment.property_id == prop.id,
+        PropertyAssignment.user_id == payload.crew_user_id,
+        PropertyAssignment.role == UserRole.CREW,
+        PropertyAssignment.is_active.is_(True),
+        PropertyAssignment.deleted_at.is_(None),
+    ).first()
+    if candidate is None or membership is None:
+        raise HTTPException(status_code=404, detail="Active assigned property crew not found")
+    active = db.query(MaintenanceOnCallShift).filter(
+        MaintenanceOnCallShift.organization_id == prop.organization_id,
+        MaintenanceOnCallShift.property_id == prop.id,
+        MaintenanceOnCallShift.cancelled_at.is_(None),
+        MaintenanceOnCallShift.starts_at < end,
+        MaintenanceOnCallShift.ends_at > start,
+    ).order_by(MaintenanceOnCallShift.id.asc()).all()
+    for existing in active:
+        if existing.crew_user_id == payload.crew_user_id and existing.starts_at == start and existing.ends_at == end:
+            return existing
+    if active:
+        raise HTTPException(status_code=409, detail="An active on-call shift overlaps this property")
+    shift = MaintenanceOnCallShift(
+        organization_id=prop.organization_id, property_id=prop.id,
+        crew_user_id=payload.crew_user_id, starts_at=start, ends_at=end,
+        created_by_user_id=current_user.id,
+    )
+    db.add(shift)
+    db.flush()
+    db.add(WorkOrderUpdate(
+        work_order_id=wo.id, user_id=current_user.id,
+        message=f"Property on-call shift #{shift.id} scheduled",
+    ))
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=prop.organization_id,
+        entity_type="maintenance_on_call_shift", entity_id=shift.id, action="scheduled",
+        new_value={"property_id": prop.id, "crew_user_id": payload.crew_user_id,
+                   "starts_at": start, "ends_at": end, "source_work_order_id": wo.id},
+    )
+    db.commit()
+    db.refresh(shift)
+    return shift
+
+
+@router.post("/{wo_id}/on-call-shifts/{shift_id}/cancel", response_model=MaintenanceOnCallShiftOut)
+def cancel_maintenance_on_call_shift(
+    wo_id: int, shift_id: int, payload: MaintenanceOnCallShiftCancel,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user)
+    # Lock the actual property to serialize scheduling with cancellations,
+    # without preventing a retired property's schedule from being cancelled.
+    db.query(Property.id).filter(Property.id == prop.id).with_for_update().first()
+    _check_access(db, current_user, wo)
+    shift = db.query(MaintenanceOnCallShift).filter(
+        MaintenanceOnCallShift.id == shift_id,
+        MaintenanceOnCallShift.organization_id == prop.organization_id,
+        MaintenanceOnCallShift.property_id == prop.id,
+    ).with_for_update().first()
+    if shift is None:
+        raise HTTPException(status_code=404, detail="On-call shift not found")
+    reason = payload.reason.strip()
+    if len(reason) < 5:
+        raise HTTPException(status_code=422, detail="Cancellation reason required")
+    if shift.cancelled_at is not None:
+        if shift.cancellation_reason == reason:
+            return shift
+        raise HTTPException(status_code=409, detail="Shift already cancelled with a different reason")
+    shift.cancelled_at = datetime.utcnow()
+    shift.cancelled_by_user_id = current_user.id
+    shift.cancellation_reason = reason
+    db.add(WorkOrderUpdate(
+        work_order_id=wo.id, user_id=current_user.id,
+        message=f"Property on-call shift #{shift.id} cancelled",
+    ))
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=prop.organization_id,
+        entity_type="maintenance_on_call_shift", entity_id=shift.id, action="cancelled",
+        old_value={"property_id": prop.id, "crew_user_id": shift.crew_user_id,
+                   "starts_at": shift.starts_at, "ends_at": shift.ends_at,
+                   "cancelled_at": None},
+        new_value={"cancelled_at": shift.cancelled_at, "reason": reason,
+                   "source_work_order_id": wo.id},
+    )
+    db.commit()
+    db.refresh(shift)
+    return shift
 
 
 # ------------------------------------------------------------
