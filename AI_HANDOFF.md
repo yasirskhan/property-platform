@@ -1,3 +1,9 @@
+## 2026-10-20 | Approved versus original crew-time ledger — IMPLEMENTED / CI GATED
+
+Prior crew-time correction workflow at 2f4418a5d07bdfd4c0e27d0fff59c72d2d621d3c is fully verified by GitHub Actions 39450921066 (all six jobs SUCCESS). New successor adds staff-only bounded GET /work-orders/{id}/time-ledger, returning original evidence minutes, reviewed latest-approved minutes, correction counts and explicit payroll_approved=false. Frontend shows the separate totals and refreshes them after recording, requesting or reviewing time evidence. The source immutable time rows stay untouched and there is no billing or payable-time approval. Backend scope/aggregation tests and authenticated browser regression included; verify all six GitHub jobs against exact new branch SHA before calling VERIFIED. Outstanding Phase 5: inventory, purchasing, finance integrations, inspections and dispatch automation.
+
+---
+
 ## 2026-10-20 | Phase 5 crew-time correction workflow — CI GATED
 
 Crew-original time evidence remains immutable. Assigned original crew may propose amended completed work intervals with a required explanation; an independently authorized organization admin/owner or live property manager must approve/deny with separate reason. Pending request retries are idempotent, overlapping crew time evidence cannot be approved, role/revocation/tenant isolation and actual unit/property/org scope are enforced under work-order row lock, both actions append work-order activity and immutable old/new audit. Correction decisions never edit original time entries and never post payroll or tenant charges. Additive Alembic b5d0c8e7a214 plus SQLite/PostgreSQL/bootstrap parity and regression coverage. Repairs malformed PostgreSQL dollar quoting in prior crew time trigger migration. Six hosted CI jobs required before VERIFIED.
