@@ -189,6 +189,32 @@ def test_daily_preventive_due_sweep_rechecks_creator_authority():
         engine.dispose()
 
 
+def test_generate_due_refreshes_current_schedule_after_another_session_updates_date():
+    db, engine, actors, _, units = seeded()
+    try:
+        admin, manager, tenant, outside = actors
+        schedule = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Review boiler safety", description="Inspect boiler room safety equipment",
+            interval_days=30, next_due_date=date.today())
+        # Simulate another worker moving the due date after this session cached it.
+        other_session = sessionmaker(bind=engine, expire_on_commit=False)()
+        try:
+            updated = other_session.get(PreventiveMaintenanceSchedule, schedule.id)
+            updated.next_due_date = date.today() + timedelta(days=1)
+            other_session.commit()
+        finally:
+            other_session.close()
+        assert schedule.next_due_date == date.today()
+        with pytest.raises(HTTPException) as not_due:
+            pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert not_due.value.status_code == 409
+        assert db.query(WorkOrder).count() == 0
+        assert db.query(PreventiveMaintenanceOccurrence).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_schedule_denies_tenants_foreign_org_and_unassigned_manager():
     db, engine, actors, props, units = seeded()
     try:
