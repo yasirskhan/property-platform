@@ -288,6 +288,32 @@ def test_crew_accepts_and_rejects_dispatch_with_audited_reassignment() -> None:
             crew_page.get_by_label("Time entry notes").fill("Repaired the maintenance issue")
             crew_page.get_by_role("button", name="Save work time").click()
             pw.expect(crew_page.get_by_text("Time entry saved.", exact=True)).to_be_visible(timeout=15_000)
+            pw.expect(crew_page.get_by_role("button", name="Request time correction")).to_be_visible(timeout=15_000)
+            crew_page.get_by_role("button", name="Request time correction").click()
+            crew_page.get_by_label("Corrected start").fill(start_time)
+            corrected_end = crew_page.evaluate(
+                "() => { const d = new Date(Date.now()-1800000); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }"
+            )
+            crew_page.get_by_label("Corrected end").fill(corrected_end)
+            crew_page.get_by_label("Time correction reason").fill("Original time record missed the cleanup period")
+            crew_page.get_by_role("button", name="Submit correction request").click()
+            pw.expect(crew_page.get_by_text(
+                "Correction requested for independent review. Original evidence remains unchanged.", exact=True
+            )).to_be_visible(timeout=15_000)
+
+            admin.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(first),
+                       wait_until="domcontentloaded")
+            pw.expect(admin.get_by_role("heading", name=re.compile(r"Work order #" + str(first)))).to_be_visible(timeout=15_000)
+            pw.expect(admin.get_by_role("button", name="Approve correction")).to_be_visible(timeout=15_000)
+            admin.get_by_label(re.compile(r"Review reason for correction")).fill(
+                "Verified actual crew completion with additional cleanup time"
+            )
+            admin.get_by_role("button", name="Approve correction").click()
+            pw.expect(admin.get_by_text("Time correction approved. Original time evidence remains intact.",
+                                         exact=True)).to_be_visible(timeout=15_000)
+            crew_page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(first),
+                           wait_until="domcontentloaded")
+            pw.expect(crew_page.get_by_text(re.compile(r"Reviewed correction:"))).to_be_visible(timeout=15_000)
 
             crew_page.goto(BASE_URL + "/dashboard/maintenance/work-orders/" + str(second),
                            wait_until="domcontentloaded")

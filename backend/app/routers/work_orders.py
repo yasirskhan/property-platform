@@ -1127,6 +1127,19 @@ def create_work_order_time_entry(
         if overlap.started_at == start and overlap.ended_at == end and overlap.notes == note:
             return overlap
         raise HTTPException(status_code=409, detail="This time interval overlaps another crew entry")
+
+    # Approved amendments can extend the effective interval beyond immutable
+    # original bounds; new entries must not create hidden effective overlaps.
+    for other in db.query(WorkOrderTimeEntry).filter(
+        WorkOrderTimeEntry.work_order_id == wo.id,
+        WorkOrderTimeEntry.crew_user_id == current_user.id,
+    ).all():
+        accepted = db.query(WorkOrderTimeCorrection).filter(
+            WorkOrderTimeCorrection.time_entry_id == other.id,
+            WorkOrderTimeCorrection.status == "approved",
+        ).order_by(WorkOrderTimeCorrection.id.desc()).first()
+        if accepted is not None and accepted.proposed_started_at < end and accepted.proposed_ended_at > start:
+            raise HTTPException(status_code=409, detail="Time interval overlaps an approved correction")
     row = WorkOrderTimeEntry(
         work_order_id=wo.id, crew_user_id=current_user.id,
         started_at=start, ended_at=end, duration_minutes=int(delta // 60), notes=note,
