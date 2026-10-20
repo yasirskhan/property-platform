@@ -848,3 +848,5 @@ access boundary.
 | Phase 5 linked inspection maintenance follow-up | capability | /dashboard/maintenance/staff-inspection-records/[id] | core | yes | PROPERTIES.UNITS + MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Staff may create an audited work order referencing a source inspection only after organization, unit and property authorization; protected API and linked detail, integration and browser coverage; no automatic posting |
 
 | Phase 5 tenantless staff/manual work orders | capability | /dashboard/maintenance/work-orders/new | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Null tenant_id for staff-created work orders, real requester provenance and tenant isolation preserved; additive column loosening and SQLite/PostgreSQL migration regressions; recurrence still gated |
+
+| Phase 5 preventive schedules and manual occurrence generation | capability | /api/maintenance/preventive/schedules | core | yes | Authorized ADMIN/MANAGER property scope | no | 🔧 CI gated | Persistent daily-interval policy, active pause, tenantless manual due occurrence with database uniqueness and audit; background scheduler and UI not released |

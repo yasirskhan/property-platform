@@ -507,3 +507,7 @@ An authorized staff inspection can serve as traceable source evidence for a manu
 ## Phase 5 non-fabricated maintenance tenant identity (2026-10-19; detached)
 
 New staff-originated work orders currently inherit submitting staff ID in legacy tenant_id, which is not a real lease tenant. Prepared revision 5a9e3c7d1b2f makes tenant_id nullable without rewriting old rows and records NULL for new staff submissions. The true staff requester remains in requested_by_user_id and append-only creation audit; tenant submissions still validate active lease/actual tenant. API read types and scope must support absence. Existing WorkOrder migrations/imports are historical evidence-only. No synthetic system identity or tenant charge is allowed when recurrence is later built. Exact six-job CI must pass and downgrade must reject populated tenantless records.
+
+## Phase 5 preventive schedules (2026-10-19; CI gated)
+
+Initial explicit-due foundation: organization-scoped schedule records with property/unit association, interval days, next due, active state, and actor audit. Authorized staff may manually materialize one due occurrence into a tenantless, no-entry-consent, unbilled work order. Duplicate schedule/date prohibited by DB uniqueness; a row-level lock serializes PostgreSQL workers. No automatic scheduler, automatic catch-up, self-service feature release, dispatch, or financial posting. Exact six-job CI is required.

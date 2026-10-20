@@ -48,6 +48,7 @@ from app.models.organization_feature_setting import OrganizationFeatureSetting  
 from app.models.property import Property, Unit, PropertyAssignment  # noqa: F401
 from app.models.lease import Lease, RentInvoice, Payment  # noqa: F401
 from app.models.work_order import WorkOrder, WorkOrderUpdate  # noqa: F401
+from app.models.preventive_maintenance import PreventiveMaintenanceSchedule, PreventiveMaintenanceOccurrence  # noqa: F401
 from app.models.password_reset import PasswordResetToken  # noqa: F401
 from app.models.org_email import OrganizationEmailSettings  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401

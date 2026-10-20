@@ -535,3 +535,7 @@ The staff inspection detail page links to a prefilled maintenance-request workfl
 ## Actual-tenant optionality gate for preventive maintenance (detached)
 
 Prepared nullable work_orders.tenant_id migration 5a9e3c7d1b2f and staff creation change eliminate false tenant attribution for all new manual staff orders. Staff identity remains separately persisted, audited, and authorized. Tenant records still have a real active lease and tenant ID. SQLite/PostgreSQL bootstrap tests assert tenant_id truly nullable, historical records are not rewritten, and downgrade fails rather than forging a tenant. This enables future tenantless preventive generation but does not itself implement schedule ownership, occurrence uniqueness, dispatch or billing. Exact SHA all-six CI remains mandatory.
+
+## Preventive maintenance schedules / manual due generation (CI gated)
+
+A new authorized /api/maintenance/preventive API creates/reads schedules, pauses/resumes and explicitly generates due work orders. It rechecks actual active property, unit, role, organization and manager assignment; parent schedule row is locked during due generation and a unique (schedule_id,due_date) occurrence provides database defense. Work order, first activity, occurrence and audit share one transaction and no tenant ID, entry consent or expense is invented. Background due jobs, UI, skipped-period catch-up, admin release gates and full recurring workflow remain to be built and verified.

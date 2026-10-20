@@ -1,3 +1,9 @@
+# 2026-10-19 | PREVENTIVE MAINTENANCE: EXPLICIT DUE OCCURRENCES — CI GATED
+
+Prepared additive Phase 5 foundation: persistent tenantless preventive schedules, organization/property/unit authorization, pause/resume, manual due generation with PostgreSQL schedule-row lock plus DB unique(schedule_id,due_date) and work-order FK, atomic WorkOrder + activity + append-only audit + occurrence, tenant_id NULL, permission_to_enter FALSE, no auto-dispatch or financial posting. Creation validates active unit/property and actor; every generation revalidates. Manual endpoint generates one due period and returns prior work order on retry (not an automatic catch-up worker). Backend regressions cover idempotency, scope, audit, assignment revocation, pause, dates and absence of invented tenant. Alembic 6b0a9c2d4e7f after 5a9e3c7d1b2f, model table count 204. NOT VERIFIED until exact-SHA all-six hosted CI passes. Recurring background scheduling, multiple catch-up periods, inventory, dispatch, inspection approvals and purchasing still pending.
+
+---
+
 # 2026-10-19 | TENANTLESS WORK ORDERS — COMPLETE / VERIFIED
 
 **Exact branch HEAD:** `5930d50d55efa47ea875fa7f26a91fc946d5c908`. **Hosted CI:** `39337828482`, SUCCESS: backend/PostgreSQL, frontend, platform-admin, security, authenticated E2E, staging-config. Additive Alembic `5a9e3c7d1b2f` allows truthful NULL tenant_id for new staff-originated work orders while recording staff requester and origin; genuine tenant submissions still require an active unit lease. Old records are not backfilled; downgrade refuses to manufacture a tenant or drop populated NULL evidence. Inspection-linked maintenance work orders and related authorization/audit regressions are included in this fully green checkpoint. Next: durable preventive schedule + idempotent occurrence design and implementation; do not claim recurrence, dispatch, inventory or purchasing complete.
