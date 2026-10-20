@@ -81,6 +81,39 @@ def test_replay_never_returns_corrupted_cross_property_work_order():
         engine.dispose()
 
 
+def test_replay_never_discloses_mismatched_occurrence_organization_or_unit():
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin = actors[0]
+        schedule = pm.create_schedule(
+            db, admin, unit_id=units[0].id,
+            title="Inspect exhaust fans", description="Inspect fan motors and filters safely",
+            interval_days=30, next_due_date=date.today(),
+        )
+        work, fresh = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert fresh
+        occurrence = db.query(PreventiveMaintenanceOccurrence).one()
+        # Fake a cross-organization occurrence link without changing its work order.
+        occurrence.organization_id = actors[3].organization_id
+        db.commit()
+        with pytest.raises(HTTPException) as blocked:
+            pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert blocked.value.status_code == 409
+        occurrence.organization_id = admin.organization_id
+        # A same-organization but different unit is equally untrusted.
+        work.unit_id = units[1].id
+        work.property_id = properties[1].id
+        db.commit()
+        with pytest.raises(HTTPException) as blocked:
+            pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert blocked.value.status_code == 409
+        assert pm.list_occurrences(db, admin, schedule.id) == []
+        assert db.query(WorkOrder).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def test_preventive_schedule_due_work_order_exactly_once_and_no_tenant_financial_or_entry_rights():
     db, engine, actors, _, units = seeded()
     try:
