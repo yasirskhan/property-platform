@@ -86,6 +86,20 @@ class WorkOrderTimeOut(BaseModel):
         from_attributes = True
 
 
+class PendingCrewTimeCorrectionOut(BaseModel):
+    id: int
+    work_order_id: int
+    work_order_title: str
+    property_id: int
+    property_name: str
+    time_entry_id: int
+    requested_by_user_id: int
+    original_minutes: int
+    proposed_minutes: int
+    reason: str
+    created_at: datetime
+
+
 class WorkOrderTimeLedgerOut(BaseModel):
     recorded_entries: int
     recorded_minutes: int

@@ -68,6 +68,7 @@ from app.schemas.work_order import (
     WorkOrderTimeCorrectionDecision,
     WorkOrderTimeCorrectionOut,
     WorkOrderTimeLedgerOut,
+    PendingCrewTimeCorrectionOut,
     WorkOrderVendorAssign,
     WorkOrderVendorOut,
     WorkOrderComplete,
@@ -1163,6 +1164,57 @@ def create_work_order_time_entry(
 # ------------------------------------------------------------
 # AUDITED CREW TIME CORRECTION REQUEST / INDEPENDENT REVIEW
 # ------------------------------------------------------------
+@router.get("/time-corrections/pending", response_model=List[PendingCrewTimeCorrectionOut])
+def pending_crew_time_corrections(
+    limit: Annotated[int, Query(ge=1, le=50)] = 10,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Oldest pending crew review records, joined through verified real property."""
+    _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
+    rows = (
+        db.query(WorkOrderTimeCorrection, WorkOrder, WorkOrderTimeEntry, Property)
+        .join(WorkOrder, WorkOrder.id == WorkOrderTimeCorrection.work_order_id)
+        .join(WorkOrderTimeEntry, WorkOrderTimeEntry.id == WorkOrderTimeCorrection.time_entry_id)
+        .join(Unit, Unit.id == WorkOrder.unit_id)
+        .join(Property, Property.id == Unit.property_id)
+        .filter(
+            WorkOrderTimeCorrection.status == "pending",
+            WorkOrderTimeCorrection.work_order_id == WorkOrder.id,
+            WorkOrderTimeEntry.work_order_id == WorkOrder.id,
+            WorkOrderTimeEntry.crew_user_id == WorkOrderTimeCorrection.requested_by_user_id,
+            WorkOrder.property_id == Property.id,
+            Property.organization_id == current_user.organization_id,
+        )
+    )
+    if current_user.role == UserRole.MANAGER:
+        rows = rows.join(
+            PropertyAssignment, PropertyAssignment.property_id == Property.id,
+        ).filter(
+            PropertyAssignment.user_id == current_user.id,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        )
+    found = rows.order_by(
+        WorkOrderTimeCorrection.created_at.asc(),
+        WorkOrderTimeCorrection.id.asc(),
+    ).offset(offset).limit(limit).all()
+    return [PendingCrewTimeCorrectionOut(
+        id=correction.id,
+        work_order_id=order.id,
+        work_order_title=order.title,
+        property_id=property.id,
+        property_name=property.name,
+        time_entry_id=evidence.id,
+        requested_by_user_id=correction.requested_by_user_id,
+        original_minutes=evidence.duration_minutes,
+        proposed_minutes=correction.duration_minutes,
+        reason=correction.reason,
+        created_at=correction.created_at,
+    ) for correction, order, evidence, property in found]
+
+
 @router.get("/{wo_id}/time-ledger", response_model=WorkOrderTimeLedgerOut)
 def get_work_order_time_ledger(
     wo_id: int,
