@@ -1,7 +1,7 @@
 """Organization-owned vendor company distinct from optional vendor-login contact."""
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -41,3 +41,22 @@ class Vendor(Base):
     __table_args__ = (
         Index("ix_vendors_org_company", "organization_id", "company_name"),
     )
+
+
+class MaintenancePreferredVendor(Base):
+    """Ranked configuration for one property's maintenance trade, not dispatch."""
+    __tablename__ = "maintenance_preferred_vendors"
+    __table_args__ = (
+        UniqueConstraint("property_id", "trade", "rank", name="uq_preferred_vendor_rank"),
+        UniqueConstraint("property_id", "trade", "vendor_id", name="uq_preferred_vendor_company"),
+        CheckConstraint("rank BETWEEN 1 AND 3", name="ck_preferred_vendor_rank"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="RESTRICT"), nullable=False, index=True)
+    trade = Column(String(100), nullable=False)
+    rank = Column(Integer, nullable=False)
+    vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="RESTRICT"), nullable=False)
+    updated_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

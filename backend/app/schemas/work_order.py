@@ -100,6 +100,23 @@ class PendingCrewTimeCorrectionOut(BaseModel):
     created_at: datetime
 
 
+class MaintenanceVendorPreferencesUpdate(BaseModel):
+    vendor_ids: List[int] = Field(..., max_length=3)
+
+
+class MaintenanceVendorPreferenceOut(BaseModel):
+    vendor_id: int
+    rank: int
+    company_name: str
+    trade: str
+
+
+class MaintenanceVendorCandidateOut(BaseModel):
+    vendor_id: int
+    company_name: str
+    trade: Optional[str] = None
+
+
 class WorkOrderTimeLedgerOut(BaseModel):
     recorded_entries: int
     recorded_minutes: int
