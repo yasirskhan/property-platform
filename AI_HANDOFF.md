@@ -1,3 +1,9 @@
+## 2026-10-20 | Pending correction review inbox — PREPARED / NOT PUBLISHED
+
+Following published 4d0315216abde01ca7be74db5724e1deed0fa982 (time ledger, GitHub Actions 39455507549), prepared a staff-only, paginated pending crew-time review inbox with real organization, Unit/Property and active manager-assignment guards; excludes corrupt cross-work-order time references. Manager UI links directly to the existing independent approval/denial detail. Backend regression tests cover organization, tenant/crew denial, manager property scope, paging and clearing after review; authenticated E2E checks discoverability. The source crew time records remain immutable, never payroll or tenant charges. Wait for predecessor six-job SUCCESS and check the exact live branch SHA before non-force CAS publish, then run all six CI jobs and fix any failures. Continue with Phase 5 inspections, purchasing, stock, and dispatch.
+
+---
+
 ## 2026-10-20 | Approved versus original crew-time ledger — IMPLEMENTED / CI GATED
 
 Prior crew-time correction workflow at 2f4418a5d07bdfd4c0e27d0fff59c72d2d621d3c is fully verified by GitHub Actions 39450921066 (all six jobs SUCCESS). New successor adds staff-only bounded GET /work-orders/{id}/time-ledger, returning original evidence minutes, reviewed latest-approved minutes, correction counts and explicit payroll_approved=false. Frontend shows the separate totals and refreshes them after recording, requesting or reviewing time evidence. The source immutable time rows stay untouched and there is no billing or payable-time approval. Backend scope/aggregation tests and authenticated browser regression included; verify all six GitHub jobs against exact new branch SHA before calling VERIFIED. Outstanding Phase 5: inventory, purchasing, finance integrations, inspections and dispatch automation.
