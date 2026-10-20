@@ -1,3 +1,9 @@
+## 2026-10-20 | Crew dispatch CI regression expectation repair — CI GATED
+
+Hosted run 39431143778 at 4186419abd9213522b027d66af5311036ef3e4f3 failed backend only: the existing queue summary test still asserted exact old five-key dictionary after two new scoped pending/declined counters were added. The backend response itself is intended and the focused new filters/dispatch tests passed. Updated both owner/admin and manager expected dictionaries to contain the new counters at zero, retaining exact backwards-sensitive accounting and role scope assertions. Frontend, platform-admin and security passed; E2E/staging were skipped. Verify six jobs at the replacement exact SHA before promoting dependent recall/inventory safety/ETA candidates. No main or other branches modified.
+
+---
+
 ## 2026-10-20 | Crew dispatch offer and response — IMPLEMENTED / CI GATED
 
 Verified predecessor `777fd6a647d92acac1b1abfd8d85f27b49294e04` with six successful jobs in run `39380284827`. New dispatch sends a pending assignment to eligible crew; crew may accept or reject with a reason. Rejection atomically unassigns and returns the work order to acknowledged, preserving append-only audit and activity. Assignment and response revalidate current organization, property, active inventory and user authorization under row locks; new work cannot start until accepted, while NULL legacy assignment responses stay compatible. Managers can reassign declined work, and the scoped work-order queue and UI report/filter pending, accepted, declined and legacy responses with emergency-first dispatch ordering. Includes reversible additive migration `e1b9c7d2a540`, backend security/regression tests and authenticated browser scenarios. Do not claim full inspection, purchasing, dispatch automation or financial obligations completion; this change requires six-job hosted CI at its published SHA before VERIFIED.

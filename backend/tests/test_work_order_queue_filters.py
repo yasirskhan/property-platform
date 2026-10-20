@@ -585,11 +585,13 @@ def test_queue_summary_enforces_roles_and_actual_property_organization():
         db.commit()
         assert work_order_queue_summary(db=db, current_user=admin) == {
             "open": 3, "emergency_open": 1, "awaiting_assignment": 1,
+            "pending_crew_response": 0, "declined_assignment": 0,
             "in_progress": 1, "ready_to_close": 0,
         }
         manager_counts = work_order_queue_summary(db=db, current_user=manager)
         assert manager_counts == {
             "open": 2, "emergency_open": 0, "awaiting_assignment": 1,
+            "pending_crew_response": 0, "declined_assignment": 0,
             "in_progress": 1, "ready_to_close": 0,
         }
         assert work_order_queue_summary(db=db, current_user=tenant) == manager_counts
