@@ -902,17 +902,17 @@ def schedule_maintenance_on_call_shift(
     return _create_property_on_call_shift(prop, payload, db, current_user, source_work_order=wo)
 
 
-@router.post("/{wo_id}/on-call-shifts/{shift_id}/cancel", response_model=MaintenanceOnCallShiftOut)
-def cancel_maintenance_on_call_shift(
-    wo_id: int, shift_id: int, payload: MaintenanceOnCallShiftCancel,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+def _cancel_property_on_call_shift(
+    prop: Property, shift_id: int, payload: MaintenanceOnCallShiftCancel,
+    db: Session, current_user: User, source_work_order: WorkOrder | None = None,
 ):
-    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user)
-    # Lock the actual property to serialize scheduling with cancellations,
-    # without preventing a retired property's schedule from being cancelled.
+    # Always lock the real property before checking the shift, serializing
+    # calendar-based cancellations with work-order-based scheduling.
     db.query(Property.id).filter(Property.id == prop.id).with_for_update().first()
-    _check_access(db, current_user, wo)
+    if source_work_order is not None:
+        _check_access(db, current_user, source_work_order)
+    else:
+        _on_call_property_scope(db, prop.id, current_user)
     shift = db.query(MaintenanceOnCallShift).filter(
         MaintenanceOnCallShift.id == shift_id,
         MaintenanceOnCallShift.organization_id == prop.organization_id,
@@ -930,10 +930,11 @@ def cancel_maintenance_on_call_shift(
     shift.cancelled_at = datetime.utcnow()
     shift.cancelled_by_user_id = current_user.id
     shift.cancellation_reason = reason
-    db.add(WorkOrderUpdate(
-        work_order_id=wo.id, user_id=current_user.id,
-        message=f"Property on-call shift #{shift.id} cancelled",
-    ))
+    if source_work_order is not None:
+        db.add(WorkOrderUpdate(
+            work_order_id=source_work_order.id, user_id=current_user.id,
+            message=f"Property on-call shift #{shift.id} cancelled",
+        ))
     append_audit_log(
         db, user_id=current_user.id, organization_id=prop.organization_id,
         entity_type="maintenance_on_call_shift", entity_id=shift.id, action="cancelled",
@@ -941,11 +942,35 @@ def cancel_maintenance_on_call_shift(
                    "starts_at": shift.starts_at, "ends_at": shift.ends_at,
                    "cancelled_at": None},
         new_value={"cancelled_at": shift.cancelled_at, "reason": reason,
-                   "source_work_order_id": wo.id},
+                   "source_work_order_id": source_work_order.id if source_work_order is not None else None},
     )
     db.commit()
     db.refresh(shift)
     return shift
+
+
+
+@router.post("/{wo_id}/on-call-shifts/{shift_id}/cancel", response_model=MaintenanceOnCallShiftOut)
+def cancel_maintenance_on_call_shift(
+    wo_id: int, shift_id: int, payload: MaintenanceOnCallShiftCancel,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    wo, prop = _maintenance_vendor_scope(db, wo_id, current_user)
+    return _cancel_property_on_call_shift(
+        prop, shift_id, payload, db, current_user, source_work_order=wo)
+
+
+@router.post("/on-call-property/{property_id}/shifts/{shift_id}/cancel",
+             response_model=MaintenanceOnCallShiftOut)
+def cancel_on_call_shift_by_property(
+    property_id: int, shift_id: int, payload: MaintenanceOnCallShiftCancel,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prop = _on_call_property_scope(db, property_id, current_user)
+    return _cancel_property_on_call_shift(
+        prop, shift_id, payload, db, current_user)
 
 
 # ------------------------------------------------------------
