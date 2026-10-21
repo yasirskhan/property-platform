@@ -59,10 +59,10 @@ def test_policy_auto_attention_appears_on_real_authorized_staff_inbox():
                 crew = User(
                     organization_id=admin.organization_id, role=UserRole.CREW,
                     first_name="E2E", last_name="AutoCrew",
-                    email="auto-crew-" + tag + "@test.invalid",
+                    email="auto-crew-" + tag + "@example.com",
                     hashed_password="e2e-nonlogin", is_active=True,
                 )
-                db.add_all([unit, crew])
+                # This user is listed by shared staff APIs with EmailStr validation.\n                # A reserved .invalid domain breaks unrelated authenticated pages.\n                db.add_all([unit, crew])
                 db.flush()
                 db.add(PropertyAssignment(
                     property_id=prop.id, user_id=crew.id,
