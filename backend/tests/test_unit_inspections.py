@@ -863,31 +863,31 @@ def test_pending_independent_review_queue_is_scoped_excludes_self_and_is_stable(
             Response(), db=db, current_user=manager,
         )
         assert [x.id for x in inspection_router.get_inspections(
-            Response(), review_state="PENDING", db=db, current_user=admin,
+            Response(), property_id=None, unit_id=None, review_state="PENDING", db=db, current_user=admin,
         )] == [second.id, first.id]
         assert inspection_router.get_inspections(
-            Response(), review_state="PENDING", db=db, current_user=manager,
+            Response(), property_id=None, unit_id=None, review_state="PENDING", db=db, current_user=manager,
         ) == []
         inspection_router.review_inspection(first.id, InspectionReviewIn(
             decision="FOLLOW_UP_REQUIRED", notes="Independent follow-up needed on safety observations",
         ), Response(), db=db, current_user=admin)
         assert [x.id for x in inspection_router.get_inspections(
-            Response(), review_state="PENDING", db=db, current_user=admin,
+            Response(), property_id=None, unit_id=None, review_state="PENDING", db=db, current_user=admin,
         )] == [second.id]
         assert [x.id for x in inspection_router.get_inspections(
-            Response(), review_state="REVIEWED", db=db, current_user=admin,
+            Response(), property_id=None, unit_id=None, review_state="REVIEWED", db=db, current_user=admin,
         )] == [first.id]
         assert [x.id for x in inspection_router.get_inspections(
-            Response(), review_state="PENDING", limit=1, offset=0,
+            Response(), property_id=None, unit_id=None, review_state="PENDING", limit=1, offset=0,
             db=db, current_user=admin,
         )] == [second.id]
         with pytest.raises(HTTPException):
             inspection_router.get_inspections(
-                Response(), review_state="PENDING", db=db, current_user=tenant,
+                Response(), property_id=None, unit_id=None, review_state="PENDING", db=db, current_user=tenant,
             )
         with pytest.raises(HTTPException):
             inspection_router.get_inspections(
-                Response(), review_state="PENDING", property_id=foreign_prop.id,
+                Response(), property_id=None, unit_id=None, review_state="PENDING", property_id=foreign_prop.id,
                 db=db, current_user=admin,
             )
         from app.models.unit_inspection import UnitInspectionReview
