@@ -2,10 +2,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 type ChecklistItem = { area: string; condition: string; notes: string };
 type FollowUp = { id: number; title: string; status: string; priority: string };
+type Review = {
+  id: number; inspection_id: number; reviewer_id: number;
+  decision: "CONFIRMED" | "FOLLOW_UP_REQUIRED"; notes: string; reviewed_at: string;
+};
 type Inspection = {
   id: number; property_id: number; unit_id: number;
   property_name?: string | null; unit_number?: string | null;
@@ -23,6 +27,14 @@ export default function StaffInspectionDetailPage() {
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [followUpsLoading, setFollowUpsLoading] = useState(false);
   const [followUpsError, setFollowUpsError] = useState("");
+  const [review, setReview] = useState<Review | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(true);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewMessage, setReviewMessage] = useState("");
+  const [reviewDecision, setReviewDecision] = useState<Review["decision"]>("CONFIRMED");
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [actor, setActor] = useState<{ id: number; role: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -59,6 +71,47 @@ export default function StaffInspectionDetailPage() {
     return () => { active = false; };
   }, [record]);
 
+
+  useEffect(() => {
+    let active = true;
+    apiGet("/auth/me")
+      .then((user: { id: number; role: string }) => { if (active) setActor(user); })
+      .catch(() => { if (active) setReviewError("Unable to verify reviewer identity."); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!record) return;
+    let active = true;
+    setReviewLoading(true);
+    apiGet(`/api/unit-inspections/${record.id}/review`)
+      .then((result: Review | null) => { if (active) setReview(result); })
+      .catch((cause) => { if (active) setReviewError(cause instanceof Error ? cause.message : "Unable to load inspection review."); })
+      .finally(() => { if (active) setReviewLoading(false); });
+    return () => { active = false; };
+  }, [record]);
+
+  async function saveReview() {
+    if (!record || reviewSaving || review || reviewNotes.trim().length < 10) return;
+    setReviewSaving(true); setReviewError(""); setReviewMessage("");
+    try {
+      const result: Review = await apiPost(`/api/unit-inspections/${record.id}/review`, {
+        decision: reviewDecision, notes: reviewNotes.trim(),
+      });
+      setReview(result);
+      setReviewMessage("Independent inspection review recorded and audited.");
+    } catch (cause) {
+      setReviewError(cause instanceof Error ? cause.message : "Unable to save review.");
+    } finally {
+      setReviewSaving(false);
+    }
+  }
+
+  const mayReview = actor && record && !reviewLoading && !review
+    && actor.id !== record.recorded_by_id
+    && record.recorded_by_id !== null
+    && ["ADMIN", "OWNER", "MANAGER"].includes(String(actor.role).toUpperCase());
+
   return <main className="space-y-5">
     <Link href="/dashboard/maintenance/staff-inspection-records" className="text-sm text-blue-800 hover:underline">Back to inspection records</Link>
     <h1 className="text-2xl font-semibold">Inspection #{id}</h1>
@@ -88,6 +141,43 @@ export default function StaffInspectionDetailPage() {
           </li>)}
         </ul>}
         {followUps.length === 100 && <p className="text-xs text-slate-500">Showing the most recent 100 linked work orders.</p>}
+      </section>
+      <section className="space-y-3 rounded-lg border p-3">
+        <h3 className="font-semibold">Independent inspection review</h3>
+        <p className="text-xs text-slate-600">
+          An authorized person other than the inspector records this decision. It does not
+          create a work order, notify anyone, authorize spending or change the original inspection.
+        </p>
+        {reviewLoading && <p role="status">Loading independent review…</p>}
+        {reviewError && <p role="alert" className="text-sm text-red-700">{reviewError}</p>}
+        {reviewMessage && <p role="status" className="text-sm text-green-700">{reviewMessage}</p>}
+        {!reviewLoading && review && <div className="rounded-lg border p-3 text-sm">
+          <p className="font-medium">Decision: {review.decision.replaceAll("_", " ")}</p>
+          <p className="whitespace-pre-wrap">Reason: {review.notes}</p>
+          <p>Reviewed by user #{review.reviewer_id} on {review.reviewed_at}</p>
+          <p className="text-xs">This decision is immutable. Subsequent changes require separate audited follow-up.</p>
+        </div>}
+        {mayReview && <div className="space-y-3">
+          <label className="block text-sm">Independent review decision
+            <select value={reviewDecision} onChange={(e) => setReviewDecision(e.target.value as Review["decision"])}
+              className="mt-1 block w-full rounded border p-2">
+              <option value="CONFIRMED">Confirm inspection record</option>
+              <option value="FOLLOW_UP_REQUIRED">Follow-up required</option>
+            </select>
+          </label>
+          <label className="block text-sm">Review explanation
+            <textarea value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)}
+              maxLength={1000} rows={3} className="mt-1 block w-full rounded border p-2"
+              placeholder="Describe the independent review findings (at least 10 characters)." />
+          </label>
+          <button type="button" onClick={saveReview}
+            disabled={reviewSaving || reviewNotes.trim().length < 10}
+            className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
+            {reviewSaving ? "Saving…" : "Record independent review"}
+          </button>
+        </div>}
+        {!reviewLoading && !review && !mayReview && !reviewError &&
+          <p className="text-sm text-slate-600">Review requires a different authorized Owner, Admin, or property Manager.</p>}
       </section>
       <h3 className="font-semibold">Recorded checklist</h3>
       {record.checklist_items?.length ? <ul className="space-y-2">

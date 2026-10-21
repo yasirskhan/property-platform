@@ -78,6 +78,15 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
             "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='work_order_time_entries'"
         )}
         assert {"crew_time_no_update", "crew_time_no_delete"} <= time_triggers
+        review_columns = {row[1] for row in conn.execute(
+            "PRAGMA table_info(unit_inspection_reviews)"
+        )}
+        assert {"organization_id", "inspection_id", "reviewer_id",
+                "decision", "notes", "reviewed_at"} <= review_columns
+        review_triggers = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='unit_inspection_reviews'"
+        )}
+        assert {"unit_inspection_review_no_update", "unit_inspection_review_no_delete"} <= review_triggers
         assert columns["source_inspection_id"][3] == 0
         assert any(
             row[3] == "source_inspection_id"

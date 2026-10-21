@@ -101,3 +101,98 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             pw.expect(page.get_by_role("link", name=re.compile(r"Work order #[0-9]+: Inspection follow-up #[0-9]+"))).to_be_visible(timeout=15_000)
         finally:
             browser.close()
+
+def test_independent_inspection_review_is_saved_through_authenticated_browser():
+    """A second authorized staff member reviews evidence without editing it."""
+    from uuid import uuid4
+    from app.core.database import SessionLocal
+    from app.models.audit_log import AuditLog
+    from app.models.property import Property, PropertyAssignment, Unit
+    from app.models.unit_inspection import UnitInspectionRecord, UnitInspectionReview
+    from app.models.user import User, UserRole
+    from app.services.audit import append_audit_log
+
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter(User.email == EMAIL).one()
+        prop, unit = db.query(Property, Unit).join(
+            Unit, Unit.property_id == Property.id,
+        ).filter(
+            Property.organization_id == admin.organization_id,
+            Unit.unit_number == "E2E-1",
+            Property.is_active.is_(True),
+        ).first()
+        tag = uuid4().hex[:12]
+        inspector = User(
+            organization_id=admin.organization_id, role=UserRole.MANAGER,
+            first_name="E2E", last_name="IndependentInspector",
+            email="e2e-inspector-" + tag + "@example.com",
+            hashed_password="e2e-nonlogin", is_active=True,
+        )
+        db.add(inspector)
+        db.flush()
+        db.add(PropertyAssignment(
+            property_id=prop.id, user_id=inspector.id,
+            role=UserRole.MANAGER, is_active=True,
+        ))
+        evidence = UnitInspectionRecord(
+            organization_id=admin.organization_id,
+            property_id=prop.id, unit_id=unit.id,
+            inspection_date=date.today(),
+            recorded_condition="ATTENTION_NEEDED",
+            findings="Independent follow-up review " + tag,
+            recorded_by_id=inspector.id,
+        )
+        db.add(evidence)
+        db.flush()
+        append_audit_log(
+            db, organization_id=admin.organization_id, user_id=inspector.id,
+            entity_type="unit_inspection_record", entity_id=evidence.id,
+            action="created",
+            new_value={"unit_id": unit.id, "findings": evidence.findings},
+        )
+        evidence_id = evidence.id
+        inspector_id = inspector.id
+        db.commit()
+    finally:
+        db.close()
+
+    with pw.sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        try:
+            page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
+            page.locator('input[type="email"]').fill(EMAIL)
+            page.locator('input[type="password"]').fill(PASSWORD)
+            page.get_by_role("button", name="Log In", exact=True).click()
+            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            pw.expect(page.get_by_text("Signed in as", exact=True)).to_be_visible(timeout=15_000)
+            page.goto(BASE_URL + f"/dashboard/maintenance/staff-inspection-records/{evidence_id}",
+                      wait_until="domcontentloaded")
+            pw.expect(page.get_by_text("Independent follow-up review " + tag)).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_role("heading", name="Independent inspection review")).to_be_visible(timeout=15_000)
+            page.get_by_label("Independent review decision").select_option("FOLLOW_UP_REQUIRED")
+            page.get_by_label("Review explanation").fill("Follow up on the observed exterior condition")
+            page.get_by_role("button", name="Record independent review").click()
+            pw.expect(page.get_by_role("status").filter(
+                has_text="Independent inspection review recorded and audited."
+            )).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_text("Decision: FOLLOW UP REQUIRED")).to_be_visible(timeout=15_000)
+            page.reload(wait_until="domcontentloaded")
+            pw.expect(page.get_by_text("Decision: FOLLOW UP REQUIRED")).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_text("Follow up on the observed exterior condition")).to_be_visible()
+            pw.expect(page.get_by_text("Independent follow-up review " + tag)).to_be_visible()
+
+            db = SessionLocal()
+            try:
+                stored = db.query(UnitInspectionReview).filter_by(inspection_id=evidence_id).one()
+                assert stored.decision == "FOLLOW_UP_REQUIRED"
+                assert stored.reviewer_id != inspector_id
+                assert db.query(AuditLog).filter_by(
+                    entity_type="unit_inspection_review", entity_id=stored.id,
+                    action="independent_review_recorded",
+                ).count() == 1
+            finally:
+                db.close()
+        finally:
+            browser.close()

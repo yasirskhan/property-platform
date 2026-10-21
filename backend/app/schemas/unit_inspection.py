@@ -65,3 +65,27 @@ class UnitInspectionOut(BaseModel):
     # Current scoped inventory labels for display, not frozen audit snapshots.
     property_name: str | None = None
     unit_number: str | None = None
+
+class InspectionReviewIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["CONFIRMED", "FOLLOW_UP_REQUIRED"]
+    notes: str = Field(min_length=10, max_length=1000)
+
+    @field_validator("notes")
+    @classmethod
+    def strip_review_notes(cls, value: str) -> str:
+        stripped = value.strip()
+        if len(stripped) < 10:
+            raise ValueError("Review explanation must contain at least ten characters")
+        return stripped
+
+
+class InspectionReviewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    inspection_id: int
+    reviewer_id: int
+    decision: Literal["CONFIRMED", "FOLLOW_UP_REQUIRED"]
+    notes: str
+    reviewed_at: datetime

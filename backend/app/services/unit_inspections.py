@@ -10,11 +10,13 @@ from datetime import date
 from typing import Mapping
 
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 
 from app.models.property import Property, PropertyAssignment, Unit
-from app.models.unit_inspection import UnitInspectionRecord
+from app.models.unit_inspection import UnitInspectionRecord, UnitInspectionReview
 from app.models.user import User, UserRole
-from app.schemas.unit_inspection import InspectionChecklistItem, UnitInspectionCreateIn, UnitInspectionOut
+from app.schemas.unit_inspection import (InspectionChecklistItem, UnitInspectionCreateIn, UnitInspectionOut,
+    InspectionReviewIn, InspectionReviewOut)
 from app.services.audit import append_audit_log
 from app.services.menu_resolver import permission_allows_user
 from app.services.report_delivery import ReportDeliveryError, ReportPayload, _date_param, _int_param
@@ -39,7 +41,7 @@ def _visible_properties(
 ):
     if (actor.organization_id != organization_id or not actor.is_active
             or actor.deleted_at is not None
-            or _role(actor) not in {"ADMIN", "MANAGER"}):
+            or _role(actor) not in {"ADMIN", "OWNER", "MANAGER"}):
         raise ReportDeliveryError("Unit inspection permission required")
     for key in ("REPORTING.ALL", "PROPERTIES.ALL", "PROPERTIES.UNITS"):
         if not permission_allows_user(db, user=actor, menu_key=key):
@@ -305,3 +307,76 @@ def build_inspection_report(
         filename="unit-inspections-recorded.csv",
         headers=HEADERS, rows=rows,
     )
+
+def get_inspection_review(db: Session, *, actor: User, inspection_id: int) -> InspectionReviewOut | None:
+    """Review history is visible only via the current scoped inspection record."""
+    get_inspection(db, actor=actor, inspection_id=inspection_id)
+    row = db.query(UnitInspectionReview).filter(
+        UnitInspectionReview.organization_id == actor.organization_id,
+        UnitInspectionReview.inspection_id == inspection_id,
+    ).first()
+    return InspectionReviewOut.model_validate(row) if row is not None else None
+
+
+def independently_review_inspection(
+    db: Session, *, actor: User, inspection_id: int, payload: InspectionReviewIn,
+) -> InspectionReviewOut:
+    """Exactly one independent, immutable review, serialized on parent record."""
+    get_inspection(db, actor=actor, inspection_id=inspection_id)
+    original = db.query(UnitInspectionRecord).filter(
+        UnitInspectionRecord.id == inspection_id,
+        UnitInspectionRecord.organization_id == actor.organization_id,
+    ).with_for_update().populate_existing().first()
+    if original is None:
+        raise ReportDeliveryError("Unit inspection not found")
+    # Check scope under lock as membership, unit, and property may change.
+    get_inspection(db, actor=actor, inspection_id=inspection_id)
+    if original.recorded_by_id is None:
+        raise HTTPException(status_code=409, detail="Original inspector identity is missing")
+    if original.recorded_by_id == actor.id:
+        raise HTTPException(status_code=403, detail="Inspectors cannot review their own evidence")
+    unit = db.query(Unit).join(Property, Property.id == Unit.property_id).filter(
+        Unit.id == original.unit_id,
+        Unit.property_id == original.property_id,
+        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+        Property.id == original.property_id,
+        Property.organization_id == actor.organization_id,
+        Property.is_active.is_(True), Property.deleted_at.is_(None),
+    ).first()
+    if unit is None:
+        raise HTTPException(status_code=409, detail="Retired inventory cannot receive a new review")
+
+    previous = db.query(UnitInspectionReview).filter(
+        UnitInspectionReview.inspection_id == inspection_id,
+    ).first()
+    if previous is not None:
+        if (previous.organization_id == actor.organization_id
+                and previous.reviewer_id == actor.id
+                and previous.decision == payload.decision
+                and previous.notes == payload.notes):
+            return InspectionReviewOut.model_validate(previous)
+        raise HTTPException(status_code=409, detail="Inspection already has an immutable independent review")
+
+    row = UnitInspectionReview(
+        organization_id=actor.organization_id,
+        inspection_id=inspection_id,
+        reviewer_id=actor.id,
+        decision=payload.decision,
+        notes=payload.notes,
+    )
+    db.add(row)
+    db.flush()
+    append_audit_log(
+        db, organization_id=actor.organization_id, user_id=actor.id,
+        entity_type="unit_inspection_review", entity_id=row.id,
+        action="independent_review_recorded",
+        new_value={
+            "inspection_id": inspection_id, "original_inspector_id": original.recorded_by_id,
+            "reviewer_id": actor.id, "decision": payload.decision,
+            "notes": payload.notes, "financial_effect": False,
+            "original_inspection_changed": False,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return InspectionReviewOut.model_validate(row)

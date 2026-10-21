@@ -1,3 +1,9 @@
+## Phase 5 independent inspection review candidate (2026-10-21, CI REQUIRED)
+
+| Inspection independent review | /dashboard/maintenance/staff-inspection-records/[id] | Core staff evidence | Owner/Admin/active assigned Manager with existing access rights | Prepared, NOT VERIFIED | Separate immutable review decision and reason; no self-review or hidden finance/dispatch action. Original inspection retained; migration and browser/permission tests require six-job CI on exact SHA. Mobile/offline/photos still missing. |
+
+---
+
 ## 2026-10-20 | Due crew-response system attention — DETACHED / FULL CI REQUIRED
 
 Prepared an end-to-end in-app maintenance dispatch escalation *attention* workflow: additive migration b8f2a91c4d65 (213 model tables), system-attributed immutable notice per exact work-order assignment timestamp, organization/property/crew and current policy revalidation, exclusive group opt-in, per-rule escalate and timeout, verified original staff-confirmed policy offer, and stable PostgreSQL property→work-order lock ordering. A five-minute ARQ cron reserves durable recovery-capable JobRuns only when operator deployment setting DISPATCH_AUTO_REVIEW_ENABLED is explicitly on; default is OFF. Worker retries cannot duplicate a notice because (work_order_id,assigned_at) is database-unique. Real staff dispatch attention API and responsive UI show the persisted system notice without inventing a message, recall, accepted offer, tenant charge or vendor invoice. Negative/idempotence/backend plus authenticated Postgres/browser workflow regressions prepared. This is NOT external provider delivery, timed backup contact or autonomous crew assignment; P5-AUTO-01, P5-DLV-02, P5-ESC-03 remain OPEN. Publishing must wait for six-job green predecessor SHA 7c9cece747d829f4ca8ac0b59aceff81cba216d7 (GitHub run 39536297032), then fast-forward expected-SHA CAS and another full six-job CI. Do not touch main/Zargul.

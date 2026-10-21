@@ -1,6 +1,6 @@
 # Phase 5 acceptance and issue register
 
-Updated 2026-10-20. Truthful current state; this is **not** a phase-complete signoff. Compare these rows with `docs/PHASE5_MAINTENANCE_QUEUE.md`, `docs/FEATURE_REGISTRY.md`, `docs/PLAN_GAPS.md` and the live GitHub CI run. Entries marked implemented are not an assertion that every later dependent workflow is finished.
+Updated 2026-10-21. Truthful current state; this is **not** a phase-complete signoff. Compare these rows with `docs/PHASE5_MAINTENANCE_QUEUE.md`, `docs/FEATURE_REGISTRY.md`, `docs/PLAN_GAPS.md` and the live GitHub CI run. Entries marked implemented are not an assertion that every later dependent workflow is finished.
 
 | Approved scope | Observed implementation | Acceptance status / remaining requirement |
 |---|---|---|
@@ -14,7 +14,7 @@ Updated 2026-10-20. Truthful current state; this is **not** a phase-complete sig
 | Autonomous dispatch (only with explicit owner opt-in), scheduled runner, exactly-once execution | Owner/Admin intent OFF by default; prepared durable five-minute system attention sweep with global release OFF, one notice per assignment and recoverable JobRun | **OPEN P5-AUTO-01:** independent full executor release, real assignment attempts/delivery states and recovery; worker only records in-app overdue attention |
 | Provider channel delivery acknowledgements and vendor compliance | No verified external delivery, consent/contract gate, confirmation callbacks or reconciliation | **OPEN P5-DLV-02:** implement vetted adapters, scoped credentials, receipts and provider failure handling; never invent delivery |
 | Timed SLA escalation and backups | Prepared release-gated durable timed *in-app attention* record, audit and staff UI; no notification or backup execution | **OPEN P5-ESC-03:** execute vetted backup routing, real delivery, manual overrides and retry reconciliation; automatic notice alone is insufficient |
-| Inspection end-to-end including evidence attachments, reviews and offline needs | Partial staff inspection records/checklist/history | **OPEN P5-INSP-04:** finish approved capture, reviewer, UI and full acceptance |
+| Inspection end-to-end including evidence attachments, reviews and offline needs | Staff inspection records/checklist/history plus independent immutable review API/UI and backend/browser regression candidate | **OPEN P5-INSP-04:** reviewer candidate still needs exact-SHA CI; attachments, offline capture/sync, complete approval acceptance remain unfinished |
 | Preventive maintenance scheduling and due generation | Existing staff schedule UI, due generation, daily worker | **OPEN P5-PM-05:** reconcile all schedule/occurrence/recovery requirements with live code and acceptance |
 | Purchase requests, purchase orders, inventory/materials and cost allocation | Work-order costing and vendor references do not prove purchasing/inventory approval workflow | **OPEN P5-PROC-06:** complete approval, receiving, reconciliation, reversals, stock and financial controls |
 | Work-order invoices/payables/tenant-charge protections | No approved full settlement workflow verified | **OPEN P5-FIN-07:** original/adjusted amounts, review authority, protected ledger posting, reversals and receipts |

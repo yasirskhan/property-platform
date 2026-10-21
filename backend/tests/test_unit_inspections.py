@@ -628,3 +628,134 @@ def test_inspection_evidence_and_reports_require_true_property_manager_role(monk
     finally:
         db.close()
         engine.dispose()
+
+
+def test_independent_inspection_review_is_scoped_immutable_idempotent_and_audited(monkeypatch):
+    from sqlalchemy import text
+    from sqlalchemy.exc import DatabaseError
+    from app.models.unit_inspection import UnitInspectionReview
+    from app.schemas.unit_inspection import InspectionReviewIn
+
+    db, engine = _session()
+    try:
+        admin, manager, tenant, outsider, prop, hidden, foreign_prop, unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **kw: True)
+        saved = inspection_router.create_inspection(
+            _input(unit, findings="Leaking exterior faucet"), Response(),
+            db=db, current_user=admin,
+        )
+        decision = InspectionReviewIn(
+            decision="FOLLOW_UP_REQUIRED",
+            notes="Plumbing follow-up must be scheduled separately",
+        )
+        assert inspection_router.read_inspection_review(
+            saved.id, Response(), db=db, current_user=manager,
+        ) is None
+        for forbidden in (admin, tenant, outsider):
+            with pytest.raises(HTTPException) as denied:
+                inspection_router.review_inspection(
+                    saved.id, decision, Response(), db=db, current_user=forbidden,
+                )
+            assert denied.value.status_code in (403, 404)
+        assert db.query(UnitInspectionReview).count() == 0
+
+        recorded = inspection_router.review_inspection(
+            saved.id, decision, Response(), db=db, current_user=manager,
+        )
+        assert recorded.inspection_id == saved.id
+        assert recorded.reviewer_id == manager.id
+        assert recorded.decision == "FOLLOW_UP_REQUIRED"
+        assert recorded.notes == decision.notes
+        assert inspection_router.read_inspection_review(
+            saved.id, Response(), db=db, current_user=admin,
+        ).id == recorded.id
+        original = inspection_router.get_inspection_detail(
+            saved.id, Response(), db=db, current_user=admin,
+        )
+        assert original.findings == "Leaking exterior faucet"
+        assert original.recorded_by_id == admin.id
+        assert db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_review",
+            entity_id=recorded.id,
+            action="independent_review_recorded",
+        ).count() == 1
+        replay = inspection_router.review_inspection(
+            saved.id, decision, Response(), db=db, current_user=manager,
+        )
+        assert replay.id == recorded.id
+        for actor, conflicting in (
+            (manager, InspectionReviewIn(decision="CONFIRMED", notes="Different decision not permitted")),
+            (admin, decision),
+        ):
+            with pytest.raises(HTTPException):
+                inspection_router.review_inspection(
+                    saved.id, conflicting, Response(), db=db, current_user=actor,
+                )
+        assert db.query(UnitInspectionReview).count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_review", entity_id=recorded.id,
+        ).count() == 1
+
+        # A manager whose property role changes to CREW cannot see a prior review.
+        assignment = db.query(PropertyAssignment).filter_by(
+            property_id=prop.id, user_id=manager.id,
+        ).one()
+        assignment.role = UserRole.CREW
+        db.commit()
+        with pytest.raises(HTTPException) as denied:
+            inspection_router.read_inspection_review(
+                saved.id, Response(), db=db, current_user=manager,
+            )
+        assert denied.value.status_code == 404
+
+        # Database triggers protect historical decisions even outside the ORM.
+        with pytest.raises(DatabaseError):
+            db.execute(text(
+                "UPDATE unit_inspection_reviews SET decision='CONFIRMED' WHERE id=:id"
+            ), {"id": recorded.id})
+            db.commit()
+        db.rollback()
+        assert db.query(UnitInspectionReview).one().decision == "FOLLOW_UP_REQUIRED"
+        with pytest.raises(DatabaseError):
+            db.execute(text("DELETE FROM unit_inspection_reviews WHERE id=:id"), {"id": recorded.id})
+            db.commit()
+        db.rollback()
+        assert db.query(UnitInspectionReview).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_inspection_review_rejects_retired_inventory_and_missing_original_identity(monkeypatch):
+    from app.schemas.unit_inspection import InspectionReviewIn
+    from app.models.unit_inspection import UnitInspectionRecord, UnitInspectionReview
+
+    db, engine = _session()
+    try:
+        admin, manager, _, _, prop, _, _, unit, _, _ = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **kw: True)
+        saved = inspection_router.create_inspection(
+            _input(unit), Response(), db=db, current_user=admin,
+        )
+        payload = InspectionReviewIn(decision="CONFIRMED", notes="Inspected supporting evidence")
+        row = db.query(UnitInspectionRecord).filter_by(id=saved.id).one()
+        row.recorded_by_id = None
+        db.commit()
+        with pytest.raises(HTTPException) as missing:
+            inspection_router.review_inspection(
+                saved.id, payload, Response(), db=db, current_user=manager,
+            )
+        assert missing.value.status_code == 409
+        row.recorded_by_id = admin.id
+        prop.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as retired:
+            inspection_router.review_inspection(
+                saved.id, payload, Response(), db=db, current_user=manager,
+            )
+        assert retired.value.status_code == 409
+        assert db.query(UnitInspectionReview).count() == 0
+        assert db.query(AuditLog).filter_by(entity_type="unit_inspection_review").count() == 0
+    finally:
+        db.close()
+        engine.dispose()
