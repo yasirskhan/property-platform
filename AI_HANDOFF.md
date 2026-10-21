@@ -1,16 +1,17 @@
 # Property Platform — concise active Phase 5 checkpoint
 
-Observed: 2026-10-21 UTC. Repository yasirskhan/property-platform; ONLY branch chatgpt/checkpoint-005-safety. Read AGENTS.md and docs/SESSION_CONTROL.md first.
+Observed: 2026-10-21 UTC (repair validation pending). Repository yasirskhan/property-platform; ONLY branch chatgpt/checkpoint-005-safety. Read AGENTS.md and docs/SESSION_CONTROL.md first.
 
 ## Publication and CI
-- Source repair published: cb85b75efaacb776cff73f2815f0545e2c801f40 (inspection summary ADMIN/MANAGER scope; verified additive e6b4d2a7c910 migration and model test expectations).
-- Run 39549621729: five jobs passed (backend/frontend/platform-admin/security/staging-config); E2E was cancelled by newer documentation-only commit. NOT all-six-green.
-- Live branch after concurrent supervisor guidance: a29fbbb94d734858f222ac562399731d878583d6 (only AGENTS.md and docs/SESSION_CONTROL.md changed); run 39551777384 was in progress at checkpoint; recheck exact jobs before publication.
-- Last previously all-six-green source: 7c9cece747d829f4ca8ac0b59aceff81cba216d7, run 39536297032.
+- Original five backend failures: source 8b8f9a36d039117ddb8fcf22b71c186a9254b85a, failed run 39546681328.
+- Repair source cb85b75efaacb776cff73f2815f0545e2c801f40; its own run 39549621729 was CANCELLED, not green.
+- Exact passing descendant: a29fbbb94d734858f222ac562399731d878583d6, run 39551777384, all six SUCCESS. Difference from cb85 was documentation-only in AGENTS.md and docs/SESSION_CONTROL.md.
+- Published Phase 5 pagination and UI regression: 43bd41d27c4e7f1b8d26ff437509a86183433148, run 39636546917 FAILED E2E only (1 failed, 34 passed; all five other jobs SUCCESS). Failure was test_dispatch_automation_intent_e2e.py login navigation waiting for full load, although /auth/login, /auth/me and /api/billing/state returned 200.
+- Published targeted E2E repair: 63bc278de893cb6e78d6a718f708c92e21d05a93. Replaces load-bound navigation wait with URL assertion plus real authenticated /auth/me and administrator role confirmation. Saves original intent-toggle and reverse assertions. Run 39664052218 launched; verify all six exact-SHA jobs and fix any new failures. Do NOT call green while pending.
 
 ## Saved Phase 5 implementation candidate (UNPUBLISHED)
-- Detached Git candidate b0d692a970dc8dc2264fe58e355a4704e15e32f4, parent a29fbbb94d734858f222ac562399731d878583d6: fixes API route ignoring schedule list limit/offset, preserves service's real role/org/property paging, adds staff UI count feedback, backend negative/isolation regression and authenticated browser assertion. Candidate is a Git commit object only, not a branch update, and has NOT run hosted tests.
-- This handoff/registry successor is also saved detached; verify live branch again and rebase/reconcile if another change appears. Never overwrite concurrent commits.
+- Rebased DETACHED successor 3591ac048905ee87134787d027f5e436b9f78d21, parent 63bc278de893cb6e78d6a718f708c92e21d05a93. Carries authorized preventive schedule title search + due-only inbox/pagination, browser and backend negative tests, and documentation. This is a saved Git object, NOT on the branch and not CI-verified.
+- Earlier saved candidate 913e322c0cbb7d9ffa256053b10c993cb9f0c925 preserved and inspectable. Unknown unsaved work remains UNKNOWN.
 - Worker session: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b .
 
 - After pagination batch six-job verification, detached successor `5bf90cebeb920fde6bb3fa27d9ba54343945b2b3` adds authorized, paginated schedule-title search in backend and staff UI, with manager/tenant/foreign-org regression and E2E search acceptance; do not publish over red. It has no hosted CI validation yet.
@@ -18,9 +19,9 @@ Observed: 2026-10-21 UTC. Repository yasirskhan/property-platform; ONLY branch c
 - Detached successor `369d1174e5c2a935d28615e0a6b95ee2dc5d46d2` adds an authorized active/due-only staff inbox filter, age-ordered due pagination, tenant/foreign negative tests, and E2E; no writes, delivery or charges. This work is UNPUBLISHED and unverified.
 
 ## Next executable sequence
-1. Verify all six jobs of run 39551777384 for EXACT a29fbbb94d734858f222ac562399731d878583d6; read failure logs and repair if not all green.
-2. If all green and live HEAD unchanged, publish the detached successor with expected_sha=a29fbbb94d734858f222ac562399731d878583d6, force=false; otherwise reconcile first. Run all six jobs on published SHA and repair failures.
-3. Update this concise handoff and docs/PHASE5_ACCEPTANCE_AND_ISSUES.md, docs/FEATURE_REGISTRY.md, docs/PLAN_GAPS.md to observed verification, then implement the next approved substantial Phase 5 work.
+1. Verify source 63bc278de893cb6e78d6a718f708c92e21d05a93 against all six jobs of 39664052218; on red inspect logs and repair without weakening auth or dispatch intent behavior.
+2. If green, recheck live HEAD and publish detached successor with expected_sha and force=false. Run all six jobs at exact new SHA, repair until green.
+3. Reconcile the actual acceptance matrix/feature/issues and move to the next substantial approved Phase 5 workflow. Do not claim full P5-PM-05 or phase acceptance from these incremental fixes.
 
 ## Acceptance remains OPEN
 - P5-AUTO-01 real autonomous dispatch executor and recovery.
