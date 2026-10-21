@@ -10,6 +10,7 @@ type Attention = {
   next_action: string; assigned_to_id: number | null; assignment_response: string | null;
   response_due_at: string | null; policy_group: string | null; policy_daypart: string | null;
   policy_configured: boolean; primary_target: string | null; backup_target: string | null;
+  recorded_auto_notice_at: string | null;
 };
 
 const PAGE = 50;
@@ -89,6 +90,10 @@ export default function MaintenanceDispatchAttentionPage() {
             <p className="mt-1 text-sm">{item.property_name} · {item.status}</p>
             <p className="mt-2 text-sm">{item.explanation}</p>
             <p className="mt-1 text-sm font-medium">{item.next_action}</p>
+            {item.recorded_auto_notice_at && <p className="mt-1 text-xs font-medium">
+              Automated in-app attention recorded: {new Date(item.recorded_auto_notice_at + "Z").toLocaleString()}.
+              No crew was recalled and no external message was delivered.
+            </p>}
             {item.response_due_at && <p className="mt-1 text-xs">Configured crew response window ended:
               {" " + new Date(item.response_due_at).toLocaleString()}</p>}
             <p className="mt-2 text-xs text-slate-600">

@@ -197,10 +197,35 @@ async def schedule_daily_preventive_maintenance(ctx):
         db.close()
 
 
+async def schedule_dispatch_auto_attention(ctx):
+    """Exactly one durable queue task per five-minute window when released."""
+    if not settings.DISPATCH_AUTO_REVIEW_ENABLED:
+        return {"enabled": False}
+    now = datetime.now(timezone.utc)
+    bucket = f"{now:%Y%m%d%H}-{now.minute // 5}"
+    db = SessionLocal()
+    try:
+        row, created = reserve_job_run(
+            db, job_name="maintenance.dispatch.record_due_attention",
+            idempotency_key=f"maintenance-dispatch-attention:{bucket}",
+            payload={"window": bucket}, max_attempts=5,
+        )
+        if created or row.status in {JobStatus.PENDING, JobStatus.RETRYING}:
+            await enqueue_job_run(db, ctx["redis"], row)
+        return {"job_run_id": row.id, "created": created}
+    finally:
+        db.close()
+
+
 class WorkerSettings:
     on_startup = worker_startup
     functions = [execute_job]
     cron_jobs = [
+        cron(
+            schedule_dispatch_auto_attention,
+            minute=set(range(0, 60, 5)), second=20,
+            unique=True, max_tries=1,
+        ),
         cron(
             recover_pending_jobs,
             minute=set(range(60)),

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.property import Property, PropertyAssignment, Unit
+from app.models.maintenance_dispatch_auto_notice import MaintenanceDispatchAutoNotice
 from app.models.user import Organization, User, UserRole
 from app.models.work_order import WorkOrder, WorkOrderStatus, WorkOrderPriority
 from app.routers.auth import get_current_user
@@ -117,6 +118,14 @@ def list_dispatch_attention(
         else:
             # Accepted/legacy crew assignments are not unresolved dispatch.
             continue
+        recorded = None
+        if wo.assigned_at is not None and wo.assignment_response == "pending":
+            recorded = db.query(MaintenanceDispatchAutoNotice.created_at).filter(
+                MaintenanceDispatchAutoNotice.organization_id == actor.organization_id,
+                MaintenanceDispatchAutoNotice.work_order_id == wo.id,
+                MaintenanceDispatchAutoNotice.assigned_at == wo.assigned_at,
+                MaintenanceDispatchAutoNotice.property_id == prop.id,
+            ).first()
         result.append(MaintenanceDispatchAttentionOut(
             work_order_id=wo.id, property_id=prop.id, property_name=prop.name,
             title=wo.title, priority=wo.priority.value, status=wo.status.value,
@@ -126,6 +135,7 @@ def list_dispatch_attention(
             policy_daypart=policy.daypart, policy_configured=policy.configured,
             primary_target=policy.first_target if policy.configured else None,
             backup_target=policy.backup_target if policy.configured else None,
+            recorded_auto_notice_at=recorded[0] if recorded is not None else None,
         ))
     return result
 

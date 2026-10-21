@@ -21,3 +21,4 @@ class MaintenanceDispatchAttentionOut(BaseModel):
     policy_configured: bool = False
     primary_target: str | None = None
     backup_target: str | None = None
+    recorded_auto_notice_at: datetime | None = None

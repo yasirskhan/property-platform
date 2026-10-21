@@ -38,6 +38,8 @@ class Settings(BaseSettings):
 
     # --- Background jobs / Redis ---
     JOBS_ENABLED: bool = False
+    # Operator release gate, OFF by default. Customer intent alone never runs a worker.
+    DISPATCH_AUTO_REVIEW_ENABLED: bool = False
     REDIS_URL: str = "redis://localhost:6379/0"
     JOB_QUEUE_NAME: str = "arq:queue"
 

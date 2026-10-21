@@ -50,6 +50,7 @@ from app.models.lease import Lease, RentInvoice, Payment  # noqa: F401
 from app.models.work_order import WorkOrder, WorkOrderUpdate, WorkOrderTimeEntry  # noqa: F401
 from app.models.maintenance_dispatch import MaintenanceDispatchGroup, MaintenanceDispatchProperty, MaintenanceDispatchRule  # noqa: F401
 from app.models.maintenance_dispatch_review import MaintenanceDispatchReview  # noqa: F401
+from app.models.maintenance_dispatch_auto_notice import MaintenanceDispatchAutoNotice  # noqa: F401
 from app.models.preventive_maintenance import PreventiveMaintenanceSchedule, PreventiveMaintenanceOccurrence  # noqa: F401
 from app.models.password_reset import PasswordResetToken  # noqa: F401
 from app.models.org_email import OrganizationEmailSettings  # noqa: F401

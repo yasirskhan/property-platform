@@ -15,6 +15,7 @@ from app.services.fraud import refresh_checkout_velocity_cases
 from app.services.recurring_journal_entries import post_due_recurring_journal_entries
 from app.services.bill_workflows import post_due_recurring_bills
 from app.services.preventive_maintenance import sweep_due as sweep_preventive_due
+from app.services.maintenance_dispatch_auto_attention import sweep_due_auto_notices
 
 
 @register_job_handler("health.noop")
@@ -67,5 +68,18 @@ async def preventive_maintenance_generate_due(payload: dict[str, Any]) -> dict[s
     db = SessionLocal()
     try:
         return sweep_preventive_due(db, as_of=as_of)
+    finally:
+        db.close()
+
+
+@register_job_handler("maintenance.dispatch.record_due_attention")
+async def record_due_dispatch_attention(_payload: dict[str, Any]) -> dict[str, int | bool]:
+    """Materialize reviewed, in-app attention only; no external delivery."""
+    db = SessionLocal()
+    try:
+        return sweep_due_auto_notices(db)
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
