@@ -1027,6 +1027,7 @@ def test_bulk_health_blocked_to_audited_recovery_and_retry_is_tenantless():
         db.commit()
         blocked = route.batch_execution_health(request, db=db, current_user=admin)
         assert blocked[0]["status"] == "blocked" and not blocked[0]["due"]
+        assert blocked[0]["block_reason"] == "OPERATOR_OR_PROPERTY_INELIGIBLE"
         assert pm.sweep_due(db, as_of=date.today())["created"] == 0
         assert db.query(WorkOrder).count() == 0
         transfer = route.assume_execution(
@@ -1037,6 +1038,7 @@ def test_bulk_health_blocked_to_audited_recovery_and_retry_is_tenantless():
         assert transfer.executor_user_id == admin.id and transfer.created_by_id == manager.id
         healthy = route.batch_execution_health(request, db=db, current_user=admin)
         assert healthy[0]["status"] == "ready" and healthy[0]["due"]
+        assert healthy[0]["block_reason"] is None
         assert pm.sweep_due(db, as_of=date.today())["created"] == 1
         assert pm.sweep_due(db, as_of=date.today())["created"] == 0
         order = db.query(WorkOrder).one()

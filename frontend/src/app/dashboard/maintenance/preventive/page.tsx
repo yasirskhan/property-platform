@@ -12,7 +12,7 @@ type Schedule = {
 };
 type Occurrence = { id: number; schedule_id: number; due_date: string; work_order_id: number };
 type Generation = { work_order_id: number; newly_created: boolean; tenant_id: number | null };
-type ExecutionStatus = { schedule_id: number; executor_user_id: number; status: string; due: boolean };
+type ExecutionStatus = { schedule_id: number; executor_user_id: number; status: string; due: boolean; block_reason?: string | null };
 type DuePreview = { schedule_id: number; active: boolean; as_of: string; due_dates: string[]; has_more: boolean };
 
 export default function PreventiveMaintenancePage() {
@@ -512,7 +512,7 @@ export default function PreventiveMaintenancePage() {
           </button>
         </div>
         {batchHealth[row.id] && <p className="text-sm" aria-label={`Batch execution health ${row.id}`}>
-          Execution health: {batchHealth[row.id].status}{batchHealth[row.id].due ? " · Due now" : ""}
+          Execution health: {batchHealth[row.id].status}{batchHealth[row.id].due ? " · Due now" : ""}{batchHealth[row.id].status === "blocked" && batchHealth[row.id].block_reason ? ` · ${batchHealth[row.id].block_reason.replaceAll("_", " ").toLowerCase()}` : ""}
         </p>}
         {executionStatus?.schedule_id === row.id && <p className="text-sm" role="status">
           Execution: {executionStatus.status} · Staff #{executionStatus.executor_user_id}

@@ -54,6 +54,7 @@ class ExecutionStatusOut(BaseModel):
     executor_user_id: int
     status: str
     due: bool
+    block_reason: str | None = None
 
 
 @router.get("/schedules/{schedule_id}/execution-status", response_model=ExecutionStatusOut)

@@ -220,27 +220,34 @@ def execution_status(db: Session, actor: User, schedule_id: int) -> dict:
     """
     row = read_schedule(db, actor, schedule_id)
     executor_id = row.executor_user_id or row.created_by_id
+    reason = None
     if not row.active:
         state = "paused"
+        reason = "SCHEDULE_PAUSED"
     elif row.end_date is not None and row.next_due_date > row.end_date:
         state = "finished"
+        reason = "SCHEDULE_FINISHED"
     else:
         executor = db.query(User).filter(
             User.id == executor_id, User.organization_id == row.organization_id,
         ).first()
         if executor is None:
             state = "blocked"
+            reason = "OPERATOR_UNAVAILABLE"
         else:
             try:
                 _scope(db, executor, row.unit_id)
             except HTTPException:
                 state = "blocked"
+                reason = ("OPERATOR_INACTIVE" if not executor.is_active or executor.deleted_at is not None
+                          else "OPERATOR_OR_PROPERTY_INELIGIBLE")
             else:
                 state = "ready"
     return {
         "schedule_id": row.id,
         "executor_user_id": executor_id,
         "status": state,
+        "block_reason": reason,
         "due": state == "ready" and row.next_due_date <= date.today(),
     }
 
