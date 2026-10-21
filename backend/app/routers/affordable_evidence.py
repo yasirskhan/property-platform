@@ -110,6 +110,10 @@ def recorded_inspection_summary(
     """
     prop = _property(db, property_id=property_id, actor=current_user, write=False)
     _item(db, org_id=prop.organization_id, prop_id=prop.id, item_id=program_id)
+    # Compliance access does not grant the narrower inspection-summary permission.
+    role = current_user.role.value if hasattr(current_user.role, "value") else current_user.role
+    if str(role).upper() not in {"ADMIN", "MANAGER"}:
+        raise HTTPException(status_code=403, detail="Unit inspection permission required.")
     try:
         _, units = unit_inspection_scope(
             db, organization_id=prop.organization_id, actor=current_user,
