@@ -295,6 +295,11 @@ export default function PreventiveMaintenancePage() {
       setSchedules((old) => old.map((item) => item.id === row.id ? updated : item));
       setTakeoverId(null); setTakeoverReason("");
       setExecutionStatus(null);
+      setBatchHealth((previous) => {
+        const updated = { ...previous };
+        delete updated[row.id];
+        return updated;
+      });
       setNotice("Schedule execution responsibility recorded. Original creator and past work orders are unchanged.");
       void inspectExecution(row.id);
     } catch (cause) {
