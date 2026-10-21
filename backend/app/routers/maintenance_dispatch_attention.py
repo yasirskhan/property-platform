@@ -8,7 +8,7 @@ recall a real assignment.
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import case
+from sqlalchemy import and_, case, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -52,10 +52,15 @@ def list_dispatch_attention(
         now = now.replace(tzinfo=timezone.utc)
 
     queue = _visible_work_orders(db, actor).filter(
-        WorkOrder.status.in_([
-            WorkOrderStatus.SUBMITTED, WorkOrderStatus.ACKNOWLEDGED,
-            WorkOrderStatus.ASSIGNED,
-        ]),
+        or_(
+            WorkOrder.status.in_([
+                WorkOrderStatus.SUBMITTED, WorkOrderStatus.ACKNOWLEDGED,
+            ]),
+            and_(
+                WorkOrder.status == WorkOrderStatus.ASSIGNED,
+                WorkOrder.assignment_response == "pending",
+            ),
+        ),
         Property.is_active.is_(True), Property.deleted_at.is_(None),
         Unit.is_active.is_(True), Unit.deleted_at.is_(None),
     )

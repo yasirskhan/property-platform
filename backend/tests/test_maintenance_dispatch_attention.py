@@ -107,3 +107,25 @@ def test_attention_queue_denies_revoked_and_mislabelled_manager_assignments():
         assert denied.value.status_code == 403
     finally:
         db.close(); engine.dispose()
+
+
+def test_attention_pagination_skips_resolved_assignments_before_limit_and_offset():
+    """Resolved crew offers must not consume a dispatch inbox page slot."""
+    db, engine, users, props, orders = _seed_queue()
+    try:
+        admin = users[0]
+        first, second, third, _foreign = orders
+        first.status = WorkOrderStatus.ASSIGNED
+        first.assignment_response = "accepted"
+        second.status = WorkOrderStatus.ACKNOWLEDGED
+        third.status = WorkOrderStatus.SUBMITTED
+        db.commit()
+        # Although an accepted assignment has higher priority than the
+        # acknowledged work order, the first page must contain live work.
+        page = _entries(db, admin, limit=1, offset=0)
+        assert [row.work_order_id for row in page] == [third.id]
+        next_page = _entries(db, admin, limit=1, offset=1)
+        assert [row.work_order_id for row in next_page] == [second.id]
+        assert all(row.work_order_id != first.id for row in page + next_page)
+    finally:
+        db.close(); engine.dispose()
