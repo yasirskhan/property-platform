@@ -887,7 +887,7 @@ def test_pending_independent_review_queue_is_scoped_excludes_self_and_is_stable(
             )
         with pytest.raises(HTTPException):
             inspection_router.get_inspections(
-                Response(), property_id=None, unit_id=None, review_state="PENDING", property_id=foreign_prop.id,
+                Response(), property_id=foreign_prop.id, unit_id=None, review_state="PENDING",
                 db=db, current_user=admin,
             )
         from app.models.unit_inspection import UnitInspectionReview
