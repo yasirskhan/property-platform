@@ -513,7 +513,7 @@ export default function PreventiveMaintenancePage() {
           </button>
         </div>
         {batchHealth[row.id] && <p className="text-sm" aria-label={`Batch execution health ${row.id}`}>
-          Execution health: {batchHealth[row.id].status}{batchHealth[row.id].due ? " · Due now" : ""}{batchHealth[row.id].status === "blocked" && batchHealth[row.id].block_reason ? ` · ${batchHealth[row.id].block_reason.replaceAll("_", " ").toLowerCase()}` : ""}
+          Execution health: {batchHealth[row.id].status}{batchHealth[row.id].due ? " · Due now" : ""}{batchHealth[row.id].status === "blocked" && batchHealth[row.id].block_reason ? ` · ${batchHealth[row.id].block_reason?.replaceAll("_", " ").toLowerCase()}` : ""}
         </p>}
         {executionStatus?.schedule_id === row.id && <p className="text-sm" role="status">
           Execution: {executionStatus.status} · Staff #{executionStatus.executor_user_id}
