@@ -1,3 +1,9 @@
+## 2026-10-21 | Independent inspection reviewer identity — SAVED DETACHED
+
+Prepared staff inspection evidence detail with same-organization reviewer display labels, explicit fail-closed rejection of malformed cross-organization reviewer identity, existing role/property scope unchanged, and backend plus authenticated browser regressions. Detached candidate requires successful six-job predecessor repair and its own exact-SHA six-job verification. Not an attachment, photo, offline sync or final inspection acceptance; P5-INSP-04 stays OPEN.
+
+---
+
 ## 2026-10-21 | Blocked preventive operator recovery staff workflow — DETACHED, CI REQUIRED
 
 The saved successor extends the already published bulk status inbox with blocked-only cards, safe ineligible-operator reason codes, automatic UI status invalidation after changes, foreign-org atomic denial and an explicit regression for revoked operator -> independently authorized audited takeover -> safe tenantless due generation -> retry without duplicate work orders. Not published or CI-verified. No automatic dispatch, messages, vendor execution, cost or tenant billing. P5-PM-05 remains OPEN.

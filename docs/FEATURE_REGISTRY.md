@@ -1,3 +1,7 @@
+## 2026-10-21 | Scoped independent inspection reviewer identity — DETACHED
+
+The inspectable candidate adds same-organization reviewer labels and denies forged foreign reviewer references for independent review evidence, with staff UI and backend/browser regressions. Not on authorized branch, no hosted validation. P5-INSP-04 and Phase 5 remain open.
+
 ## 2026-10-21 | Preventive blocked-operator recovery - CI REQUIRED
 
 ce3bfe31/run 39667729154 and 07dbcbfe/run 39677973524 each passed all six. New staff blocked-only recovery view, scoped safe reason codes, audited takeover reuse, tenantless retry/idempotence and cross-org denial are published only as candidate pending full exact-SHA CI. P5-PM-05 remains OPEN; unattended dispatch and finance release remain OFF.
