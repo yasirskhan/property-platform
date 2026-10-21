@@ -34,6 +34,7 @@ export default function InspectionRecordsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreError, setMoreError] = useState("");
   const [conditionFilter, setConditionFilter] = useState("");
+  const [reviewFilter, setReviewFilter] = useState("");
   const [historyUnitId, setHistoryUnitId] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -111,6 +112,7 @@ export default function InspectionRecordsPage() {
     }
     const params = new URLSearchParams();
     if (conditionFilter) params.set("recorded_condition", conditionFilter);
+    if (reviewFilter) params.set("review_state", reviewFilter);
     if (historyUnitId) params.set("unit_id", historyUnitId);
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
@@ -280,6 +282,14 @@ export default function InspectionRecordsPage() {
                 <option value="NOT_ASSESSED">Not assessed</option>
               </select>
             </label>
+        <label className="text-sm">Independent review status
+          <select aria-label="Inspection review status" value={reviewFilter}
+            onChange={(event) => setReviewFilter(event.target.value)} className="ml-2 rounded border p-2">
+            <option value="">All review states</option>
+            <option value="PENDING">Pending independent review (other inspectors)</option>
+            <option value="REVIEWED">Reviewed</option>
+          </select>
+        </label>
             <label className="text-sm">From date
               <input type="date" aria-label="Inspection history start date" value={dateFrom}
                 onChange={(event) => setDateFrom(event.target.value)} className="mt-1 w-full rounded-lg border p-2" />

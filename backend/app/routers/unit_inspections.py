@@ -39,6 +39,7 @@ def get_inspections(
     limit: Annotated[int | None, Query(ge=1, le=100)] = None,
     offset: Annotated[int, Query(ge=0, le=100000)] = 0,
     recorded_condition: Literal["SATISFACTORY", "ATTENTION_NEEDED", "NOT_ASSESSED"] | None = None,
+    review_state: Literal["PENDING", "REVIEWED"] | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     db: Session = Depends(get_db),
@@ -51,7 +52,7 @@ def get_inspections(
         return list_inspections(
             db, actor=current_user, property_id=property_id, unit_id=unit_id,
             limit=limit, offset=offset,
-            recorded_condition=recorded_condition,
+            recorded_condition=recorded_condition, review_state=review_state,
             date_from=date_from, date_to=date_to,
         )
     except ReportDeliveryError as exc:

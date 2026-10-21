@@ -156,6 +156,7 @@ def list_inspections(
     unit_id: int | None = None, limit: int | None = None, offset: int = 0,
     recorded_condition: str | None = None,
     date_from: date | None = None, date_to: date | None = None,
+    review_state: str | None = None,
 ) -> list[UnitInspectionOut]:
     org_id = actor.organization_id
     if org_id is None:
@@ -179,6 +180,20 @@ def list_inspections(
         UnitInspectionRecord.inspection_date.desc(),
         UnitInspectionRecord.id.desc(),
     )
+    if review_state is not None:
+        reviewed_ids = db.query(UnitInspectionReview.inspection_id).filter(
+            UnitInspectionReview.organization_id == org_id,
+        )
+        if review_state == "PENDING":
+            query = query.filter(
+                ~UnitInspectionRecord.id.in_(reviewed_ids),
+                UnitInspectionRecord.recorded_by_id.isnot(None),
+                UnitInspectionRecord.recorded_by_id != actor.id,
+            )
+        elif review_state == "REVIEWED":
+            query = query.filter(UnitInspectionRecord.id.in_(reviewed_ids))
+        else:
+            raise ReportDeliveryError("Invalid inspection review state")
     if recorded_condition is not None:
         query = query.filter(UnitInspectionRecord.recorded_condition == recorded_condition)
     if date_from is not None:

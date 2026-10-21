@@ -846,3 +846,52 @@ def test_review_reader_rejects_forged_foreign_reviewer_identity(monkeypatch):
     finally:
         db.close()
         engine.dispose()
+
+
+def test_pending_independent_review_queue_is_scoped_excludes_self_and_is_stable(monkeypatch):
+    from app.schemas.unit_inspection import InspectionReviewIn
+    db, engine = _session()
+    try:
+        admin, manager, tenant, outsider, prop, hidden, foreign_prop, unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **kw: True)
+        first = inspection_router.create_inspection(
+            _input(unit, findings="Pending independent review on first unit record"),
+            Response(), db=db, current_user=manager,
+        )
+        second = inspection_router.create_inspection(
+            _input(unit, findings="Second independent review on same unit record"),
+            Response(), db=db, current_user=manager,
+        )
+        assert [x.id for x in inspection_router.get_inspections(
+            Response(), review_state="PENDING", db=db, current_user=admin,
+        )] == [second.id, first.id]
+        assert inspection_router.get_inspections(
+            Response(), review_state="PENDING", db=db, current_user=manager,
+        ) == []
+        inspection_router.review_inspection(first.id, InspectionReviewIn(
+            decision="FOLLOW_UP_REQUIRED", notes="Independent follow-up needed on safety observations",
+        ), Response(), db=db, current_user=admin)
+        assert [x.id for x in inspection_router.get_inspections(
+            Response(), review_state="PENDING", db=db, current_user=admin,
+        )] == [second.id]
+        assert [x.id for x in inspection_router.get_inspections(
+            Response(), review_state="REVIEWED", db=db, current_user=admin,
+        )] == [first.id]
+        assert [x.id for x in inspection_router.get_inspections(
+            Response(), review_state="PENDING", limit=1, offset=0,
+            db=db, current_user=admin,
+        )] == [second.id]
+        with pytest.raises(HTTPException):
+            inspection_router.get_inspections(
+                Response(), review_state="PENDING", db=db, current_user=tenant,
+            )
+        with pytest.raises(HTTPException):
+            inspection_router.get_inspections(
+                Response(), review_state="PENDING", property_id=foreign_prop.id,
+                db=db, current_user=admin,
+            )
+        from app.models.unit_inspection import UnitInspectionReview
+        assert db.query(UnitInspectionReview).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
