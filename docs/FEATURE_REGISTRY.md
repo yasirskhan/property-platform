@@ -1,3 +1,7 @@
+## 2026-10-21 | Preventive blocked-operator recovery - CI REQUIRED
+
+ce3bfe31/run 39667729154 and 07dbcbfe/run 39677973524 each passed all six. New staff blocked-only recovery view, scoped safe reason codes, audited takeover reuse, tenantless retry/idempotence and cross-org denial are published only as candidate pending full exact-SHA CI. P5-PM-05 remains OPEN; unattended dispatch and finance release remain OFF.
+
 ## 2026-10-21 | Scoped preventive recovery health review - CURRENT CI REQUIRED
 
 Pagination/title search/due-only inbox verified at ce3bfe31, run 39667729154 all six passed. New bounded authorized read-only bulk execution-health review and loaded-schedule UI use existing audited takeover, include negative and browser regressions, and require full exact successor-SHA CI. Full P5-PM-05 remains OPEN; no financial or unattended dispatch release.

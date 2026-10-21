@@ -1,3 +1,7 @@
+## 2026-10-21 | Preventive recovery successor pending exact CI
+
+Bulk authorized health review is VERIFIED at 07dbcbfe, run 39677973524 (six SUCCESS). New blocked-only operator recovery UI/reason codes and post-revocation replay regression require exact successor six-job CI. This closes neither the complete PM recovery acceptance nor operator-release/financial/provider dependencies.
+
 ## 2026-10-21 | Preventive execution recovery gap
 
 The verified ce3bfe31 schedule inbox now supports scoped title/due filters. Prepared bounded bulk health review and existing reasoned operator takeover are not autonomous dispatch or evidence of complete PM recovery; pending full successor CI, worker retry/fault recovery acceptance remains OPEN. No finance, external delivery or tenant charges authorized.
