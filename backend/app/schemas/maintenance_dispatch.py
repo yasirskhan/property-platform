@@ -7,6 +7,7 @@ class MaintenanceGroupInput(BaseModel):
     business_start_hour: int = Field(default=9, ge=0, le=23)
     business_end_hour: int = Field(default=17, ge=1, le=24)
     property_ids: list[int] = Field(default_factory=list, max_length=500)
+    automation_requested: bool = False
 
     @field_validator("name")
     @classmethod
@@ -50,6 +51,7 @@ class MaintenanceGroupOut(BaseModel):
     business_start_hour: int
     business_end_hour: int
     property_ids: list[int]
+    automation_requested: bool = False
     rules: list[MaintenanceRuleOut]
 
 class MaintenanceDispatchPropertyChoice(BaseModel):

@@ -23,6 +23,7 @@ class MaintenanceDispatchGroup(Base):
     timezone_name = Column(String(64), nullable=False, default="UTC")
     business_start_hour = Column(Integer, nullable=False, default=9)
     business_end_hour = Column(Integer, nullable=False, default=17)
+    automation_requested = Column(Boolean, nullable=False, default=False)
     updated_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

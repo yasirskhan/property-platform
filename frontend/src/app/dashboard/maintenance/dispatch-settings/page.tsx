@@ -12,7 +12,7 @@ type Rule = {
 type Group = {
   id: number; name: string; is_default: boolean; timezone_name: string;
   business_start_hour: number; business_end_hour: number;
-  property_ids: number[]; rules: Rule[];
+  property_ids: number[]; automation_requested: boolean; rules: Rule[];
 };
 type Choice = { id: number; name: string };
 const urgencies = ["emergency", "normal", "low"] as const;
@@ -29,6 +29,7 @@ export default function MaintenanceDispatchSettingsPage() {
   const [timezone, setTimezone] = useState("UTC");
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(17);
+  const [automationRequested, setAutomationRequested] = useState(false);
   const [selectedProperties, setSelectedProperties] = useState<number[]>([]);
   const [urgency, setUrgency] = useState<string>("emergency");
   const [daypart, setDaypart] = useState<string>("after_hours");
@@ -79,6 +80,7 @@ export default function MaintenanceDispatchSettingsPage() {
     if (!chosen) return;
     setName(chosen.name); setTimezone(chosen.timezone_name);
     setStartHour(chosen.business_start_hour); setEndHour(chosen.business_end_hour);
+    setAutomationRequested(Boolean(chosen.automation_requested));
     setSelectedProperties(chosen.is_default ? [] : chosen.property_ids);
   }, [chosen?.id, groups]);
 
@@ -99,6 +101,7 @@ export default function MaintenanceDispatchSettingsPage() {
       const result = await apiPost("/api/maintenance/dispatch-groups", {
         name: newName.trim(), timezone_name: "UTC",
         business_start_hour: 9, business_end_hour: 17, property_ids: [],
+        automation_requested: false,
       }) as Group;
       if (!result?.id || result.is_default) throw new Error("Invalid group response.");
       setNewName(""); await refresh(); setSelectedId(result.id);
@@ -118,6 +121,7 @@ export default function MaintenanceDispatchSettingsPage() {
         name: chosen.is_default ? "DEFAULT" : name.trim(),
         timezone_name: timezone.trim(), business_start_hour: startHour,
         business_end_hour: endHour, property_ids: chosen.is_default ? [] : selectedProperties,
+        automation_requested: automationRequested,
       }) as Group;
       if (result.id !== chosen.id) throw new Error("Invalid saved group response.");
       await refresh(); setNotice("Maintenance group settings and property membership saved.");
@@ -220,6 +224,12 @@ export default function MaintenanceDispatchSettingsPage() {
               </label>)}
             </div>}
           </fieldset>
+          <label className="flex items-start gap-2 rounded border p-3 text-sm">
+            <input aria-label="Request future automated dispatch" type="checkbox" checked={automationRequested}
+              onChange={(e) => setAutomationRequested(e.target.checked)} disabled={saving}/>
+            <span>Request automated dispatch for this group. This only records Owner/Admin intent; automatic execution,
+              delivery and escalation remain disabled until the separately verified executor is released.</span>
+          </label>
           <button type="button" disabled={saving} onClick={() => void saveGroup()}
             className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50">Save group settings</button>
         </div>}

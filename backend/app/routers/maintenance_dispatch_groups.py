@@ -137,7 +137,7 @@ def _snapshots(db: Session, actor: User) -> list[MaintenanceGroupOut]:
             timezone_name=group.timezone_name,
             business_start_hour=group.business_start_hour,
             business_end_hour=group.business_end_hour,
-            property_ids=members, rules=_rules(db, group),
+            property_ids=members, automation_requested=bool(group.automation_requested), rules=_rules(db, group),
         ))
     return output
 
@@ -249,7 +249,9 @@ def create_dispatch_group(
     group = MaintenanceDispatchGroup(
         organization_id=current_user.organization_id, name=name, name_key=key,
         timezone_name=payload.timezone_name, business_start_hour=payload.business_start_hour,
-        business_end_hour=payload.business_end_hour, updated_by_user_id=current_user.id,
+        business_end_hour=payload.business_end_hour,
+        automation_requested=payload.automation_requested,
+        updated_by_user_id=current_user.id,
     )
     db.add(group); db.flush()
     _update_bindings(db, current_user, group, set(payload.property_ids))
@@ -259,7 +261,9 @@ def create_dispatch_group(
         action="created",
         new_value={"name": name, "property_ids": sorted(payload.property_ids), "timezone": payload.timezone_name,
                    "business_start_hour": payload.business_start_hour,
-                   "business_end_hour": payload.business_end_hour},
+                   "business_end_hour": payload.business_end_hour,
+                   "automation_requested": payload.automation_requested,
+                   "automation_executor_enabled": False},
     )
     db.commit()
     return next(g for g in _snapshots(db, current_user) if g.id == group.id)
@@ -291,12 +295,14 @@ def edit_dispatch_group(
         "business_start_hour": payload.business_start_hour,
         "business_end_hour": payload.business_end_hour,
         "property_ids": before.property_ids if default else sorted(payload.property_ids),
+        "automation_requested": payload.automation_requested,
     }
     previous = {
         "name": before.name, "timezone_name": before.timezone_name,
         "business_start_hour": before.business_start_hour,
         "business_end_hour": before.business_end_hour,
         "property_ids": before.property_ids,
+        "automation_requested": before.automation_requested,
     }
     if previous == after_settings:
         return before
@@ -305,6 +311,7 @@ def edit_dispatch_group(
     group.timezone_name = payload.timezone_name
     group.business_start_hour = payload.business_start_hour
     group.business_end_hour = payload.business_end_hour
+    group.automation_requested = payload.automation_requested
     group.updated_by_user_id = current_user.id
     if not default:
         _update_bindings(db, current_user, group, set(payload.property_ids))

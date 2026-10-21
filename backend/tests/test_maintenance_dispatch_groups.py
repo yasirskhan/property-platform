@@ -263,3 +263,28 @@ def test_policy_resolver_fails_closed_on_cross_org_or_malformed_binding():
         assert invalid.value.status_code==409
     finally:
         db.close();engine.dispose()
+
+
+def test_automation_opt_in_is_owner_only_persisted_audited_and_never_executes_dispatch():
+    db,engine,people,properties=_fixture()
+    try:
+        admin,owner,manager,crew,tenant,outsider=people
+        default=next(g for g in _groups(db,admin) if g.is_default)
+        assert default.automation_requested is False
+        payload=MaintenanceGroupInput(name="DEFAULT",property_ids=[],automation_requested=True)
+        with pytest.raises(HTTPException) as denied:
+            edit_dispatch_group(default.id,payload,db=db,current_user=manager)
+        assert denied.value.status_code==403
+        changed=edit_dispatch_group(default.id,payload,db=db,current_user=owner)
+        assert changed.automation_requested is True
+        assert _groups(db,admin)[0].automation_requested is True
+        log=db.query(AuditLog).filter_by(entity_type="maintenance_dispatch_group",entity_id=default.id,action="updated").one()
+        assert '"automation_requested": true' in (log.new_value or "").lower()
+        assert db.query(MaintenanceDispatchRule).count()==0
+        before=db.query(AuditLog).count()
+        edit_dispatch_group(default.id,payload,db=db,current_user=owner)
+        assert db.query(AuditLog).count()==before
+        turned_off=edit_dispatch_group(default.id,MaintenanceGroupInput(name="DEFAULT",property_ids=[],automation_requested=False),db=db,current_user=admin)
+        assert turned_off.automation_requested is False
+    finally:
+        db.close();engine.dispose()
