@@ -18,9 +18,14 @@ def test_owner_dispatch_automation_intent_is_saved_and_reversible():
             page.locator('input[type="email"]').fill(os.environ.get("E2E_ADMIN_EMAIL", "e2e-admin@example.com"))
             page.locator('input[type="password"]').fill(os.environ.get("E2E_ADMIN_PASSWORD", "test1234"))
             page.get_by_role("button", name="Log In", exact=True).click()
-            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            # Next.js client routing may update the URL before the full load event.
+            # Assert the actual destination, then independently verify the session.
+            pw.expect(page).to_have_url(re.compile(r"/dashboard/?$"), timeout=15_000)
             token = page.evaluate("() => localStorage.getItem('token')")
-            assert token
+            assert token, "Successful login must persist a session token"
+            authenticated = page.request.get(API + "/auth/me", headers={"Authorization": "Bearer " + token})
+            assert authenticated.status == 200, authenticated.text()
+            assert authenticated.json()["role"].upper() in ("ADMIN", "OWNER")
             page.goto(URL + "/dashboard/maintenance/dispatch-settings", wait_until="domcontentloaded")
             option = page.get_by_role("option", name=re.compile("DEFAULT"))
             pw.expect(option).to_be_attached(timeout=15_000)
