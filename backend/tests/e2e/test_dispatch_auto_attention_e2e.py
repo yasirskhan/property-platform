@@ -62,8 +62,11 @@ def test_policy_auto_attention_appears_on_real_authorized_staff_inbox():
                     email="auto-crew-" + tag + "@example.com",
                     hashed_password="e2e-nonlogin", is_active=True,
                 )
-                # This user is listed by shared staff APIs with EmailStr validation.\n                # A reserved .invalid domain breaks unrelated authenticated pages.\n                db.add_all([unit, crew])
+                # This user is listed by shared staff APIs with EmailStr validation.
+                # A reserved .invalid domain breaks unrelated authenticated pages.
+                db.add_all([unit, crew])
                 db.flush()
+                assert crew.id is not None, 'Fixture crew must have a persisted ID'
                 db.add(PropertyAssignment(
                     property_id=prop.id, user_id=crew.id,
                     role=UserRole.CREW, is_active=True,
