@@ -279,7 +279,7 @@ def test_automation_opt_in_is_owner_only_persisted_audited_and_never_executes_di
         assert changed.automation_requested is True
         assert _groups(db,admin)[0].automation_requested is True
         log=db.query(AuditLog).filter_by(entity_type="maintenance_dispatch_group",entity_id=default.id,action="updated").one()
-        assert '"automation_requested": true' in (log.new_value or "").lower()
+        assert __import__("json").loads(log.new_value)["automation_requested"] is True
         assert db.query(MaintenanceDispatchRule).count()==0
         before=db.query(AuditLog).count()
         edit_dispatch_group(default.id,payload,db=db,current_user=owner)
