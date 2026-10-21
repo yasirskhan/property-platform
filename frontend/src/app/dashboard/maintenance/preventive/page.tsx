@@ -81,6 +81,7 @@ export default function PreventiveMaintenancePage() {
       });
       setNextOffset((old) => old + rows.length);
       setHasMore(rows.length === 100);
+      setShowBlockedOnly(false);
     } catch (cause) {
       setMoreError(cause instanceof Error ? cause.message : "Older schedules unavailable.");
     } finally { setLoadingMore(false); }
