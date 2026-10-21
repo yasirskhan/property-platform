@@ -62,6 +62,7 @@ export default function MaintenanceDispatchAttentionPage() {
       <div className="flex flex-wrap gap-2">
         <Link href="/dashboard/maintenance/work-orders" className="rounded-lg border px-3 py-2 text-sm">Work orders</Link>
         <Link href="/dashboard/maintenance/on-call" className="rounded-lg border px-3 py-2 text-sm">On-call calendar</Link>
+        <Link href="/dashboard/maintenance/dispatch-reviews" className="rounded-lg border px-3 py-2 text-sm">Manual reviews</Link>
         {["ADMIN", "OWNER"].includes(role) && <Link href="/dashboard/maintenance/dispatch-settings"
           className="rounded-lg border px-3 py-2 text-sm">Dispatch settings</Link>}
       </div>

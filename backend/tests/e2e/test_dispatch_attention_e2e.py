@@ -45,5 +45,37 @@ def test_dispatch_attention_shows_authorized_new_work_order_without_phantom_comm
             pw.expect(entries.get_by_role("link", name=re.compile(str(number) + r".*" + title))).to_be_visible(timeout=15_000)
             pw.expect(entries.get_by_text("Work order needs staff acknowledgement.").first).to_be_visible()
             pw.expect(page.get_by_text(re.compile("A timeout does not recall an assignment"))).to_be_visible()
+
+            # Manager-follow-up cases are durable and require a real human
+            # reason and closure. Creating a case is not a sent notification.
+            page.get_by_role("link", name="Manual reviews").click()
+            pw.expect(page.get_by_role("heading", name="Manual dispatch reviews")).to_be_visible(timeout=15_000)
+            page.get_by_label("Manual review work order").select_option(str(number))
+            page.get_by_label("Manual dispatch review reason").fill(
+                "Emergency case requires a manual crew coverage review")
+            page.get_by_role("button", name="Record manual review (no notification)").click()
+            pw.expect(page.get_by_text(
+                "Manual review recorded. No crew, vendor, or manager was automatically contacted."
+            )).to_be_visible(timeout=15_000)
+            cases = page.get_by_role("region", name="Manual dispatch review history")
+            review = cases.get_by_role("article").filter(has_text="Work order #" + str(number))
+            pw.expect(review).to_be_visible(timeout=15_000)
+            pw.expect(review.get_by_text("External delivery confirmed: No")).to_be_visible()
+            review.get_by_label(re.compile(r"Manual review resolution case")).fill(
+                "Manager reviewed current coverage and documented manual follow-up")
+            review.get_by_role("button", name="Close case with recorded outcome").click()
+            pw.expect(page.get_by_text(
+                "Review closure and reason were recorded in immutable audit history."
+            )).to_be_visible(timeout=15_000)
+            case_list = page.request.get(
+                API_URL + "/api/maintenance/dispatch-reviews?include_closed=true&limit=100",
+                headers={"Authorization": "Bearer " + token},
+            )
+            assert case_list.status == 200, case_list.text()
+            assert any(
+                item["work_order_id"] == number and item["status"] == "closed"
+                and item["externally_notified"] is False
+                for item in case_list.json()
+            )
         finally:
             browser.close()
