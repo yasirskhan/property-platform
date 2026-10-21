@@ -997,3 +997,53 @@ def test_batch_execution_health_scoped_and_has_no_business_side_effects():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_bulk_health_blocked_to_audited_recovery_and_retry_is_tenantless():
+    """Staff health inbox must reflect revocation, authorized takeover and due replay."""
+    from app.routers import preventive_maintenance as route
+    db, engine, actors, props, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        row = pm.create_schedule(
+            db, manager, unit_id=units[0].id,
+            title="Annual roof safety audit",
+            description="Inspect gutters and roof seals before the next seasonal service",
+            interval_days=365, next_due_date=date.today(),
+        )
+        request = route.ExecutionHealthBatchIn(schedule_ids=[row.id])
+        assert route.batch_execution_health(request, db=db, current_user=admin)[0]["status"] == "ready"
+        binding = db.query(PropertyAssignment).filter_by(
+            property_id=props[0].id, user_id=manager.id,
+        ).one()
+        binding.is_active = False
+        db.commit()
+        blocked = route.batch_execution_health(request, db=db, current_user=admin)
+        assert blocked[0]["status"] == "blocked" and not blocked[0]["due"]
+        assert pm.sweep_due(db, as_of=date.today())["created"] == 0
+        assert db.query(WorkOrder).count() == 0
+        transfer = route.assume_execution(
+            row.id,
+            route.AssumeExecution(reason="Recover after revoked property manager assignment"),
+            db=db, current_user=admin,
+        )
+        assert transfer.executor_user_id == admin.id and transfer.created_by_id == manager.id
+        healthy = route.batch_execution_health(request, db=db, current_user=admin)
+        assert healthy[0]["status"] == "ready" and healthy[0]["due"]
+        assert pm.sweep_due(db, as_of=date.today())["created"] == 1
+        assert pm.sweep_due(db, as_of=date.today())["created"] == 0
+        order = db.query(WorkOrder).one()
+        assert order.tenant_id is None and order.requested_by_user_id == admin.id
+        assert order.total_cost is None and not order.permission_to_enter
+        transfers = db.query(AuditLog).filter_by(
+            entity_type="preventive_maintenance_schedule", entity_id=row.id,
+            action="executor_transferred",
+        ).all()
+        assert len(transfers) == 1
+        assert json.loads(transfers[0].new_value)["executor_user_id"] == admin.id
+        for unauthorized in (tenant, outsider, manager):
+            with pytest.raises(HTTPException):
+                route.batch_execution_health(request, db=db, current_user=unauthorized)
+    finally:
+        db.close()
+        engine.dispose()
