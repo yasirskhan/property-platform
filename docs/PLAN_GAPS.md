@@ -1,3 +1,7 @@
+## 2026-10-21 | Preventive schedule paging repair candidate (unpublished)
+
+The staff scheduling UI already supports load-more, but the HTTP schedules list route ignored the requested limit/offset. Detached candidate b0d692a970dc8dc2264fe58e355a4704e15e32f4 forwards validated pagination to existing role/org/property-scoped service, shows the loaded count, and adds backend negative and authenticated browser regressions. This is NOT final P5-PM-05 acceptance, unattended delivery, or a published/verified feature. Latest source and CI must be checked before publication.
+
 ## 2026-10-21 | Phase 5 inspection review progress (unverified)
 
 Prepared independent, immutable review decision and linked staff UI for existing inspection records. Remaining Phase 5 inspection requirements include photos/attachments, offline capture/sync safeguards, broader reviewer acceptance, and integration validation. This candidate is not complete or CI verified. Autonomous dispatch, external delivery, escalation, materials/procurement and financial settlement remain open.

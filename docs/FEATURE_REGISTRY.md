@@ -1,3 +1,7 @@
+## 2026-10-21 | Preventive schedule paging repair candidate (unpublished)
+
+The staff scheduling UI already supports load-more, but the HTTP schedules list route ignored the requested limit/offset. Detached candidate b0d692a970dc8dc2264fe58e355a4704e15e32f4 forwards validated pagination to existing role/org/property-scoped service, shows the loaded count, and adds backend negative and authenticated browser regressions. This is NOT final P5-PM-05 acceptance, unattended delivery, or a published/verified feature. Latest source and CI must be checked before publication.
+
 ## In-app overdue dispatch attention starvation fix (2026-10-21, CI REQUIRED)
 
 | System attention candidate fairness | Five-minute gated JobRun + scoped in-app attention view | Smart Maintenance, globally release OFF | System worker, only Owner/Admin opted-in groups | Prepared, NOT VERIFIED | Correlated filtering of already-recorded/nonpolicy assignments and >400-row regression. Does not activate auto dispatch, vendor calls, notifications or charging. |
