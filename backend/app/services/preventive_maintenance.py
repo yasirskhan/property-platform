@@ -26,6 +26,18 @@ def _scope(db: Session, actor: User, unit_id: int):
     if unit is None:
         raise HTTPException(status_code=404, detail="Unit not available")
     check_property_access(db, actor, unit.property_id)
+    # A global MANAGER with only a CREW role on this property cannot
+    # authorize schedules or source unattended maintenance work orders.
+    if actor.role == UserRole.MANAGER:
+        assigned_manager = db.query(PropertyAssignment.id).filter(
+            PropertyAssignment.property_id == unit.property_id,
+            PropertyAssignment.user_id == actor.id,
+            PropertyAssignment.role == UserRole.MANAGER,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        ).first()
+        if assigned_manager is None:
+            raise HTTPException(status_code=403, detail="Active property manager assignment required")
     return unit
 
 def _schedule(db: Session, actor: User, schedule_id: int):
@@ -55,6 +67,7 @@ def read_schedule(db: Session, actor: User, schedule_id: int):
     if actor.role == UserRole.MANAGER:
         assigned = db.query(PropertyAssignment.property_id).filter(
             PropertyAssignment.user_id == actor.id,
+            PropertyAssignment.role == UserRole.MANAGER,
             PropertyAssignment.is_active.is_(True),
             PropertyAssignment.deleted_at.is_(None),
         )
@@ -107,6 +120,7 @@ def list_schedules(db: Session, actor: User, *, limit: int = 100, offset: int = 
     if actor.role == UserRole.MANAGER:
         authorized_properties = db.query(PropertyAssignment.property_id).filter(
             PropertyAssignment.user_id == actor.id,
+            PropertyAssignment.role == UserRole.MANAGER,
             PropertyAssignment.is_active.is_(True),
             PropertyAssignment.deleted_at.is_(None),
         )

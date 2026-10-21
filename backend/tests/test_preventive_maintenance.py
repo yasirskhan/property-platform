@@ -806,3 +806,58 @@ def test_execution_status_paused_finished_legacy_and_admin_proactive_transfer():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_manager_requires_manager_property_role_for_all_preventive_workflows():
+    """CREW assignment does not authorize a global MANAGER to create due orders."""
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        prop, unit = properties[0], units[0]
+        schedule = pm.create_schedule(
+            db, admin, unit_id=unit.id,
+            title="Inspect sprinkler pumps",
+            description="Check pressure and flow for fire-suppression system",
+            interval_days=30, next_due_date=date.today(),
+        )
+        membership = db.query(PropertyAssignment).filter_by(
+            user_id=manager.id, property_id=prop.id,
+        ).one()
+        assert membership.role == UserRole.MANAGER
+        assert [x.id for x in pm.list_schedules(db, manager)] == [schedule.id]
+        membership.role = UserRole.CREW
+        db.commit()
+
+        assert pm.list_schedules(db, manager) == []
+        for operation in (
+            lambda: pm.read_schedule(db, manager, schedule.id),
+            lambda: pm.create_schedule(
+                db, manager, unit_id=unit.id,
+                title="Unauthorized schedule", description="Never permit role confused schedule",
+                interval_days=30, next_due_date=date.today(),
+            ),
+            lambda: pm.generate_due(db, manager, schedule.id, as_of=date.today()),
+            lambda: pm.set_active(db, manager, schedule.id, False),
+            lambda: pm.assume_execution(
+                db, manager, schedule.id,
+                reason="Attempt to take over after role reassignment",
+            ),
+        ):
+            with pytest.raises(HTTPException) as denied:
+                operation()
+            assert denied.value.status_code in (403, 404)
+
+        assert db.query(WorkOrder).count() == 0
+        assert db.query(PreventiveMaintenanceOccurrence).count() == 0
+        assert db.query(AuditLog).filter_by(
+            entity_type="preventive_maintenance_schedule", action="created",
+        ).count() == 1
+
+        membership.role = UserRole.MANAGER
+        db.commit()
+        assert pm.read_schedule(db, manager, schedule.id).id == schedule.id
+        generated, fresh = pm.generate_due(db, manager, schedule.id, as_of=date.today())
+        assert fresh and generated.tenant_id is None
+    finally:
+        db.close()
+        engine.dispose()
