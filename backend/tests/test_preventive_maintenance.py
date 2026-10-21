@@ -962,6 +962,13 @@ def test_batch_execution_health_scoped_and_has_no_business_side_effects():
             description="Inspect fire alarm and safety devices thoroughly",
             interval_days=30, next_due_date=date.today(),
         )
+        foreign = pm.create_schedule(db, outsider, unit_id=units[2].id,
+            title="Foreign safety inspection",
+            description="Inspect foreign-company mechanical equipment", interval_days=30,
+            next_due_date=date.today())
+        with pytest.raises(HTTPException) as mixed:
+            pm.batch_execution_health(db, admin, [due.id, foreign.id])
+        assert mixed.value.status_code == 404
         status = route.batch_execution_health(
             route.ExecutionHealthBatchIn(schedule_ids=[due.id]),
             db=db, current_user=manager,
