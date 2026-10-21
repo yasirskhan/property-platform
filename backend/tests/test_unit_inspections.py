@@ -816,3 +816,33 @@ def test_organization_owner_can_independently_review_assigned_manager_inspection
     finally:
         db.close()
         engine.dispose()
+
+
+def test_review_reader_rejects_forged_foreign_reviewer_identity(monkeypatch):
+    from app.models.unit_inspection import UnitInspectionReview
+    db, engine = _session()
+    try:
+        admin, manager, tenant, outsider, prop, hidden, foreign_prop, unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **kw: True)
+        inspection = inspection_router.create_inspection(
+            _input(unit, findings="Roof drainage evidence should remain private"),
+            Response(), db=db, current_user=manager,
+        )
+        db.add(UnitInspectionReview(
+            organization_id=admin.organization_id, inspection_id=inspection.id,
+            reviewer_id=outsider.id, decision="CONFIRMED",
+            notes="Forged foreign-company reviewer identity",
+        ))
+        db.commit()
+        with pytest.raises(HTTPException) as mismatch:
+            inspection_router.read_inspection_review(
+                inspection.id, Response(), db=db, current_user=admin,
+            )
+        assert mismatch.value.status_code == 409
+        with pytest.raises(HTTPException):
+            inspection_router.read_inspection_review(
+                inspection.id, Response(), db=db, current_user=tenant,
+            )
+    finally:
+        db.close()
+        engine.dispose()

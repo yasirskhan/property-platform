@@ -314,8 +314,9 @@ def _review_output(db: Session, row: UnitInspectionReview) -> InspectionReviewOu
         User.id == row.reviewer_id, User.organization_id == row.organization_id,
     ).first()
     label = None
-    if reviewer is not None:
-        label = " ".join(part for part in (reviewer.first_name, reviewer.last_name) if part).strip() or None
+    if reviewer is None:
+        raise HTTPException(status_code=409, detail="Inspection reviewer organization integrity mismatch")
+    label = " ".join(part for part in (reviewer.first_name, reviewer.last_name) if part).strip() or None
     return InspectionReviewOut.model_validate(row).model_copy(update={"reviewer_name": label})
 
 
