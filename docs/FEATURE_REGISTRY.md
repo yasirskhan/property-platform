@@ -1,4 +1,4 @@
-## 2026-10-21 | Preventive schedule paging repair candidate (unpublished)
+## 2026-10-21 | Preventive schedule paging and staff search candidate (hosted CI required)
 
 The staff scheduling UI already supports load-more, but the HTTP schedules list route ignored the requested limit/offset. Detached candidate b0d692a970dc8dc2264fe58e355a4704e15e32f4 forwards validated pagination to existing role/org/property-scoped service, shows the loaded count, and adds backend negative and authenticated browser regressions. This is NOT final P5-PM-05 acceptance, unattended delivery, or a published/verified feature. Latest source and CI must be checked before publication.
 

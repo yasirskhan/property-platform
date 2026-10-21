@@ -1,4 +1,4 @@
-## 2026-10-21 | Preventive due-only staff inbox — SAVED DETACHED
+## 2026-10-21 | Preventive due-only staff inbox — PUBLISHED CANDIDATE, CI REQUIRED
 
 Prepared schedule-title search, pagination-aware due-only filter, a bounded active/due work queue ordered oldest due first, live role/org/property scope, tenant/foreign denial and authenticated browser regression. This is visibility for staff, not an automatic work order, dispatch, notice or tenant charge. Saved candidate remains detached until its parent CI is all six green. P5-PM-05 remains OPEN.
 

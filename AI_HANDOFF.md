@@ -7,7 +7,7 @@ Observed: 2026-10-21 UTC (repair validation pending). Repository yasirskhan/prop
 - Repair source cb85b75efaacb776cff73f2815f0545e2c801f40; its own run 39549621729 was CANCELLED, not green.
 - Exact passing descendant: a29fbbb94d734858f222ac562399731d878583d6, run 39551777384, all six SUCCESS. Difference from cb85 was documentation-only in AGENTS.md and docs/SESSION_CONTROL.md.
 - Published Phase 5 pagination and UI regression: 43bd41d27c4e7f1b8d26ff437509a86183433148, run 39636546917 FAILED E2E only (1 failed, 34 passed; all five other jobs SUCCESS). Failure was test_dispatch_automation_intent_e2e.py login navigation waiting for full load, although /auth/login, /auth/me and /api/billing/state returned 200.
-- Published targeted E2E repair: 63bc278de893cb6e78d6a718f708c92e21d05a93. Replaces load-bound navigation wait with URL assertion plus real authenticated /auth/me and administrator role confirmation. Saves original intent-toggle and reverse assertions. Run 39664052218 launched; verify all six exact-SHA jobs and fix any new failures. Do NOT call green while pending.
+- Published targeted E2E repair: 63bc278de893cb6e78d6a718f708c92e21d05a93. Replaces load-bound navigation wait with URL assertion plus real authenticated /auth/me and administrator role confirmation. Saves original intent-toggle and reverse assertions. Run 39664052218 COMPLETED SUCCESS: backend, frontend, platform-admin, security, e2e and staging-config all passed for exact SHA 63bc278de893cb6e78d6a718f708c92e21d05a93.
 
 ## Saved Phase 5 implementation candidate (UNPUBLISHED)
 - Rebased DETACHED successor 3591ac048905ee87134787d027f5e436b9f78d21, parent 63bc278de893cb6e78d6a718f708c92e21d05a93. Carries authorized preventive schedule title search + due-only inbox/pagination, browser and backend negative tests, and documentation. This is a saved Git object, NOT on the branch and not CI-verified.
@@ -19,9 +19,9 @@ Observed: 2026-10-21 UTC (repair validation pending). Repository yasirskhan/prop
 - Detached successor `369d1174e5c2a935d28615e0a6b95ee2dc5d46d2` adds an authorized active/due-only staff inbox filter, age-ordered due pagination, tenant/foreign negative tests, and E2E; no writes, delivery or charges. This work is UNPUBLISHED and unverified.
 
 ## Next executable sequence
-1. Verify source 63bc278de893cb6e78d6a718f708c92e21d05a93 against all six jobs of 39664052218; on red inspect logs and repair without weakening auth or dispatch intent behavior.
-2. If green, recheck live HEAD and publish detached successor with expected_sha and force=false. Run all six jobs at exact new SHA, repair until green.
-3. Reconcile the actual acceptance matrix/feature/issues and move to the next substantial approved Phase 5 workflow. Do not claim full P5-PM-05 or phase acceptance from these incremental fixes.
+1. Published successor includes authorized schedule title search and due-only staff inbox; verify ALL SIX hosted jobs at its exact SHA, repair failures before the next publish.
+2. Reconcile P5-PM-05 remaining schedule/occurrence/recovery requirements and continue substantial Phase 5 implementation; never claim the full phase accepted from a small feature.
+3. Preserve role/property/tenant isolation, immutable audits, financial safeguards and OFF-by-default delivery/automation gates.
 
 ## Acceptance remains OPEN
 - P5-AUTO-01 real autonomous dispatch executor and recovery.
