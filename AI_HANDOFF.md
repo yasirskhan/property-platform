@@ -13,6 +13,10 @@ Worker: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b
 - This current publication requires its own exact-SHA all-six hosted CI; never call it VERIFIED before completion. If CI fails read actual logs, repair underlying bug, rerun on successor SHA.
 - Archived preceding entire root handoff verbatim at `docs/AI_HANDOFF_ARCHIVE_2026-10-21_ce3bfe.md`. All older archives and requirements retained. Unknown unsaved work is UNKNOWN.
 
+## Saved unpublished successor
+- Detached Git commit 668aeb7fa21e4b77b6a087d42a6bbfb13f484e56 is a descendant of the current published bulk-health source. It adds blocked-only staff recovery view, explainable blocked-operator status, batch denial for mixed organizations, and true revocation -> reasoned audited takeover -> tenantless idempotent due replay regression. It is NOT published and has NO hosted CI yet; publish only after 07dbcbfed27bb6485216640320ded3dcfcccd637 passes all six jobs and rechecking the live HEAD.
+- Do not lose earlier historical candidate SHAs; unknown unsaved work remains UNKNOWN.
+
 ## Next approved action
 1. Verify all six jobs on exact published source. Repair any failure, preserving tests and authentication.
 2. Inspect P5-PM-05 schedule/occurrence worker recovery and operator handling for the next independently actionable end-to-end workflow with real staff UI, authorization, idempotence and immutable audit, then verify exact hosted CI.

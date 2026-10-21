@@ -1,3 +1,9 @@
+## 2026-10-21 | Blocked preventive operator recovery staff workflow — DETACHED, CI REQUIRED
+
+The saved successor extends the already published bulk status inbox with blocked-only cards, safe ineligible-operator reason codes, automatic UI status invalidation after changes, foreign-org atomic denial and an explicit regression for revoked operator -> independently authorized audited takeover -> safe tenantless due generation -> retry without duplicate work orders. Not published or CI-verified. No automatic dispatch, messages, vendor execution, cost or tenant billing. P5-PM-05 remains OPEN.
+
+---
+
 ## 2026-10-21 | Bounded preventive execution-health review — DETACHED / CI REQUIRED
 
 Prepared authenticated multi-schedule execution-health view, using the existing individual schedule role/property/org scope and bounded 100-ID requests. Staff can inspect all loaded schedules and use existing authorized, audited execution takeover without fabricating work orders or deliveries. Backend negative/duplicate/oversized/revocation tests plus authenticated browser regression. Published candidate, exact successor CI REQUIRED before VERIFIED. P5-PM-05 remains open.
