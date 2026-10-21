@@ -28,9 +28,24 @@ function utcDayDelta(iso: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+function monthStart(iso: string): string {
+  return iso.slice(0, 7) + "-01";
+}
+
+function monthOffset(iso: string, delta: number): string {
+  const [year, month] = monthStart(iso).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1 + delta, 1)).toISOString().slice(0, 10);
+}
+
+function daysInMonth(iso: string): number {
+  const [year, month] = monthStart(iso).split("-").map(Number);
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
 export default function OnCallCalendarPage() {
   const [start, setStart] = useState(() => new Date().toISOString().slice(0, 10));
   const [showCancelled, setShowCancelled] = useState(false);
+  const [calendarView, setCalendarView] = useState<"week" | "month">("week");
   const [shifts, setShifts] = useState<Shift[] | null>(null);
   const [error, setError] = useState("");
   const [viewerRole, setViewerRole] = useState("");
@@ -44,7 +59,9 @@ export default function OnCallCalendarPage() {
   const [saving, setSaving] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-  const dates = Array.from({ length: 7 }, (_, i) => utcDayDelta(start, i));
+  const dateCount = calendarView === "month" ? daysInMonth(start) : 7;
+  const viewStart = calendarView === "month" ? monthStart(start) : start;
+  const dates = Array.from({ length: dateCount }, (_, i) => utcDayDelta(viewStart, i));
   const chosenProperty = roster?.find((item) => String(item.property_id) === propertyId);
 
   useEffect(() => {
@@ -107,7 +124,7 @@ export default function OnCallCalendarPage() {
   useEffect(() => {
     let active = true;
     setShifts(null); setError("");
-    const query = new URLSearchParams({ start, days: "7", include_cancelled: String(showCancelled) });
+    const query = new URLSearchParams({ start: viewStart, days: String(dateCount), include_cancelled: String(showCancelled) });
     apiGet("/work-orders/on-call-calendar?" + query.toString())
       .then((result: Shift[]) => {
         if (!Array.isArray(result)) throw new Error("Unexpected calendar response.");
@@ -117,7 +134,7 @@ export default function OnCallCalendarPage() {
         if (active) setError(cause instanceof Error ? cause.message : "Unable to load on-call coverage.");
       });
     return () => { active = false; };
-  }, [start, showCancelled, revision]);
+  }, [viewStart, dateCount, showCancelled, revision]);
 
   return (
     <div className="space-y-6">
@@ -177,15 +194,33 @@ export default function OnCallCalendarPage() {
         </section>
       )}
       <section className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" aria-label="On-call calendar filters">
-        <label className="text-sm">Week starting (UTC)
+        <label className="text-sm">Calendar view
+          <select aria-label="On-call calendar view" value={calendarView}
+            onChange={(event) => {
+              const chosen = event.target.value === "month" ? "month" : "week";
+              setCalendarView(chosen);
+              if (chosen === "month") setStart(monthStart(start));
+            }}
+            className="mt-1 block rounded border p-2">
+            <option value="week">Seven-day view</option>
+            <option value="month">Month view</option>
+          </select>
+        </label>
+        <label className="text-sm">{calendarView === "month" ? "Month starting (UTC)" : "Week starting (UTC)"}
           <input type="date" aria-label="On-call calendar start" value={start}
-            onChange={(event) => { if (event.target.value) setStart(event.target.value); }}
+            onChange={(event) => { if (event.target.value) setStart(calendarView === "month" ? monthStart(event.target.value) : event.target.value); }}
             className="mt-1 block rounded border p-2" />
         </label>
-        <button type="button" onClick={() => setStart((value) => utcDayDelta(value, -7))}
-          className="rounded border px-3 py-2 text-sm">Previous week</button>
-        <button type="button" onClick={() => setStart((value) => utcDayDelta(value, 7))}
-          className="rounded border px-3 py-2 text-sm">Next week</button>
+        <button type="button" onClick={() => setStart((value) =>
+          calendarView === "month" ? monthOffset(value, -1) : utcDayDelta(value, -7))}
+          className="rounded border px-3 py-2 text-sm">
+          {calendarView === "month" ? "Previous month" : "Previous week"}
+        </button>
+        <button type="button" onClick={() => setStart((value) =>
+          calendarView === "month" ? monthOffset(value, 1) : utcDayDelta(value, 7))}
+          className="rounded border px-3 py-2 text-sm">
+          {calendarView === "month" ? "Next month" : "Next week"}
+        </button>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={showCancelled} onChange={(event) => setShowCancelled(event.target.checked)}/>
           Include cancelled coverage
@@ -193,7 +228,8 @@ export default function OnCallCalendarPage() {
       </section>
       {error && <p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {notice && <p role="status" className="rounded border bg-white p-3 text-sm text-slate-700">{notice}</p>}
-      <section aria-label="Seven-day on-call coverage" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section aria-label={calendarView === "month" ? "Monthly on-call coverage" : "Seven-day on-call coverage"}
+        className={calendarView === "month" ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-7" : "grid gap-3 md:grid-cols-2 xl:grid-cols-4"}>
         {dates.map((day) => {
           const first = Date.parse(day + "T00:00:00Z");
           const end = first + 24 * 60 * 60 * 1000;
@@ -239,7 +275,7 @@ export default function OnCallCalendarPage() {
         })}
       </section>
       <p className="text-xs text-slate-500">
-        The date filters use UTC boundaries; displayed shift times use your local timezone.
+        Seven-day and month views use UTC day boundaries; displayed shift times use your local timezone.
         Authorized managers can schedule and cancel directly above; crew have a read-only view.
       </p>
     </div>

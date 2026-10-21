@@ -6,7 +6,7 @@ Updated 2026-10-21. Truthful current state; this is **not** a phase-complete sig
 |---|---|---|
 | Maintenance work orders, requester attribution, role scope, bounded queue, duplicate detection and activity | Backend and staff/tenant workflows with audit and browser coverage | Existing implementation, verify regression on final SHA |
 | Crew dispatch, in-app pending/accept/reject/recall, arrival ETA, time evidence and independent correction | Server validations, staff and crew UI, append-only audit | Existing implementation, verify final SHA |
-| Primary on-call calendar, property CREW assignment, cancellations | Authenticated scheduling UI and durable shifts | Existing implementation, verify final SHA |
+| Primary on-call calendar, property CREW assignment, cancellations | Authenticated scheduling UI, durable shifts and prepared 28-31 day month/week view with browser regression | **CI REQUIRED:** month view and manager-role coverage still need exact-final-SHA verification |
 | Preferred vendors by property/trade and coarse insurance state | Ranked configuration and review UI | Advisory only; vendor safety/contract/compliance authorization before real delivery remains open |
 | Dispatch groups, inherited DEFAULT, Owner/Admin settings, business hours and urgency policies | Database/owner interface plus scoped resolver | Existing implementation, verify final SHA |
 | Dispatch attention and audited manual follow-up cases | Manager inbox and human review/closure UI | Existing implementation, verify final SHA |

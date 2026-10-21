@@ -1,3 +1,9 @@
+## 2026-10-21 | Calendar month mode — IMPLEMENTATION CANDIDATE
+
+Prepared responsive 28-31 day monthly on-call view with prev/next month, existing seven-day view, role-scoped API, in-page schedule/cancel and authenticated browser regression. No new privilege or dispatch/finance effect. Publish only by exact expected-SHA fast-forward and verify all six jobs. Full Phase 5 remains open.
+
+---
+
 ## 2026-10-21 | Independent inspection review candidate — CI pending
 
 The staff inspection detail workflow now has a prepared separate immutable decision, current organization/property-role scope and independent reviewer identity; original inspection and work-order evidence remain unchanged. Adds Owner/Admin/assigned-Manager UI, data migration, SQL/ORM immutability, backend and browser regressions. Not yet CI verified. This does not close mobile capture, attachments, offline handling, procurement, accounting, or real Smart Dispatch. See Phase 5 acceptance issue register.

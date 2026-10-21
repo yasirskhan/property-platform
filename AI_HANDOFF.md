@@ -1,3 +1,9 @@
+## 2026-10-21 | Phase 5 monthly on-call calendar — DETACHED, CI REQUIRED
+
+Prepared full UTC calendar-month (28-31 days) and seven-day mode toggle using existing manager/crew/Owner/Admin property-scoped shifts API (already supports days=31), previous/next month navigation, cancelled-shift view and existing schedule/cancel controls. Browser acceptance exercises month length, next/previous and return to week. Scope stays server-enforced; month view never dispatches, contacts, bills or authorizes work. Must validate frontend plus full six-job CI at exact successor SHA. This is not completed Smart Dispatch, and Phase 5 remains open.
+
+---
+
 ## 2026-10-21 | Phase 5 independent inspection review — IMPLEMENTATION CANDIDATE / HOSTED CI REQUIRED
 
 Prepared a real independently authorized inspection decision and Owner/Admin/assigned-Manager detail UI. A separate review record is uniquely tied to one original staff inspection; self-review, revoked manager assignment, cross-organization data, missing original identity and retired inventory are blocked. Exact same-author decision replay is idempotent; conflicting decisions are forbidden; original evidence is unchanged. Appends immutable review audit with independent actor, decision and notes; ORM and PostgreSQL/SQLite triggers protect the review ledger against update/delete. Includes additive migration e6b4d2a7c910 (214 tables), schema/bootstrap parity, negative regression and authenticated UI acceptance. No automatic work order, delivery, payment or tenant charge. This is NOT the complete mobile/offline/photo inspection workflow; Phase 5 items P5-INSP-04, P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-PROC-06, P5-FIN-07 and P5-ACC-08 stay OPEN. This candidate must be published by exact-SHA fast-forward CAS only after predecessor a95bf98af635c1e08f6e472be1572a12d06f0682 completes all six CI jobs (run 39544340576), then fully verified on its own exact SHA. Never touch main or Zargul.

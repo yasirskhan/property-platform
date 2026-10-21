@@ -1,3 +1,9 @@
+## On-call calendar monthly view (2026-10-21, CI REQUIRED)
+
+| Maintenance on-call month view | /dashboard/maintenance/on-call | Core maintenance | Authorized Owner/Admin/Manager writes, CREW scoped reads | Prepared, NOT VERIFIED | Month and week navigation, bounded 28-31 day server requests and in-page authorized shift management; browser acceptance pending exact-SHA six-job CI |
+
+---
+
 ## Phase 5 independent inspection review candidate (2026-10-21, CI REQUIRED)
 
 | Inspection independent review | /dashboard/maintenance/staff-inspection-records/[id] | Core staff evidence | Owner/Admin/active assigned Manager with existing access rights | Prepared, NOT VERIFIED | Separate immutable review decision and reason; no self-review or hidden finance/dispatch action. Original inspection retained; migration and browser/permission tests require six-job CI on exact SHA. Mobile/offline/photos still missing. |
