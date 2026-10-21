@@ -802,10 +802,11 @@ def test_organization_owner_can_independently_review_assigned_manager_inspection
             captured.id, payload, Response(), db=db, current_user=owner,
         )
         assert reviewed.reviewer_id == owner.id
+        assert reviewed.reviewer_name == "Property Owner"
         assert reviewed.decision == "CONFIRMED"
         assert inspection_router.read_inspection_review(
             captured.id, Response(), db=db, current_user=admin,
-        ).id == reviewed.id
+        ).reviewer_name == "Property Owner"
         with pytest.raises(HTTPException) as self_review:
             inspection_router.review_inspection(
                 captured.id, payload, Response(), db=db, current_user=manager,

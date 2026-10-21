@@ -86,6 +86,7 @@ class InspectionReviewOut(BaseModel):
     organization_id: int
     inspection_id: int
     reviewer_id: int
+    reviewer_name: str | None = None
     decision: Literal["CONFIRMED", "FOLLOW_UP_REQUIRED"]
     notes: str
     reviewed_at: datetime

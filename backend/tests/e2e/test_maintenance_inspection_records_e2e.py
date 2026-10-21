@@ -174,6 +174,7 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
             page.get_by_label("Independent review decision").select_option("FOLLOW_UP_REQUIRED")
             page.get_by_label("Review explanation").fill("Follow up on the observed exterior condition")
             page.get_by_role("button", name="Record independent review").click()
+            pw.expect(page.get_by_text(re.compile(r"Reviewed by .*user #"))).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_role("status").filter(
                 has_text="Independent inspection review recorded and audited."
             )).to_be_visible(timeout=15_000)

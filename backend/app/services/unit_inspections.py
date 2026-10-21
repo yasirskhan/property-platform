@@ -308,6 +308,17 @@ def build_inspection_report(
         headers=HEADERS, rows=rows,
     )
 
+def _review_output(db: Session, row: UnitInspectionReview) -> InspectionReviewOut:
+    """Label reviewer only from the exact inspection organization."""
+    reviewer = db.query(User).filter(
+        User.id == row.reviewer_id, User.organization_id == row.organization_id,
+    ).first()
+    label = None
+    if reviewer is not None:
+        label = " ".join(part for part in (reviewer.first_name, reviewer.last_name) if part).strip() or None
+    return InspectionReviewOut.model_validate(row).model_copy(update={"reviewer_name": label})
+
+
 def get_inspection_review(db: Session, *, actor: User, inspection_id: int) -> InspectionReviewOut | None:
     """Review history is visible only via the current scoped inspection record."""
     get_inspection(db, actor=actor, inspection_id=inspection_id)
@@ -315,7 +326,7 @@ def get_inspection_review(db: Session, *, actor: User, inspection_id: int) -> In
         UnitInspectionReview.organization_id == actor.organization_id,
         UnitInspectionReview.inspection_id == inspection_id,
     ).first()
-    return InspectionReviewOut.model_validate(row) if row is not None else None
+    return _review_output(db, row) if row is not None else None
 
 
 def independently_review_inspection(
@@ -362,7 +373,7 @@ def independently_review_inspection(
                 and previous.reviewer_id == actor.id
                 and previous.decision == payload.decision
                 and previous.notes == payload.notes):
-            return InspectionReviewOut.model_validate(previous)
+            return _review_output(db, previous)
         raise HTTPException(status_code=409, detail="Inspection already has an immutable independent review")
 
     row = UnitInspectionReview(
@@ -387,4 +398,4 @@ def independently_review_inspection(
     )
     db.commit()
     db.refresh(row)
-    return InspectionReviewOut.model_validate(row)
+    return _review_output(db, row)

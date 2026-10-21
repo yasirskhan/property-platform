@@ -7,7 +7,7 @@ import { apiGet, apiPost } from "@/lib/api";
 type ChecklistItem = { area: string; condition: string; notes: string };
 type FollowUp = { id: number; title: string; status: string; priority: string };
 type Review = {
-  id: number; inspection_id: number; reviewer_id: number;
+  id: number; inspection_id: number; reviewer_id: number; reviewer_name?: string | null;
   decision: "CONFIRMED" | "FOLLOW_UP_REQUIRED"; notes: string; reviewed_at: string;
 };
 type Inspection = {
@@ -154,7 +154,7 @@ export default function StaffInspectionDetailPage() {
         {!reviewLoading && review && <div className="rounded-lg border p-3 text-sm">
           <p className="font-medium">Decision: {review.decision.replaceAll("_", " ")}</p>
           <p className="whitespace-pre-wrap">Reason: {review.notes}</p>
-          <p>Reviewed by user #{review.reviewer_id} on {review.reviewed_at}</p>
+          <p>Reviewed by {review.reviewer_name ? `${review.reviewer_name} (user #${review.reviewer_id})` : `user #${review.reviewer_id}`} on {review.reviewed_at}</p>
           <p className="text-xs">This decision is immutable. Subsequent changes require separate audited follow-up.</p>
         </div>}
         {mayReview && <div className="space-y-3">
