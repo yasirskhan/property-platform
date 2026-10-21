@@ -1,3 +1,9 @@
+## 2026-10-21 | Preventive schedule API paging integration — DETACHED / SIX-JOB CI REQUIRED
+
+The existing staff UI requested later schedule pages but HTTP route discarded limit/offset. Saved a bounded typed route/query forwarder to the existing organization/assigned-property-scoped service, with staff list count and backend/Playwright regressions. Tenant, outsider and revoked manager cannot enumerate; listing does not generate orders or charges. This narrow P5-PM-05 fix is not an autonomous scheduler, external delivery or full acceptance. Do not claim published or green before exact-SHA six-job CI.
+
+---
+
 ## 2026-10-21 | Automatic dispatch attention starvation regression candidate
 
 With the global automatic sweep still OFF by default, a prepared worker selection fix excludes previously noticed and never-policy-authorized pending offers before the bounded 200-offer scan. A regression creates more than 400 older irrelevant offers and verifies a later eligible offer receives exactly one in-app attention record. The full autonomous executor, provider delivery and escalation remain OPEN. CI must verify the exact published successor. This also includes a correction to one direct-route unit test that caused backend red on prior SHA.

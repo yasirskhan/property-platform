@@ -882,6 +882,10 @@ def test_schedule_list_route_respects_scoped_pagination_and_denies_tenant():
         assert first[0].id != second[0].id
         assert [s.id for s in route.listing(limit=2, offset=1, db=db, current_user=manager)] == [second[0].id, min(s.id for s in pm.list_schedules(db, admin))]
         assert route.listing(limit=1, offset=0, db=db, current_user=outsider) == []
+        assignment = db.query(PropertyAssignment).filter_by(user_id=manager.id, property_id=properties[0].id).one()
+        assignment.is_active = False
+        db.flush()
+        assert route.listing(limit=1, offset=0, db=db, current_user=manager) == []
         with pytest.raises(HTTPException) as denied:
             route.listing(limit=1, offset=0, db=db, current_user=tenant)
         assert denied.value.status_code == 403
