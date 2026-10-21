@@ -595,7 +595,10 @@ def test_inspection_evidence_and_reports_require_true_property_manager_role(monk
         membership.role = UserRole.CREW
         db.commit()
         assert inspection_router.get_inspections(
-            Response(), db=db, current_user=manager,
+            Response(), property_id=None, unit_id=None,
+            limit=None, offset=0, recorded_condition=None,
+            date_from=None, date_to=None,
+            db=db, current_user=manager,
         ) == []
         for attempt in (
             lambda: inspection_router.get_inspection_detail(
@@ -768,6 +771,47 @@ def test_inspection_review_rejects_retired_inventory_and_missing_original_identi
         assert retired.value.status_code == 409
         assert db.query(UnitInspectionReview).count() == 0
         assert db.query(AuditLog).filter_by(entity_type="unit_inspection_review").count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+def test_organization_owner_can_independently_review_assigned_manager_inspection(monkeypatch):
+    from app.schemas.unit_inspection import InspectionReviewIn
+    from app.models.unit_inspection import UnitInspectionReview
+
+    db, engine = _session()
+    try:
+        admin, manager, tenant, outsider, prop, hidden, foreign_prop, unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **kw: True)
+        owner = User(
+            organization_id=admin.organization_id, role=UserRole.OWNER,
+            first_name="Property", last_name="Owner",
+            email="review-owner@inspection.example",
+            hashed_password="x", is_active=True,
+        )
+        db.add(owner)
+        db.commit()
+        captured = inspection_router.create_inspection(
+            _input(unit, findings="Supervisor follow-up requested"),
+            Response(), db=db, current_user=manager,
+        )
+        payload = InspectionReviewIn(
+            decision="CONFIRMED", notes="The manager's observation matches the checklist.",
+        )
+        reviewed = inspection_router.review_inspection(
+            captured.id, payload, Response(), db=db, current_user=owner,
+        )
+        assert reviewed.reviewer_id == owner.id
+        assert reviewed.decision == "CONFIRMED"
+        assert inspection_router.read_inspection_review(
+            captured.id, Response(), db=db, current_user=admin,
+        ).id == reviewed.id
+        with pytest.raises(HTTPException) as self_review:
+            inspection_router.review_inspection(
+                captured.id, payload, Response(), db=db, current_user=manager,
+            )
+        assert self_review.value.status_code == 403
+        assert db.query(UnitInspectionReview).count() == 1
     finally:
         db.close()
         engine.dispose()

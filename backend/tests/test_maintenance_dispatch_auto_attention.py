@@ -120,3 +120,72 @@ def test_automation_does_not_process_unapproved_group_or_nonpolicy_assignments()
         assert second.assigned_to_id == crew.id
     finally:
         db.close(); engine.dispose()
+
+def test_auto_attention_bounded_scan_skips_older_manual_and_already_recorded_offers():
+    """Earlier 400+ irrelevant offers must not hide the next eligible one."""
+    from app.models.work_order import WorkOrder
+
+    db, engine, actors, properties, orders = _seed_queue()
+    try:
+        admin, manager, _tenant, _outside, crew, _foreign = actors
+        now = datetime.now(timezone.utc)
+        group = _policy(db, admin, properties[0])
+        original = orders[0]
+        manual_at = (now - timedelta(minutes=3)).replace(tzinfo=None)
+        noticed_at = (now - timedelta(seconds=100)).replace(tzinfo=None)
+
+        def make_pending(label: str, assigned_at: datetime) -> WorkOrder:
+            return WorkOrder(
+                property_id=original.property_id, unit_id=original.unit_id,
+                tenant_id=original.tenant_id, title=label,
+                description="Existing older assigned maintenance offer",
+                status=WorkOrderStatus.ASSIGNED,
+                priority=original.priority,
+                assigned_to_id=crew.id, assigned_at=assigned_at,
+                assignment_response="pending",
+            )
+
+        manual = [make_pending("Older manual offer " + str(i), manual_at)
+                  for i in range(205)]
+        recorded = [make_pending("Older noticed offer " + str(i), noticed_at)
+                    for i in range(205)]
+        db.add_all(manual + recorded)
+        db.flush()
+        for existing in recorded:
+            append_audit_log(
+                db, entity_type="work_order", entity_id=existing.id,
+                organization_id=admin.organization_id, user_id=admin.id,
+                action="dispatch_policy_offer_authorized",
+                new_value={"source": "staff_confirmed_policy_offer",
+                           "crew_user_id": crew.id, "group_id": group.id},
+            )
+            db.add(MaintenanceDispatchAutoNotice(
+                organization_id=admin.organization_id,
+                work_order_id=existing.id, property_id=original.property_id,
+                crew_user_id=crew.id, group_id=group.id,
+                assigned_at=noticed_at, timeout_minutes=1,
+            ))
+        db.commit()
+
+        # The first 410 due offers are old manual/recorded rows, and the
+        # newest one is the only eligible new in-app attention event.
+        _pending(db, admin, crew, original, group, now)
+        result = sweep_due_auto_notices(
+            db, now_utc=now, execution_enabled=True,
+        )
+        assert result["created"] == 1
+        assert result["checked"] == 1
+        assert db.query(MaintenanceDispatchAutoNotice).count() == 206
+        assert sweep_due_auto_notices(
+            db, now_utc=now, execution_enabled=True,
+        )["created"] == 0
+        assert db.query(MaintenanceDispatchAutoNotice).filter_by(
+            work_order_id=original.id,
+        ).count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="maintenance_dispatch_auto_notice",
+            action="system_attention_recorded",
+        ).count() == 1
+    finally:
+        db.close()
+        engine.dispose()

@@ -38,7 +38,21 @@ def sweep_due_auto_notices(
     if now.tzinfo is None:
         raise ValueError("Automation sweep requires aware UTC time")
     now_naive = now.astimezone(timezone.utc).replace(tzinfo=None)
+    # Correlated candidates prevent the fixed first-200 scan from repeatedly
+    # selecting already-noticed or unrelated manual assignments. Detailed
+    # crew, group, timing and audit payload checks still run under row locks.
+    already_recorded = db.query(MaintenanceDispatchAutoNotice.id).filter(
+        MaintenanceDispatchAutoNotice.work_order_id == WorkOrder.id,
+        MaintenanceDispatchAutoNotice.assigned_at == WorkOrder.assigned_at,
+    ).exists()
+    policy_origin_exists = db.query(AuditLog.id).filter(
+        AuditLog.entity_type == "work_order",
+        AuditLog.entity_id == WorkOrder.id,
+        AuditLog.action == "dispatch_policy_offer_authorized",
+    ).exists()
     ids = [row[0] for row in db.query(WorkOrder.id).filter(
+        ~already_recorded,
+        policy_origin_exists,
         WorkOrder.status == WorkOrderStatus.ASSIGNED,
         WorkOrder.assignment_response == "pending",
         WorkOrder.assigned_at.isnot(None),

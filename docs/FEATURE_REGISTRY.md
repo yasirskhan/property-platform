@@ -1,3 +1,9 @@
+## In-app overdue dispatch attention starvation fix (2026-10-21, CI REQUIRED)
+
+| System attention candidate fairness | Five-minute gated JobRun + scoped in-app attention view | Smart Maintenance, globally release OFF | System worker, only Owner/Admin opted-in groups | Prepared, NOT VERIFIED | Correlated filtering of already-recorded/nonpolicy assignments and >400-row regression. Does not activate auto dispatch, vendor calls, notifications or charging. |
+
+---
+
 ## On-call calendar monthly view (2026-10-21, CI REQUIRED)
 
 | Maintenance on-call month view | /dashboard/maintenance/on-call | Core maintenance | Authorized Owner/Admin/Manager writes, CREW scoped reads | Prepared, NOT VERIFIED | Month and week navigation, bounded 28-31 day server requests and in-page authorized shift management; browser acceptance pending exact-SHA six-job CI |

@@ -1,3 +1,9 @@
+## 2026-10-21 | CI failure diagnosed and repaired in next Phase 5 candidate
+
+Hosted CI 39544340576 on published HEAD a95bf98af635c1e08f6e472be1572a12d06f0682 FAILED backend with exactly one new unit test miscalling the FastAPI listing function: its optional Query-wrapped arguments were not supplied in direct invocation, generating SQLite "type Query not supported". Fixed that test by passing explicit property_id, unit_id, limit, offset, condition and date filters. Frontend, security and platform-admin jobs passed on that SHA, while dependent E2E and staging-config skipped. A successful new six-job CI on the published successor is REQUIRED. Also prepared safe bounded automated attention candidate selection excluding existing notices and non-policy offers, independently verified in a 410 older-offer regression. Global unattended dispatch remains OFF and no provider delivery is made. No Phase 6.
+
+---
+
 ## 2026-10-21 | Phase 5 monthly on-call calendar — DETACHED, CI REQUIRED
 
 Prepared full UTC calendar-month (28-31 days) and seven-day mode toggle using existing manager/crew/Owner/Admin property-scoped shifts API (already supports days=31), previous/next month navigation, cancelled-shift view and existing schedule/cancel controls. Browser acceptance exercises month length, next/previous and return to week. Scope stays server-enforced; month view never dispatches, contacts, bills or authorizes work. Must validate frontend plus full six-job CI at exact successor SHA. This is not completed Smart Dispatch, and Phase 5 remains open.
