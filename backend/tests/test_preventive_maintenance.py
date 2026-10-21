@@ -975,9 +975,14 @@ def test_batch_execution_health_scoped_and_has_no_business_side_effects():
                     db=db, current_user=actor,
                 )
             assert denied.value.status_code in (403, 404)
-        for bad_ids in ([due.id, due.id], [], list(range(101))):
-            with pytest.raises((ValueError, HTTPException)):
-                route.ExecutionHealthBatchIn(schedule_ids=bad_ids) if len(bad_ids) != 2 else pm.batch_execution_health(db, admin, bad_ids)
+        with pytest.raises(HTTPException) as duplicate:
+            pm.batch_execution_health(db, admin, [due.id, due.id])
+        assert duplicate.value.status_code == 422
+        with pytest.raises(HTTPException) as oversized:
+            pm.batch_execution_health(db, admin, list(range(101)))
+        assert oversized.value.status_code == 422
+        with pytest.raises(ValueError):
+            route.ExecutionHealthBatchIn(schedule_ids=[])
         membership = db.query(PropertyAssignment).filter_by(
             user_id=manager.id, property_id=properties[0].id,
         ).one()
