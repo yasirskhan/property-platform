@@ -59,6 +59,7 @@ export default function PreventiveMaintenancePage() {
   const [batchHealth, setBatchHealth] = useState<Record<number, ExecutionStatus>>({});
   const [batchHealthLoading, setBatchHealthLoading] = useState(false);
   const [batchHealthError, setBatchHealthError] = useState("");
+  const [showBlockedOnly, setShowBlockedOnly] = useState(false);
   const [executionError, setExecutionError] = useState("");
   const [executionErrorId, setExecutionErrorId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -121,6 +122,7 @@ export default function PreventiveMaintenancePage() {
       if (!Array.isArray(rows)) throw new Error("Unexpected schedule search response.");
       setSchedules(rows); setNextOffset(rows.length); setHasMore(rows.length === 100);
       setBatchHealth({});
+      setShowBlockedOnly(false);
       setAppliedScheduleSearch(term);
       setAppliedDueOnly(dueOnly);
     } catch (cause) {
@@ -163,6 +165,7 @@ export default function PreventiveMaintenancePage() {
       if (!Number.isSafeInteger(created?.id)) throw new Error("Invalid saved schedule.");
       setSchedules((previous) => [created, ...previous.filter((row) => row.id !== created.id)]);
       setBatchHealth({});
+      setShowBlockedOnly(false);
       setNextOffset((previous) => previous + 1);
       setTitle(""); setDescription(""); setDueDate(""); setEndDate("");
       setNotice("Schedule saved. No work order was generated at creation; due dates are checked daily.");
@@ -178,6 +181,7 @@ export default function PreventiveMaintenancePage() {
         { active: !row.active }) as Schedule;
       setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
       setBatchHealth((previous) => { const next = { ...previous }; delete next[row.id]; return next; });
+      setShowBlockedOnly(false);
       setPreview((prior) => prior?.schedule_id === row.id ? null : prior);
       setNotice(updated.active ? "Schedule resumed." : "Schedule paused.");
     } catch (cause) {
@@ -217,6 +221,7 @@ export default function PreventiveMaintenancePage() {
         throw new Error("Unexpected schedule update response.");
       setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
       setBatchHealth((previous) => { const next = { ...previous }; delete next[row.id]; return next; });
+      setShowBlockedOnly(false);
       setPreview((prior) => prior?.schedule_id === row.id ? null : prior);
       setEditingId(null);
       setNotice("Paused schedule settings updated and audited. Existing occurrences are unchanged.");
@@ -238,6 +243,7 @@ export default function PreventiveMaintenancePage() {
       ) as Schedule;
       setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
       setBatchHealth((previous) => { const next = { ...previous }; delete next[row.id]; return next; });
+      setShowBlockedOnly(false);
       setPreview((prior) => prior?.schedule_id === row.id ? null : prior);
       setNotice(result.newly_created
         ? `Work order #${result.work_order_id} generated without a tenant or automatic charge.`
@@ -266,6 +272,7 @@ export default function PreventiveMaintenancePage() {
       setBatchHealth(combined);
     } catch (cause) {
       setBatchHealth({});
+      setShowBlockedOnly(false);
       setBatchHealthError(cause instanceof Error ? cause.message : "Execution health unavailable.");
     } finally { setBatchHealthLoading(false); }
   }
@@ -440,6 +447,13 @@ export default function PreventiveMaintenancePage() {
         {batchHealthLoading ? "Checking loaded schedule health…" : "Check all loaded schedule health"}
       </button>
       {batchHealthError && <p role="alert" className="text-sm text-red-700">{batchHealthError}</p>}
+      {Object.keys(batchHealth).length > 0 && <div className="flex flex-wrap items-center gap-3 text-sm" role="status">
+        <span>{Object.values(batchHealth).filter((state) => state.status === "blocked").length} blocked of {Object.keys(batchHealth).length} checked schedules</span>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" aria-label="Show blocked schedules only" checked={showBlockedOnly}
+            onChange={(event) => setShowBlockedOnly(event.target.checked)} /> Show blocked only
+        </label>
+      </div>}
       <form onSubmit={(event) => void searchSchedules(event)} className="flex flex-wrap items-end gap-2">
         <label className="min-w-48 flex-1 text-sm">Find a schedule by title
           <input aria-label="Search preventive schedules" value={scheduleSearch} maxLength={100}
@@ -454,7 +468,7 @@ export default function PreventiveMaintenancePage() {
       </form>
       {loading && <p>Loading schedules…</p>}
       {!loading && schedules.length === 0 && <p>No preventive schedules yet.</p>}
-      {schedules.map((row) => <article key={row.id} className="space-y-2 rounded-lg border p-4">
+      {schedules.filter((row) => !showBlockedOnly || batchHealth[row.id]?.status === "blocked").map((row) => <article key={row.id} className="space-y-2 rounded-lg border p-4">
         <h3 className="font-medium">{row.title} · Schedule #{row.id}</h3>
         <p className="text-sm text-slate-600">
           Unit #{row.unit_id} · Every {row.interval_days} days · Next due {row.next_due_date}
