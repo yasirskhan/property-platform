@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.unit_inspection import UnitInspectionRecord
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.unit_inspection import InspectionChecklistItem, UnitInspectionCreateIn, UnitInspectionOut
 from app.services.audit import append_audit_log
 from app.services.menu_resolver import permission_allows_user
@@ -57,6 +57,7 @@ def _visible_properties(
     if _role(actor) == "MANAGER":
         assigned = db.query(PropertyAssignment.property_id).filter(
             PropertyAssignment.user_id == actor.id,
+            PropertyAssignment.role == UserRole.MANAGER,
             PropertyAssignment.is_active.is_(True),
             PropertyAssignment.deleted_at.is_(None),
         )

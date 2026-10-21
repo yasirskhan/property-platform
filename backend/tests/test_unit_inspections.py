@@ -570,3 +570,61 @@ def test_inspection_checklist_persists_scoped_evidence_and_prevents_duplicates(m
     finally:
         db.close()
         engine.dispose()
+
+
+def test_inspection_evidence_and_reports_require_true_property_manager_role(monkeypatch):
+    """Global MANAGER + CREW property membership is never inspection authority."""
+    db, engine = _session()
+    try:
+        admin, manager, tenant, foreign_admin, prop, hidden, foreign, unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **kw: True)
+        inspection = inspection_router.create_inspection(
+            _input(unit, findings="Observed fixture leak"),
+            Response(), db=db, current_user=admin,
+        )
+        membership = db.query(PropertyAssignment).filter_by(
+            user_id=manager.id, property_id=prop.id,
+        ).one()
+        assert membership.role == UserRole.MANAGER
+        assert inspection_router.get_inspection_detail(
+            inspection.id, Response(), db=db, current_user=manager,
+        ).id == inspection.id
+
+        # Reassignment to CREW does not change the global MANAGER role,
+        # and cannot grant read, create, detail, work-order links, or exports.
+        membership.role = UserRole.CREW
+        db.commit()
+        assert inspection_router.get_inspections(
+            Response(), db=db, current_user=manager,
+        ) == []
+        for attempt in (
+            lambda: inspection_router.get_inspection_detail(
+                inspection.id, Response(), db=db, current_user=manager,
+            ),
+            lambda: inspection_router.get_inspection_work_orders(
+                inspection.id, Response(), db=db, current_user=manager,
+            ),
+            lambda: inspection_router.create_inspection(
+                _input(unit, findings="Unauthorized record"),
+                Response(), db=db, current_user=manager,
+            ),
+        ):
+            with pytest.raises(HTTPException) as denied:
+                attempt()
+            assert denied.value.status_code == 404
+        with pytest.raises(ReportDeliveryError, match="Property not found"):
+            _payload(db, manager, property_id=prop.id)
+        assert db.query(UnitInspectionRecord).count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_record", action="created",
+        ).count() == 1
+
+        # A restored active MANAGER property assignment restores access.
+        membership.role = UserRole.MANAGER
+        db.commit()
+        assert inspection_router.get_inspection_detail(
+            inspection.id, Response(), db=db, current_user=manager,
+        ).id == inspection.id
+    finally:
+        db.close()
+        engine.dispose()
