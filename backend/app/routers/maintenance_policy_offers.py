@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.models.work_order import WorkOrder, WorkOrderStatus
 from app.routers.auth import get_current_user
+from app.routers.maintenance_dispatch_reviews import _require_property_manager
 from app.routers.work_orders import (
     _maintenance_vendor_scope, _check_access, _require_active_dispatch_location,
     _eligible_current_on_call, offer_current_on_call_crew,
@@ -40,6 +41,9 @@ def offer_crew_using_policy(
     work_order, prop = _maintenance_vendor_scope(
         db, work_order_id, current_user, write=True,
     )
+    # A global MANAGER role alone does not authorize dispatch for a property:
+    # the current property assignment must itself have MANAGER role.
+    _require_property_manager(db, current_user, prop.id)
     work_order = db.query(WorkOrder).filter(
         WorkOrder.id == work_order.id,
     ).with_for_update().one()
