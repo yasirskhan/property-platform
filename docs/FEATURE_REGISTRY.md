@@ -1,3 +1,7 @@
+## 2026-10-21 Phase 5 independent review queue - exact CI required
+
+New authorized review queue for pending or reviewed unit inspection evidence, self-inspector exclusion, actual staff filter and same-organization independent reviewer identity with fail-closed corrupt foreign pointer and backend/browser tests. Not complete offline/photo evidence or operator acceptance. Source predecessor 66c7ffa49/run 39681565435 all six SUCCESS.
+
 ## 2026-10-21 | Scoped independent inspection reviewer identity — DETACHED
 
 The inspectable candidate adds same-organization reviewer labels and denies forged foreign reviewer references for independent review evidence, with staff UI and backend/browser regressions. Not on authorized branch, no hosted validation. P5-INSP-04 and Phase 5 remain open.

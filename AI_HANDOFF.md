@@ -1,27 +1,22 @@
 # Property Platform | Active Phase 5 checkpoint
 
-Date: 2026-10-21 UTC. Repository `yasirskhan/property-platform`. ONLY `chatgpt/checkpoint-005-safety`. Read root AGENTS.md and docs/SESSION_CONTROL.md before writing.
-Worker: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b
+Observed 2026-10-21 UTC. ONLY yasirskhan/property-platform branch chatgpt/checkpoint-005-safety. Worker https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b . Read AGENTS.md and docs/SESSION_CONTROL.md first.
 
-## Verified CI and historical repairs
-- 8b8f9a36 run 39546681328 FAILED five backend regressions; repaired cb85b75efa; cb85 run 39549621729 CANCELLED; documentation-only descendant a29fbbb94 run 39551777384 six SUCCESS.
-- 43bd41d2 run 39636546917 FAILED one E2E login redirect/full-load wait; fixed 63bc278d run 39664052218 six SUCCESS, preserving actual authentication and dispatch-intent save/reverse assertions.
-- ce3bfe318a2270a021278ea65132e7c1fb77981c run 39667729154 six SUCCESS: scoped preventive schedule paging, title search and due-only staff inbox.
-- 07dbcbfed27bb6485216640320ded3dcfcccd637 run 39677973524 six SUCCESS: role- and property-scoped 1-100 ID execution-health batch, authorized staff UI, no work order or financial side effects.
+## Exact CI history
+- 8b8f9a36/run 39546681328 five backend failures -> cb85b75e repair (own CI cancelled) -> documentation descendant a29fbbb94/run 39551777384 six green.
+- 43bd41d2/run 39636546917 E2E failed -> 63bc278d/run 39664052218 all six green.
+- ce3bfe31/run 39667729154 six green (PM title/due inbox).
+- 07dbcbfe/run 39677973524 six green (scoped bulk PM execution health).
+- f397f4e0/run 39681280883 frontend TS2533 type error (run cancelled after successor push), fixed 66c7ffa49c2d7863dd7c2097ce680cccfa083064/run 39681565435: all six SUCCESS. Restores blocked-operator UI, audited recovery/replay regression.
 
-## Current Phase 5 implementation
-- Published successor of 07db: blocked-operator-only recovery review of loaded schedules, stable safe reason codes, status invalidation after schedule edits, mixed-organization atomic denial regression, and explicit revoked executor -> authorized audited takeover -> tenantless one-time due generation -> idempotent retry regression. Reuses existing worker/occurrence and audited transfer; no autonomous dispatch, messaging, vendor settlement or tenant charge.
-- This new successor is **CI REQUIRED**, not yet verified until backend/frontend/platform-admin/security/e2e/staging-config all succeed on the exact source SHA. Read failures and fix before further feature publication.
-- Prior root handoff preserved verbatim at docs/AI_HANDOFF_ARCHIVE_2026-10-21_07db.md; older handoffs and requirements retained. Unsaved inaccessible work is UNKNOWN.
+## Published successor awaiting exact hosted CI
+- P5-INSP-04 incremental independent inspection workflow: server-side authorized review queue filtering PENDING/REVIEWED with organization/property/role scope, paging, self-inspector exclusion from pending actionable queue; staff UI review filter; recorded reviewer display name scoped to same organization and fail-closed foreign reviewer pointer checks, immutable review retained. Backend and browser regressions. This is NOT offline/photo attachment completion. Verify six jobs at exact successor SHA before marking verified.
+- Complete previous handoff archived verbatim at docs/AI_HANDOFF_ARCHIVE_2026-10-21_66c7.md; earlier archives retained. Unknown unsaved work UNKNOWN.
 
-## Saved independent Phase 5 inspection candidate (NOT PUBLISHED)
-- Detached commit 5e69b4b426dbb4c772f1ca7392f6922da5708672, based on the currently running frontend-repair SHA 66c7ffa49c2d7863dd7c2097ce680cccfa083064: independent reviewer same-org display identity in API/UI, foreign reviewer pointer fail-closed and backend/browser regressions. Reconcile live branch HEAD before publication; current repair CI must first pass all six jobs. This is not attachment/offline acceptance and P5-INSP-04 remains open.
-- Worker: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b . Unknown unsaved work remains UNKNOWN.
+## Next
+1. Inspect new exact six-job GitHub CI, repair real failures without skipping/weaker tests and rerun.
+2. Extend approved inspection evidence with safe attachment/photo upload, restricted scope, immutable review link, UI, failure/retry and tests; do not fabricate offline sync or signoff.
+3. Maintain acceptance/feature/issue registers against real evidence and continue other independent approved Phase 5 workflows.
 
-## Next executable action
-1. Verify the exact six-job hosted CI for this blocked-operator recovery successor. Fix underlying failures, not timeouts/tests/authorization by relaxation.
-2. Reconcile acceptance evidence and continue the next substantial approved Phase 5 work, including full P5-PM-05 due/retry/operator acceptance and independent inspection/procurement/finance tracks as dependencies allow. Preserve default-OFF global unattended controls.
-3. Keep concise root handoff and existing issue/feature/acceptance registers current after verified changes. Do not advance Phase 6 until every Phase 5 requirement is accepted.
-
-## OPEN acceptance
-P5-AUTO-01 actual autonomous dispatch; P5-DLV-02 external vetted provider delivery/receipts; P5-ESC-03 timed backup escalation; P5-INSP-04 attachments/offline/reviews; P5-PM-05 complete schedule/occurrence/recovery acceptance; P5-PROC-06 purchasing/stock/receiving; P5-FIN-07 authorized financial posting and reversals; P5-ACC-08 final security, E2E and operator signoff. External credentials/delivery receipts, settlement and operator acceptance remain BLOCKED EXTERNAL where appropriate. No fabricated proofs. Release switches OFF.
+## OPEN gates
+P5-AUTO-01 autonomous dispatch; P5-DLV-02 external provider acknowledgements; P5-ESC-03 timed escalation; P5-INSP-04 complete evidence/photo/offline/review; P5-PM-05 full occurrence/recovery; P5-PROC-06 procurement; P5-FIN-07 financial settlement/reversals; P5-ACC-08 operator/security signoff. Actual provider credentials, delivery and settlement may be BLOCKED EXTERNAL. Unattended/provider/financial releases remain OFF. Do not begin Phase 6 until Phase 5 accepted.

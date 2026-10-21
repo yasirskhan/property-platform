@@ -1,3 +1,9 @@
+## 2026-10-21 Inspection review queue - current candidate requires six-job CI
+
+Real server-side scoped PENDING/REVIEWED review filtering, paginated staff UI, independent reviewer labels and foreign-pointer denials with regressions. Pending means unreviewed by a different inspector, never promises an offline/mobile/photo upload workflow. P5-INSP-04 remains OPEN.
+
+---
+
 ## 2026-10-21 | Independent inspection reviewer identity — SAVED DETACHED
 
 Prepared staff inspection evidence detail with same-organization reviewer display labels, explicit fail-closed rejection of malformed cross-organization reviewer identity, existing role/property scope unchanged, and backend plus authenticated browser regressions. Detached candidate requires successful six-job predecessor repair and its own exact-SHA six-job verification. Not an attachment, photo, offline sync or final inspection acceptance; P5-INSP-04 stays OPEN.
