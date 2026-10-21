@@ -120,6 +120,7 @@ export default function PreventiveMaintenancePage() {
       const rows = await apiGet(`/api/maintenance/preventive/schedules?limit=100&search=${encodeURIComponent(term)}&due_only=${dueOnly}`) as Schedule[];
       if (!Array.isArray(rows)) throw new Error("Unexpected schedule search response.");
       setSchedules(rows); setNextOffset(rows.length); setHasMore(rows.length === 100);
+      setBatchHealth({});
       setAppliedScheduleSearch(term);
       setAppliedDueOnly(dueOnly);
     } catch (cause) {
@@ -161,6 +162,7 @@ export default function PreventiveMaintenancePage() {
       }) as Schedule;
       if (!Number.isSafeInteger(created?.id)) throw new Error("Invalid saved schedule.");
       setSchedules((previous) => [created, ...previous.filter((row) => row.id !== created.id)]);
+      setBatchHealth({});
       setNextOffset((previous) => previous + 1);
       setTitle(""); setDescription(""); setDueDate(""); setEndDate("");
       setNotice("Schedule saved. No work order was generated at creation; due dates are checked daily.");
@@ -175,6 +177,7 @@ export default function PreventiveMaintenancePage() {
       const updated = await apiPatch(`/api/maintenance/preventive/schedules/${row.id}`,
         { active: !row.active }) as Schedule;
       setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
+      setBatchHealth((previous) => { const next = { ...previous }; delete next[row.id]; return next; });
       setPreview((prior) => prior?.schedule_id === row.id ? null : prior);
       setNotice(updated.active ? "Schedule resumed." : "Schedule paused.");
     } catch (cause) {
@@ -213,6 +216,7 @@ export default function PreventiveMaintenancePage() {
       if (updated.id !== row.id || updated.active)
         throw new Error("Unexpected schedule update response.");
       setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
+      setBatchHealth((previous) => { const next = { ...previous }; delete next[row.id]; return next; });
       setPreview((prior) => prior?.schedule_id === row.id ? null : prior);
       setEditingId(null);
       setNotice("Paused schedule settings updated and audited. Existing occurrences are unchanged.");
@@ -233,6 +237,7 @@ export default function PreventiveMaintenancePage() {
         `/api/maintenance/preventive/schedules/${row.id}`
       ) as Schedule;
       setSchedules((previous) => previous.map((item) => item.id === row.id ? updated : item));
+      setBatchHealth((previous) => { const next = { ...previous }; delete next[row.id]; return next; });
       setPreview((prior) => prior?.schedule_id === row.id ? null : prior);
       setNotice(result.newly_created
         ? `Work order #${result.work_order_id} generated without a tenant or automatic charge.`
