@@ -333,6 +333,14 @@ def independently_review_inspection(
     get_inspection(db, actor=actor, inspection_id=inspection_id)
     if original.recorded_by_id is None:
         raise HTTPException(status_code=409, detail="Original inspector identity is missing")
+    # A corrupt pointer to another organization's inspector must not become
+    # reviewable evidence, even if the unit/property itself remains in scope.
+    origin = db.query(User.id).filter(
+        User.id == original.recorded_by_id,
+        User.organization_id == actor.organization_id,
+    ).first()
+    if origin is None:
+        raise HTTPException(status_code=409, detail="Original inspector organization mismatch")
     if original.recorded_by_id == actor.id:
         raise HTTPException(status_code=403, detail="Inspectors cannot review their own evidence")
     unit = db.query(Unit).join(Property, Property.id == Unit.property_id).filter(

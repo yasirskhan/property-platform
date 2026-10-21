@@ -33,15 +33,25 @@ def test_on_call_month_switch_navigates_actual_calendar_months():
             weekly = page.locator("section[aria-label='Seven-day on-call coverage'] article")
             pw.expect(weekly).to_have_count(7, timeout=15_000)
 
-            page.get_by_label("On-call calendar view").select_option("month")
+            selected = page.get_by_label("On-call calendar start").input_value()
+            expected_days = _month_days(selected)
+            with page.expect_response(lambda response:
+                    "/work-orders/on-call-calendar?" in response.url
+                    and "days=" + str(expected_days) in response.url) as monthly_response:
+                page.get_by_label("On-call calendar view").select_option("month")
+            assert monthly_response.value.status == 200
             first_month = page.get_by_label("On-call calendar start").input_value()
             assert first_month.endswith("-01")
             month_cards = page.locator("section[aria-label='Monthly on-call coverage'] article")
             pw.expect(month_cards).to_have_count(_month_days(first_month), timeout=15_000)
             pw.expect(page.get_by_role("button", name="Next month")).to_be_visible()
             pw.expect(page.get_by_role("button", name="Previous month")).to_be_visible()
-            page.get_by_role("button", name="Next month").click()
+            with page.expect_response(lambda response:
+                    "/work-orders/on-call-calendar?" in response.url) as next_response:
+                page.get_by_role("button", name="Next month").click()
+            assert next_response.value.status == 200
             second_month = page.get_by_label("On-call calendar start").input_value()
+            assert "days=" + str(_month_days(second_month)) in next_response.value.url
             assert second_month != first_month and second_month.endswith("-01")
             pw.expect(month_cards).to_have_count(_month_days(second_month), timeout=15_000)
             page.get_by_role("button", name="Previous month").click()

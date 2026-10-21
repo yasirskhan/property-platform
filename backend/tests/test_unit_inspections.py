@@ -746,6 +746,18 @@ def test_inspection_review_rejects_retired_inventory_and_missing_original_identi
                 saved.id, payload, Response(), db=db, current_user=manager,
             )
         assert missing.value.status_code == 409
+        # Historical rows with an inspector from another organization are
+        # not valid review origins, even when parent unit/property match.
+        foreign_inspector = db.query(User).filter(
+            User.organization_id != admin.organization_id,
+        ).first()
+        row.recorded_by_id = foreign_inspector.id
+        db.commit()
+        with pytest.raises(HTTPException) as foreign_origin:
+            inspection_router.review_inspection(
+                saved.id, payload, Response(), db=db, current_user=manager,
+            )
+        assert foreign_origin.value.status_code == 409
         row.recorded_by_id = admin.id
         prop.is_active = False
         db.commit()
