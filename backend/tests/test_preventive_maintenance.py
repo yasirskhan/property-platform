@@ -1000,7 +1000,7 @@ def test_batch_execution_health_scoped_and_has_no_business_side_effects():
         assert denied.value.status_code == 404
         assert db.query(WorkOrder).count() == 0
         assert db.query(PreventiveMaintenanceOccurrence).count() == 0
-        assert db.query(AuditLog).filter_by(entity_type="preventive_maintenance_schedule", action="created").count() == 1
+        assert db.query(AuditLog).filter_by(organization_id=admin.organization_id, entity_type="preventive_maintenance_schedule", action="created").count() == 1
     finally:
         db.close()
         engine.dispose()
