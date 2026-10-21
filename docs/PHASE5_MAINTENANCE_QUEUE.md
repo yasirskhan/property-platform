@@ -1,3 +1,9 @@
+## 2026-10-21 | Preventive due-only staff inbox — SAVED DETACHED
+
+Prepared schedule-title search, pagination-aware due-only filter, a bounded active/due work queue ordered oldest due first, live role/org/property scope, tenant/foreign denial and authenticated browser regression. This is visibility for staff, not an automatic work order, dispatch, notice or tenant charge. Saved candidate remains detached until its parent CI is all six green. P5-PM-05 remains OPEN.
+
+---
+
 ## 2026-10-21 | Preventive schedule API paging integration — DETACHED / SIX-JOB CI REQUIRED
 
 The existing staff UI requested later schedule pages but HTTP route discarded limit/offset. Saved a bounded typed route/query forwarder to the existing organization/assigned-property-scoped service, with staff list count and backend/Playwright regressions. Tenant, outsider and revoked manager cannot enumerate; listing does not generate orders or charges. This narrow P5-PM-05 fix is not an autonomous scheduler, external delivery or full acceptance. Do not claim published or green before exact-SHA six-job CI.

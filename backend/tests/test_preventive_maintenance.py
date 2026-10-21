@@ -894,3 +894,59 @@ def test_schedule_list_route_respects_scoped_pagination_and_denies_tenant():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_schedule_search_respects_scope_pagination_and_literal_wildcards():
+    from app.routers import preventive_maintenance as route
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        for title in ("Pump safety check", "Pump filter replacement", "Other system inspection", "Pump % literal"):
+            pm.create_schedule(db, admin, unit_id=units[0].id, title=title,
+                description="Inspect mechanical equipment thoroughly", interval_days=30,
+                next_due_date=date.today())
+        first = route.listing(limit=1, offset=0, search="pump", db=db, current_user=manager)
+        later = route.listing(limit=1, offset=1, search="pump", db=db, current_user=manager)
+        assert len(first) == len(later) == 1 and first[0].id != later[0].id
+        assert len(route.listing(search="pump", db=db, current_user=admin)) == 3
+        assert [s.title for s in route.listing(search="%", db=db, current_user=admin)] == ["Pump % literal"]
+        assert route.listing(search="pump", db=db, current_user=outsider) == []
+        with pytest.raises(HTTPException) as denied:
+            route.listing(search="pump", db=db, current_user=tenant)
+        assert denied.value.status_code == 403
+        assert db.query(WorkOrder).count() == 0
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_due_schedule_inbox_filters_stale_paused_future_and_foreign_without_writes():
+    from app.routers import preventive_maintenance as route
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        due = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Today pump inspection", description="Inspect and document all pump controls",
+            interval_days=30, next_due_date=date.today())
+        future = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Future pump inspection", description="Inspect and document all pump controls",
+            interval_days=30, next_due_date=date.today()+timedelta(days=7))
+        paused = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Paused pump inspection", description="Inspect and document all pump controls",
+            interval_days=30, next_due_date=date.today())
+        pm.set_active(db, admin, paused.id, False)
+        assert [row.id for row in route.listing(search="pump", due_only=True, db=db, current_user=manager)] == [due.id]
+        assert [row.id for row in route.listing(search="pump", due_only=False, db=db, current_user=admin)] == [paused.id, future.id, due.id]
+        assert route.listing(due_only=True, db=db, current_user=outsider) == []
+        manager_assignment = db.query(PropertyAssignment).filter_by(
+            user_id=manager.id, property_id=properties[0].id).one()
+        manager_assignment.is_active = False
+        db.flush()
+        assert route.listing(due_only=True, db=db, current_user=manager) == []
+        with pytest.raises(HTTPException) as denied:
+            route.listing(due_only=True, db=db, current_user=tenant)
+        assert denied.value.status_code == 403
+        assert db.query(WorkOrder).count() == db.query(PreventiveMaintenanceOccurrence).count() == 0
+    finally:
+        db.close()
+        engine.dispose()

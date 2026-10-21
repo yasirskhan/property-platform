@@ -13,6 +13,10 @@ Observed: 2026-10-21 UTC. Repository yasirskhan/property-platform; ONLY branch c
 - This handoff/registry successor is also saved detached; verify live branch again and rebase/reconcile if another change appears. Never overwrite concurrent commits.
 - Worker session: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b .
 
+- After pagination batch six-job verification, detached successor `5bf90cebeb920fde6bb3fa27d9ba54343945b2b3` adds authorized, paginated schedule-title search in backend and staff UI, with manager/tenant/foreign-org regression and E2E search acceptance; do not publish over red. It has no hosted CI validation yet.
+
+- Detached successor `369d1174e5c2a935d28615e0a6b95ee2dc5d46d2` adds an authorized active/due-only staff inbox filter, age-ordered due pagination, tenant/foreign negative tests, and E2E; no writes, delivery or charges. This work is UNPUBLISHED and unverified.
+
 ## Next executable sequence
 1. Verify all six jobs of run 39551777384 for EXACT a29fbbb94d734858f222ac562399731d878583d6; read failure logs and repair if not all green.
 2. If all green and live HEAD unchanged, publish the detached successor with expected_sha=a29fbbb94d734858f222ac562399731d878583d6, force=false; otherwise reconcile first. Run all six jobs on published SHA and repair failures.

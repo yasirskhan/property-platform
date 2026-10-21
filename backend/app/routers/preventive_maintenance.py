@@ -82,9 +82,11 @@ def create(payload: ScheduleCreate, db: Session = Depends(get_db),
 @router.get("/schedules", response_model=list[ScheduleOut])
 def listing(limit: Annotated[int, Query(ge=1, le=100)] = 100,
             offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+            search: Annotated[str, Query(max_length=100)] = "",
+            due_only: bool = False,
             db: Session = Depends(get_db),
             current_user: User = Depends(get_current_user)):
-    return service.list_schedules(db, current_user, limit=limit, offset=offset)
+    return service.list_schedules(db, current_user, limit=limit, offset=offset, search=search, due_only=due_only)
 
 @router.get("/schedules/{schedule_id}", response_model=ScheduleOut)
 def detail(schedule_id: int, db: Session = Depends(get_db),

@@ -103,7 +103,7 @@ def create_schedule(db: Session, actor: User, *, unit_id: int, title: str,
     db.refresh(row)
     return row
 
-def list_schedules(db: Session, actor: User, *, limit: int = 100, offset: int = 0):
+def list_schedules(db: Session, actor: User, *, limit: int = 100, offset: int = 0, search: str = "", due_only: bool = False):
     if not actor.is_active or actor.deleted_at is not None or actor.role not in (UserRole.ADMIN, UserRole.MANAGER):
         raise HTTPException(status_code=403, detail="Preventive maintenance requires authorized staff")
     if limit < 1 or limit > 100 or offset < 0:
@@ -117,6 +117,12 @@ def list_schedules(db: Session, actor: User, *, limit: int = 100, offset: int = 
         Property.organization_id == actor.organization_id,
         Schedule.property_id == Unit.property_id,
     )
+    term = search.strip()
+    if len(term) > 100:
+        raise HTTPException(status_code=422, detail="Invalid schedule search")
+    if term:
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.filter(Schedule.title.ilike(f"%{escaped}%", escape="\\"))
     if actor.role == UserRole.MANAGER:
         authorized_properties = db.query(PropertyAssignment.property_id).filter(
             PropertyAssignment.user_id == actor.id,
@@ -125,6 +131,13 @@ def list_schedules(db: Session, actor: User, *, limit: int = 100, offset: int = 
             PropertyAssignment.deleted_at.is_(None),
         )
         query = query.filter(Property.id.in_(authorized_properties))
+    if due_only:
+        query = query.filter(
+            Schedule.active.is_(True),
+            Schedule.next_due_date <= date.today(),
+            or_(Schedule.end_date.is_(None), Schedule.next_due_date <= Schedule.end_date),
+        )
+        return query.order_by(Schedule.next_due_date.asc(), Schedule.id.asc()).offset(offset).limit(limit).all()
     return query.order_by(Schedule.id.desc()).offset(offset).limit(limit).all()
 
 

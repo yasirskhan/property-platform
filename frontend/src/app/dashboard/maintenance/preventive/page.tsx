@@ -24,6 +24,11 @@ export default function PreventiveMaintenancePage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [nextOffset, setNextOffset] = useState(0);
+  const [scheduleSearch, setScheduleSearch] = useState("");
+  const [appliedScheduleSearch, setAppliedScheduleSearch] = useState("");
+  const [searchingSchedules, setSearchingSchedules] = useState(false);
+  const [dueOnly, setDueOnly] = useState(false);
+  const [appliedDueOnly, setAppliedDueOnly] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreError, setMoreError] = useState("");
@@ -63,7 +68,7 @@ export default function PreventiveMaintenancePage() {
     setLoadingMore(true); setMoreError("");
     try {
       const rows = await apiGet(
-        `/api/maintenance/preventive/schedules?limit=100&offset=${nextOffset}`
+        `/api/maintenance/preventive/schedules?limit=100&offset=${nextOffset}&search=${encodeURIComponent(appliedScheduleSearch)}&due_only=${appliedDueOnly}`
       ) as Schedule[];
       if (!Array.isArray(rows)) throw new Error("Unexpected schedule response.");
       setSchedules((previous) => {
@@ -103,6 +108,21 @@ export default function PreventiveMaintenancePage() {
       .finally(() => { if (active) setUnitsLoading(false); });
     return () => { active = false; };
   }, []);
+
+  async function searchSchedules(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const term = scheduleSearch.trim();
+    setSearchingSchedules(true); setMoreError(""); setError("");
+    try {
+      const rows = await apiGet(`/api/maintenance/preventive/schedules?limit=100&search=${encodeURIComponent(term)}&due_only=${dueOnly}`) as Schedule[];
+      if (!Array.isArray(rows)) throw new Error("Unexpected schedule search response.");
+      setSchedules(rows); setNextOffset(rows.length); setHasMore(rows.length === 100);
+      setAppliedScheduleSearch(term);
+      setAppliedDueOnly(dueOnly);
+    } catch (cause) {
+      setMoreError(cause instanceof Error ? cause.message : "Schedule search failed.");
+    } finally { setSearchingSchedules(false); }
+  }
 
   async function searchUnits(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -380,6 +400,18 @@ export default function PreventiveMaintenancePage() {
     </form>
     <section className="space-y-3 rounded-xl border bg-white p-5">
       <h2 className="font-semibold">Authorized schedules</h2>
+      <form onSubmit={(event) => void searchSchedules(event)} className="flex flex-wrap items-end gap-2">
+        <label className="min-w-48 flex-1 text-sm">Find a schedule by title
+          <input aria-label="Search preventive schedules" value={scheduleSearch} maxLength={100}
+            onChange={(event) => setScheduleSearch(event.target.value)}
+            className="mt-1 w-full rounded-lg border p-2" />
+        </label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" aria-label="Due preventive schedules only"
+            checked={dueOnly} onChange={(event) => setDueOnly(event.target.checked)} /> Due now only</label>
+        <button type="submit" disabled={searchingSchedules || loadingMore} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
+          {searchingSchedules ? "Searching…" : "Search schedules"}
+        </button>
+      </form>
       {loading && <p>Loading schedules…</p>}
       {!loading && schedules.length === 0 && <p>No preventive schedules yet.</p>}
       {schedules.map((row) => <article key={row.id} className="space-y-2 rounded-lg border p-4">

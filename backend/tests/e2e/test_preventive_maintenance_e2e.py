@@ -36,6 +36,12 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             pw.expect(page.get_by_role("status").filter(
                 has_text="No work order was generated at creation"
             )).to_be_visible(timeout=15_000)
+            page.get_by_label("Search preventive schedules").fill("E2E HVAC scheduled filter")
+            page.get_by_role("button", name="Search schedules").click()
+            pw.expect(page.get_by_text("E2E HVAC scheduled filter check")).to_be_visible(timeout=15_000)
+            page.get_by_label("Due preventive schedules only").check()
+            page.get_by_role("button", name="Search schedules").click()
+            pw.expect(page.get_by_text("E2E HVAC scheduled filter check")).to_be_visible(timeout=15_000)
             card = page.locator("article").filter(has_text="E2E HVAC scheduled filter check").first
             pw.expect(card).to_contain_text("Active")
             card.get_by_role("button", name="Check execution status").click()
