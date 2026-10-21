@@ -80,9 +80,11 @@ def create(payload: ScheduleCreate, db: Session = Depends(get_db),
     return service.create_schedule(db, current_user, **payload.model_dump())
 
 @router.get("/schedules", response_model=list[ScheduleOut])
-def listing(db: Session = Depends(get_db),
+def listing(limit: Annotated[int, Query(ge=1, le=100)] = 100,
+            offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+            db: Session = Depends(get_db),
             current_user: User = Depends(get_current_user)):
-    return service.list_schedules(db, current_user)
+    return service.list_schedules(db, current_user, limit=limit, offset=offset)
 
 @router.get("/schedules/{schedule_id}", response_model=ScheduleOut)
 def detail(schedule_id: int, db: Session = Depends(get_db),

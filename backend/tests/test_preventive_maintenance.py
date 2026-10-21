@@ -861,3 +861,32 @@ def test_manager_requires_manager_property_role_for_all_preventive_workflows():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_schedule_list_route_respects_scoped_pagination_and_denies_tenant():
+    """The real HTTP-route handler must forward paging rather than replay page one."""
+    from app.routers import preventive_maintenance as route
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        for number in range(3):
+            pm.create_schedule(
+                db, admin, unit_id=units[0].id,
+                title=f"Safety inspection {number}",
+                description="Inspect smoke alarms and fire protection equipment",
+                interval_days=30, next_due_date=date.today(),
+            )
+        first = route.listing(limit=1, offset=0, db=db, current_user=admin)
+        second = route.listing(limit=1, offset=1, db=db, current_user=admin)
+        assert len(first) == len(second) == 1
+        assert first[0].id != second[0].id
+        assert [s.id for s in route.listing(limit=2, offset=1, db=db, current_user=manager)] == [second[0].id, min(s.id for s in pm.list_schedules(db, admin))]
+        assert route.listing(limit=1, offset=0, db=db, current_user=outsider) == []
+        with pytest.raises(HTTPException) as denied:
+            route.listing(limit=1, offset=0, db=db, current_user=tenant)
+        assert denied.value.status_code == 403
+        assert db.query(WorkOrder).count() == 0
+        assert db.query(AuditLog).filter_by(entity_type="preventive_maintenance_schedule", action="created").count() == 3
+    finally:
+        db.close()
+        engine.dispose()

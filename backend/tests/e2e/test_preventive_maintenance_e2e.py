@@ -25,6 +25,7 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             pw.expect(page.get_by_text("Signed in as", exact=True)).to_be_visible(timeout=15_000)
             page.goto(BASE_URL + "/dashboard/maintenance/preventive", wait_until="domcontentloaded")
             pw.expect(page.get_by_role("heading", name="Preventive maintenance schedules")).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_text(re.compile(r"Showing [0-9]+ authorized preventive maintenance schedules"))).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_role("option", name="E2E Test Property · Unit E2E-1")).to_be_attached(timeout=15_000)
             page.get_by_label("Preventive maintenance unit", exact=True).select_option("900001")
             page.get_by_label("Preventive task title").fill("E2E HVAC scheduled filter check")

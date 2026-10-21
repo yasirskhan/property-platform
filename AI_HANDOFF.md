@@ -47,5 +47,12 @@ The ENTIRE pre-cleanup root handoff is preserved unchanged at:
 It reuses original Git blob `1e8247f2b747bc01a2f07930097d6f61a12eb3ee`.
 Older archives, all feature IDs, specifications, registers and frontend/AGENTS.md remain unchanged. Search archives only for a related unresolved detail.
 
+
+## 2026-10-21 active session repair and saved successor (unpublished draft)
+- Worker conversation: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b .
+- Published repair: cb85b75efaacb776cff73f2815f0545e2c801f40 (inspection summary ADMIN/MANAGER boundary; updated additive migration head/table-count regression expectations). Run 39549621729 started; do not call green until all six jobs succeed at exact SHA.
+- Saved DETACHED successor candidate: 9f7b39225ad748e5442aa15f7a42be17b76eeef3 (preventive schedule list API limit/offset, scoped route regression, staff UI visible record-count); it is NOT on the branch. No local test or hosted test claimed for the detached candidate.
+- After repair six-job success: publish successor using expected_sha and force=false, verify all six jobs for its SHA; if failed, fix first. Update actual issue/feature registers truthfully; Phase 5 remains open.
+
 ## Closeout discipline
 Record published versus saved candidates, exact successful source/run/jobs and remaining blockers. Keep this file concise by replacing stale current facts instead of appending history. Fix failures, update actual feature/issue registers and continue substantive approved work within active execution limits; never claim a nonexistent background process.

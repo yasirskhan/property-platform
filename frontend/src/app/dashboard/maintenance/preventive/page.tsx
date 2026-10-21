@@ -518,6 +518,7 @@ export default function PreventiveMaintenancePage() {
           {historyMoreError && <p role="alert" className="text-sm text-red-700">{historyMoreError}</p>}
         </div>}
       </article>)}
+      <p className="text-sm text-gray-600" aria-live="polite">Showing {schedules.length} authorized preventive maintenance schedules{hasMore ? ". More schedules available." : "."}</p>
       {hasMore && <button type="button" disabled={loadingMore}
         onClick={() => void loadMore()}
         className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
