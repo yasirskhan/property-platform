@@ -56,6 +56,9 @@ export default function PreventiveMaintenancePage() {
   const [takeoverId, setTakeoverId] = useState<number | null>(null);
   const [takeoverReason, setTakeoverReason] = useState("");
   const [executionStatus, setExecutionStatus] = useState<ExecutionStatus | null>(null);
+  const [batchHealth, setBatchHealth] = useState<Record<number, ExecutionStatus>>({});
+  const [batchHealthLoading, setBatchHealthLoading] = useState(false);
+  const [batchHealthError, setBatchHealthError] = useState("");
   const [executionError, setExecutionError] = useState("");
   const [executionErrorId, setExecutionErrorId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -240,6 +243,28 @@ export default function PreventiveMaintenancePage() {
     } finally { setBusyId(null); }
   }
 
+  async function inspectLoadedExecution() {
+    if (!schedules.length || batchHealthLoading) return;
+    setBatchHealthLoading(true); setBatchHealthError("");
+    try {
+      const combined: Record<number, ExecutionStatus> = {};
+      for (let start = 0; start < schedules.length; start += 100) {
+        const ids = schedules.slice(start, start + 100).map((row) => row.id);
+        const rows = await apiPost("/api/maintenance/preventive/schedules/execution-health",
+          { schedule_ids: ids }) as ExecutionStatus[];
+        if (!Array.isArray(rows) || rows.length !== ids.length ||
+            rows.some((row, index) => row.schedule_id !== ids[index])) {
+          throw new Error("Unexpected schedule health response.");
+        }
+        for (const status of rows) combined[status.schedule_id] = status;
+      }
+      setBatchHealth(combined);
+    } catch (cause) {
+      setBatchHealth({});
+      setBatchHealthError(cause instanceof Error ? cause.message : "Execution health unavailable.");
+    } finally { setBatchHealthLoading(false); }
+  }
+
   async function inspectExecution(id: number) {
     setExecutionError(""); setExecutionErrorId(null);
     try {
@@ -400,6 +425,11 @@ export default function PreventiveMaintenancePage() {
     </form>
     <section className="space-y-3 rounded-xl border bg-white p-5">
       <h2 className="font-semibold">Authorized schedules</h2>
+      <button type="button" disabled={batchHealthLoading || !schedules.length} onClick={() => void inspectLoadedExecution()}
+        className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
+        {batchHealthLoading ? "Checking loaded schedule health…" : "Check all loaded schedule health"}
+      </button>
+      {batchHealthError && <p role="alert" className="text-sm text-red-700">{batchHealthError}</p>}
       <form onSubmit={(event) => void searchSchedules(event)} className="flex flex-wrap items-end gap-2">
         <label className="min-w-48 flex-1 text-sm">Find a schedule by title
           <input aria-label="Search preventive schedules" value={scheduleSearch} maxLength={100}
@@ -457,6 +487,9 @@ export default function PreventiveMaintenancePage() {
             Occurrence history
           </button>
         </div>
+        {batchHealth[row.id] && <p className="text-sm" aria-label={`Batch execution health ${row.id}`}>
+          Execution health: {batchHealth[row.id].status}{batchHealth[row.id].due ? " · Due now" : ""}
+        </p>}
         {executionStatus?.schedule_id === row.id && <p className="text-sm" role="status">
           Execution: {executionStatus.status} · Staff #{executionStatus.executor_user_id}
           {executionStatus.due ? " · Due now" : ""}

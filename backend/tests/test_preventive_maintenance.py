@@ -950,3 +950,45 @@ def test_due_schedule_inbox_filters_stale_paused_future_and_foreign_without_writ
     finally:
         db.close()
         engine.dispose()
+
+
+def test_batch_execution_health_scoped_and_has_no_business_side_effects():
+    from app.routers import preventive_maintenance as route
+    db, engine, actors, properties, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        due = pm.create_schedule(
+            db, admin, unit_id=units[0].id, title="Monthly safety devices",
+            description="Inspect fire alarm and safety devices thoroughly",
+            interval_days=30, next_due_date=date.today(),
+        )
+        status = route.batch_execution_health(
+            route.ExecutionHealthBatchIn(schedule_ids=[due.id]),
+            db=db, current_user=manager,
+        )
+        assert len(status) == 1 and status[0]["schedule_id"] == due.id
+        assert status[0]["status"] == "ready"
+        for actor in (tenant, outsider):
+            with pytest.raises(HTTPException) as denied:
+                route.batch_execution_health(
+                    route.ExecutionHealthBatchIn(schedule_ids=[due.id]),
+                    db=db, current_user=actor,
+                )
+            assert denied.value.status_code in (403, 404)
+        for bad_ids in ([due.id, due.id], [], list(range(101))):
+            with pytest.raises((ValueError, HTTPException)):
+                route.ExecutionHealthBatchIn(schedule_ids=bad_ids) if len(bad_ids) != 2 else pm.batch_execution_health(db, admin, bad_ids)
+        membership = db.query(PropertyAssignment).filter_by(
+            user_id=manager.id, property_id=properties[0].id,
+        ).one()
+        membership.is_active = False
+        db.flush()
+        with pytest.raises(HTTPException) as denied:
+            pm.batch_execution_health(db, manager, [due.id])
+        assert denied.value.status_code == 404
+        assert db.query(WorkOrder).count() == 0
+        assert db.query(PreventiveMaintenanceOccurrence).count() == 0
+        assert db.query(AuditLog).filter_by(entity_type="preventive_maintenance_schedule", action="created").count() == 1
+    finally:
+        db.close()
+        engine.dispose()

@@ -245,6 +245,18 @@ def execution_status(db: Session, actor: User, schedule_id: int) -> dict:
     }
 
 
+def batch_execution_health(db: Session, actor: User, schedule_ids: list[int]) -> list[dict]:
+    """Bounded staff-only review of existing schedule execution health.
+
+    Every record is independently authorized using the same historical scope as
+    the single-schedule endpoint; mixed foreign/revoked IDs fail the entire batch.
+    No work orders or transfers are written.
+    """
+    if not 1 <= len(schedule_ids) <= 100 or len(set(schedule_ids)) != len(schedule_ids):
+        raise HTTPException(status_code=422, detail="Provide 1-100 distinct schedule IDs")
+    return [execution_status(db, actor, schedule_id) for schedule_id in schedule_ids]
+
+
 def assume_execution(db: Session, actor: User, schedule_id: int, *, reason: str) -> Schedule:
     """Staff can recover a stalled schedule without falsifying original authorship.
 

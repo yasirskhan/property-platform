@@ -62,6 +62,18 @@ def get_execution_status(schedule_id: int, db: Session = Depends(get_db),
     return service.execution_status(db, current_user, schedule_id)
 
 
+class ExecutionHealthBatchIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schedule_ids: list[int] = Field(min_length=1, max_length=100)
+
+
+@router.post("/schedules/execution-health", response_model=list[ExecutionStatusOut])
+def batch_execution_health(payload: ExecutionHealthBatchIn,
+                           db: Session = Depends(get_db),
+                           current_user: User = Depends(get_current_user)):
+    return service.batch_execution_health(db, current_user, payload.schedule_ids)
+
+
 @router.post("/schedules/{schedule_id}/assume-execution", response_model=ScheduleOut)
 def assume_execution(schedule_id: int, payload: AssumeExecution,
                      db: Session = Depends(get_db),
