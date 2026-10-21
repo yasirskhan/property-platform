@@ -300,6 +300,26 @@ export default function WorkOrderDetailPage() {
     } finally { setSaving(false); }
   }
 
+  async function offerConfiguredPolicyCrew() {
+    if (!order || saving || !dispatchReadiness?.can_offer
+        || !dispatchReadiness.effective_policy?.configured
+        || dispatchReadiness.effective_policy.first_target !== "crew") return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const row = await apiPost(
+        "/api/maintenance/policy-offers/work-orders/" + order.id, {},
+      ) as WorkOrder;
+      if (row.id !== order.id || row.assigned_to_id !== dispatchReadiness.crew_user_id
+          || row.assignment_response !== "pending")
+        throw new Error("Configured policy offer did not return a pending crew assignment.");
+      setNotice("Configured crew policy applied and in-app offer recorded. No external delivery or escalation has occurred.");
+      await reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Cannot offer under this dispatch policy.");
+      await reload();
+    } finally { setSaving(false); }
+  }
+
   async function scheduleOnCall() {
     if (!order || saving) return;
     const selected = Number(onCallCrewId);
@@ -857,6 +877,21 @@ export default function WorkOrderDetailPage() {
                         Offer to current on-call crew (in-app only)
                       </button>
                     )}
+                    {dispatchReadiness.can_offer && order.status === "acknowledged"
+                      && dispatchReadiness.effective_policy?.configured
+                      && dispatchReadiness.effective_policy.first_target === "crew" && (
+                        <div className="mt-3 rounded border bg-slate-50 p-3">
+                          <p className="text-xs text-slate-600">
+                            Configured primary route: on-call crew. This requires your explicit confirmation;
+                            the policy timeout is guidance only and external delivery is not enabled.
+                          </p>
+                          <button type="button" disabled={saving}
+                            onClick={() => void offerConfiguredPolicyCrew()}
+                            className="mt-2 rounded bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50">
+                            Confirm policy-guided crew offer (in-app)
+                          </button>
+                        </div>
+                      )}
                     {!dispatchReadiness.crew_user_id && dispatchReadiness.preferred_vendors.length > 0 && (
                       <p className="mt-2 text-xs text-slate-600">
                         Review ranked preferred vendors below for manual follow-up. No vendor has been contacted.

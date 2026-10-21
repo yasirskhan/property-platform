@@ -1,3 +1,9 @@
+## 2026-10-20 | Operator-confirmed policy-guided crew offer — IMPLEMENTATION / CI REQUIRED
+
+The first executable per-property Smart Dispatch policy path is an explicit staff-confirmed in-app offer, backed by revalidation of authorized actor, active Unit/Property, configured group/urgency/local-hours primary CREW policy, and live assigned on-call crew. Work order, existing offer and policy snapshot are auditable and share the existing commit. The Owner/Admin settings and manager work-order UI are linked; no external message, timer or automatic attempt is represented as delivered. Backend plus browser regressions must pass all six CI jobs at the exact successor SHA. See `docs/PHASE5_ACCEPTANCE_AND_ISSUES.md` for open autonomous dispatch, delivery, escalation, inspection, procurement, inventory and financial acceptance requirements. Do not close Phase 5.
+
+---
+
 ## 2026-10-20 | Audited manual dispatch review cases — SIX-JOB CI REQUIRED
 
 Built user-facing maintenance dispatch follow-up cases with Owner/Admin/real assigned Manager controls, persisted reason and independent closure explanation, immutable old/new audit entries, one OPEN case per work order database constraint and historical closed cases. Current work-order/property/unit/organization checks prevent foreign, tenant, crew or revoked access; retired property blocks new review creation while authorized historical cases remain closable. Database migration d7a1c0e948b2 (212 model tables), schema/API, UI link from dispatch inbox, backend duplicate/isolation/retirement tests and browser create/close acceptance. No messaging, automatic timeout execution, crew recall, vendor confirmation, tenant fee or invoice is implied. This is an incremental manual operator workflow only. CI exact SHA must be fully green. Further unfinished Phase 5: real dispatch executor/delivery retry/confirmation, independent approvals, inspections, purchasing/materials and finance controls.
