@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 from datetime import date
 from hashlib import sha256
+import os
 from pathlib import Path
 from sqlalchemy.exc import IntegrityError
 
@@ -37,6 +38,20 @@ _INSPECTION_MIME = {
     "image/webp": (b"RIFF",),
 }
 _MAX_PHOTO_BYTES = 10 * 1024 * 1024
+
+
+def _verified_photo_bytes(row: EntityAttachment) -> bytes:
+    expected = row.storage_key.removesuffix(Path(row.storage_key).suffix).split("-")[-1]
+    if len(expected) != 64 or any(ch not in "0123456789abcdef" for ch in expected):
+        raise HTTPException(status_code=409, detail="Invalid photo evidence checksum")
+    path = attachment_path(row.storage_key)
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        raise HTTPException(status_code=409, detail="Photo evidence bytes unavailable") from exc
+    if len(data) != row.size_bytes or sha256(data).hexdigest() != expected:
+        raise HTTPException(status_code=409, detail="Photo evidence integrity check failed")
+    return data
 
 
 def _photo_info(db: Session, inspection_id: int, actor: User):
@@ -76,11 +91,10 @@ def download_inspection_photo(inspection_id: int, photo_id: int,
     row = next((x for x in _photo_list(db, inspection_id, current_user) if x.id == photo_id), None)
     if row is None:
         raise HTTPException(status_code=404, detail="Inspection photo not found")
-    path = attachment_path(row.storage_key)
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="Inspection photo bytes unavailable")
-    return FileResponse(path, media_type=row.content_type, filename=row.original_name,
-                        headers={"Cache-Control": "private, no-store"})
+    data = _verified_photo_bytes(row)
+    return Response(content=data, media_type=row.content_type,
+                    headers={"Cache-Control": "private, no-store",
+                             "Content-Disposition": f'attachment; filename="inspection-{row.id}"'})
 
 
 @router.post("/{inspection_id}/photos", status_code=201)
@@ -127,6 +141,7 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
         if (existing.entity_id != locked.id or existing.organization_id != current_user.organization_id
                 or not existing.is_active):
             raise HTTPException(status_code=409, detail="Photo evidence key conflict")
+        _verified_photo_bytes(existing)
         return {"id": existing.id, "original_name": existing.original_name,
                 "size_bytes": existing.size_bytes, "created_at": existing.created_at}
     if db.query(UnitInspectionReview.id).filter_by(inspection_id=locked.id).first():
@@ -141,9 +156,22 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
         raise HTTPException(status_code=409, detail="Inspection photo evidence limit reached")
     path = attachment_path(key)
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists() and path.read_bytes() != data:
-        raise HTTPException(status_code=409, detail="Photo storage integrity conflict")
-    path.write_bytes(data)
+    created_bytes = False
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        if path.read_bytes() != data:
+            raise HTTPException(status_code=409, detail="Photo storage integrity conflict")
+    else:
+        created_bytes = True
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
     item = EntityAttachment(
         organization_id=current_user.organization_id,
         entity_type="unit_inspection_records", entity_id=locked.id, storage_key=key,
@@ -167,6 +195,7 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
         replay = db.query(EntityAttachment).filter_by(storage_key=key).first()
         if replay is None:
             raise
+        _verified_photo_bytes(replay)
         item = replay
     return {"id": item.id, "original_name": item.original_name,
             "size_bytes": item.size_bytes, "created_at": item.created_at}
