@@ -1,3 +1,7 @@
+## 2026-10-21 | Private inspection evidence integrity and immutable review manifest (CI REQUIRED)
+
+Original upload/list/download and private review seal VERIFIED at 6c49d985/run39699253318 all six SUCCESS. New successor adds corruption checks on read and replay, atomic exclusive storage, retired-inventory/limit validation, review-time ordered photo ID/hash manifest in immutable audit and authenticated browser upload/review assertions. Requires six-green on exact successor; P5-INSP-04 offline and operator acceptance remain OPEN. No unattended dispatch, settlement, or release.
+
 ## 2026-10-21 | Private inspection photo evidence candidate, exact CI required
 
 Bounded photo upload and authorized view/download on immutable staff inspection records, content-hash retry key, independent review seal, tenant/foreign denial, audit and staff UI. Full P5-INSP-04 offline/mobile requirements remain OPEN and production release unchanged.

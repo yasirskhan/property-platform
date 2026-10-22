@@ -1,3 +1,7 @@
+## 2026-10-21 | Private inspection evidence integrity and immutable review manifest (CI REQUIRED)
+
+Original upload/list/download and private review seal VERIFIED at 6c49d985/run39699253318 all six SUCCESS. New successor adds corruption checks on read and replay, atomic exclusive storage, retired-inventory/limit validation, review-time ordered photo ID/hash manifest in immutable audit and authenticated browser upload/review assertions. Requires six-green on exact successor; P5-INSP-04 offline and operator acceptance remain OPEN. No unattended dispatch, settlement, or release.
+
 ## 2026-10-21 Inspection review queue - current candidate requires six-job CI
 
 Real server-side scoped PENDING/REVIEWED review filtering, paginated staff UI, independent reviewer labels and foreign-pointer denials with regressions. Pending means unreviewed by a different inspector, never promises an offline/mobile/photo upload workflow. P5-INSP-04 remains OPEN.

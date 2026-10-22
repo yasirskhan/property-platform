@@ -1,29 +1,27 @@
 # Property Platform | Active Phase 5 checkpoint
 
-Observed 2026-10-21 UTC. ONLY yasirskhan/property-platform branch chatgpt/checkpoint-005-safety. Worker https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b . Read AGENTS.md and docs/SESSION_CONTROL.md first.
+Observed 2026-10-21 UTC. Repository yasirskhan/property-platform. ONLY branch chatgpt/checkpoint-005-safety.
+Worker: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b .
+Read root AGENTS.md, docs/SESSION_CONTROL.md, acceptance/queue/registers before modifying.
 
-## Verified CI and prior fixes
-- 8b8f9a36/run 39546681328 failed five backend tests -> cb85b75e repair (own run cancelled) -> a29fbbb94/run 39551777384 all six SUCCESS.
-- 43bd41d2/run 39636546917 E2E failed -> 63bc278d/run 39664052218 all six SUCCESS.
-- ce3bfe31/run 39667729154 all six SUCCESS (PM due inbox); 07dbcbfe/run 39677973524 all six SUCCESS (scoped PM execution health).
-- f397f4e0/run 39681280883 failed frontend TS2533 and was cancelled; fixed 66c7ffa49c2d7863dd7c2097ce680cccfa083064/run 39681565435 all six SUCCESS.
-- 74bd34f922c6873c13e197a4bd0da6444f619911/run 39695323040 FAILED, followed by 04e73d951aebb2c3a19a4ab81e31f8775b63e1bb/run 39695570182 with all six SUCCESS (inspection review queue and scoped reviewer identity).
+## Verified source
+- Five backend failures 8b8f9a36/run39546681328 fixed at cb85b75e; its own CI cancelled; descendant a29fbbb94/run39551777384 all six successful.
+- 43bd41d2/run39636546917 failed E2E; repaired 63bc278d/run39664052218 all six successful.
+- ce3bfe31/run39667729154, 07dbcbfe/run39677973524 each six successful (PM scheduling and health).
+- f397f4e0/run39681280883 TS2533; fixed 66c7ffa49/run39681565435 all six successful.
+- 04e73d951aebb2c3a19a4ab81e31f8775b63e1bb/run39695570182 all six successful (scoped inspection review queue and reviewer identities).
+- 6c49d9850137810d74a5a5149529e4c9d9c1a249/run39699253318 all six successful (private scoped photo upload/list/download and review seal).
 
-## Current implementation and CI gate
-- Published source candidate adds P5-INSP-04 private, staff-scoped inspection photo upload/list/download with JPEG/PNG/WebP magic checks and 10-MB bound; deterministic SHA256 storage key supports duplicate retries; immutable private evidence linkage and audit; post-independent-review evidence seal; explicit denial of generic shareable attachment access; usable authenticated inspection detail UI.
-- Tenant/foreign org access, invalid content, duplicate retries, no duplicate audit, and review sealing have backend regression coverage. This is NOT offline sync/photo malware scanning/operator acceptance, and P5-INSP-04 remains OPEN.
-- Verify all six GitHub CI jobs at the exact new publication SHA. Read real failures and repair before publishing a successor. Do not infer success from a pending run.
+## Current Phase 5 substantive implementation
+- Private-photo evidence integrity successor: original-byte SHA-256 validation on read and exact retry; fail-closed corrupted/missing file; atomic exclusive storage allocation; per-inspection limit, retired inventory guard and MIME-extension agreement; immutable review audit manifest of ordered photo IDs/hashes; real authenticated photo upload and review-seal browser coverage; backend corrupt-byte/retry/org/property/revocation regression.
+- This successor must pass ALL SIX hosted CI jobs on its exact new published SHA before verified. No offline synchronization, vendor messaging, payment, or production release enabled.
+- Previous entire handoff is preserved verbatim at docs/AI_HANDOFF_ARCHIVE_2026-10-21_6c49.md. Older archives retained.
 
-## Saved unpublished successor
-- Detached source candidate 6e68aab662074e93ccc6145b459a3c1e738a8fc5, descendant of published 6c49d9850137810d74a5a5149529e4c9d9c1a249: strict per-inspection photo bound, safe exact replay after sealing, active-inventory revalidation, MIME-extension matching, immutable review-audit photo hash snapshot, backend negatives and browser photo upload/seal regression.
-- UNPUBLISHED and NOT hosted-tested. Only publish after 6c49 passes ALL SIX exact-SHA jobs; reconcile live branch before any write. Any unsaved inaccessible work is UNKNOWN.
+## Next
+1. Check new source SHA and each of backend/frontend/platform-admin/security/e2e/staging-config. Fix real failures, rerun until exact six-green.
+2. Implement next independently actionable Phase 5 inspection evidence attachment/offline/recovery or PM/procurement workflow from current acceptance matrix, with actual UI, authorization, durable audit and regressions.
+3. Update current acceptance/feature/issue evidence truthfully; preserve archives. Inaccessible unsaved work UNKNOWN.
 
-## Required next task
-1. Verify new backend/frontend/platform-admin/security/e2e/staging-config CI; diagnose any regression, fix and repeat exact SHA verification.
-2. Extend approved P5-INSP-04 with review-bound photo evidence manifest, failure recovery and authenticated browser coverage; maintain real scope and upload replay safety.
-3. Reconcile full Phase 5 acceptance/feature/issues and implement next independent substantial approved workflow. No Phase 6 until exit evidence.
-
-## OPEN acceptance and external dependencies
-P5-AUTO-01 autonomous dispatch; P5-DLV-02 external vetted delivery/receipts; P5-ESC-03 timed escalation; P5-INSP-04 full attachment/offline/review; P5-PM-05 full occurrence/recovery; P5-PROC-06 procurement; P5-FIN-07 accounting settlement/reversals; P5-ACC-08 operator/security acceptance. Real provider credentials, receipts and settlement remain BLOCKED EXTERNAL where required. Unattended/provider/finance release switches OFF. Unknown unsaved work UNKNOWN.
-
-Historical root handoff preserved verbatim at docs/AI_HANDOFF_ARCHIVE_2026-10-21_04e73.md. Older archives retained.
+## Phase 5 OPEN
+P5-AUTO-01 autonomous dispatch, P5-DLV-02 real provider delivery/receipts, P5-ESC-03 timed escalation, P5-INSP-04 photo/offline/independent evidence, P5-PM-05 occurrence/recovery, P5-PROC-06 purchasing/inventory, P5-FIN-07 settlement/reversals and P5-ACC-08 operator/security acceptance remain open.
+External provider credentials/delivery, settlement and operator signoff are BLOCKED EXTERNAL where dependent. Unattended/provider/financial production release OFF. No Phase 6 before full approved Phase 5 acceptance.
