@@ -112,6 +112,14 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
     ).with_for_update().one()
     # Recheck authorization under lock before committing immutable evidence.
     _photo_info(db, locked.id, current_user)
+    active_unit = db.query(Unit.id).join(Property, Property.id == Unit.property_id).filter(
+        Unit.id == locked.unit_id, Unit.property_id == locked.property_id,
+        Unit.is_active.is_(True), Unit.deleted_at.is_(None),
+        Property.organization_id == current_user.organization_id,
+        Property.is_active.is_(True), Property.deleted_at.is_(None),
+    ).first()
+    if active_unit is None:
+        raise HTTPException(status_code=409, detail="Retired inventory cannot receive new photos")
     existing = db.query(EntityAttachment).filter_by(storage_key=key).first()
     if existing is not None:
         if (existing.entity_id != locked.id or existing.organization_id != current_user.organization_id
