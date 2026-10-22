@@ -244,8 +244,11 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
     except IntegrityError:
         db.rollback()
         replay = db.query(EntityAttachment).filter_by(storage_key=key).first()
-        if replay is None:
-            raise
+        if (replay is None or replay.organization_id != current_user.organization_id
+                or replay.entity_type != "unit_inspection_records"
+                or replay.entity_id != locked.id or not replay.is_active
+                or replay.share_with_tenants or replay.share_with_owners):
+            raise HTTPException(status_code=409, detail="Photo evidence replay conflict")
         _verified_photo_bytes(replay)
         item = replay
     except Exception:
