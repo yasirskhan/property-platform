@@ -927,6 +927,15 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
             asyncio.run(inspection_router.upload_inspection_photo(
                 record.id, upload(b"not an image"), db=db, current_user=manager))
         assert forged.value.status_code == 422
+        with pytest.raises(HTTPException) as wrong_extension:
+            asyncio.run(inspection_router.upload_inspection_photo(
+                record.id,
+                UploadFile(filename="misleading.pdf", file=BytesIO(valid_bytes),
+                    headers=__import__("starlette.datastructures", fromlist=["Headers"]).Headers(
+                        {"content-type": "image/png"})),
+                db=db, current_user=manager))
+        assert wrong_extension.value.status_code == 422
+
         assert db.query(EntityAttachment).count() == 0
         saved = asyncio.run(inspection_router.upload_inspection_photo(
             record.id, upload(), db=db, current_user=manager))
@@ -963,6 +972,12 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
                 record.id, upload(valid_bytes + b"later"), db=db, current_user=manager))
         assert sealed.value.status_code == 409
         assert db.query(EntityAttachment).count() == 1
+        prop.is_active = False
+        db.commit()
+        with pytest.raises(HTTPException) as retired:
+            asyncio.run(inspection_router.upload_inspection_photo(
+                record.id, upload(valid_bytes + b"retired"), db=db, current_user=manager))
+        assert retired.value.status_code == 409
         with pytest.raises(HTTPException):
             inspection_router.list_inspection_photos(record.id, db=db, current_user=tenant)
     finally:
