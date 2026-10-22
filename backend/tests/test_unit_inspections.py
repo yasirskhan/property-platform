@@ -947,6 +947,9 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
                 notes="Independent photo and roof evidence indicate repair needed"),
             Response(), db=db, current_user=admin)
         assert review.inspection_id == record.id
+        sealed_replay = asyncio.run(inspection_router.upload_inspection_photo(
+            record.id, upload(), db=db, current_user=manager))
+        assert sealed_replay["id"] == saved["id"]
         with pytest.raises(HTTPException) as sealed:
             asyncio.run(inspection_router.upload_inspection_photo(
                 record.id, upload(valid_bytes + b"later"), db=db, current_user=manager))

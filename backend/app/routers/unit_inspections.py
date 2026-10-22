@@ -112,8 +112,6 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
     ).with_for_update().one()
     # Recheck authorization under lock before committing immutable evidence.
     _photo_info(db, locked.id, current_user)
-    if db.query(UnitInspectionReview.id).filter_by(inspection_id=locked.id).first():
-        raise HTTPException(status_code=409, detail="Reviewed inspection evidence is sealed")
     existing = db.query(EntityAttachment).filter_by(storage_key=key).first()
     if existing is not None:
         if (existing.entity_id != locked.id or existing.organization_id != current_user.organization_id
@@ -121,6 +119,8 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
             raise HTTPException(status_code=409, detail="Photo evidence key conflict")
         return {"id": existing.id, "original_name": existing.original_name,
                 "size_bytes": existing.size_bytes, "created_at": existing.created_at}
+    if db.query(UnitInspectionReview.id).filter_by(inspection_id=locked.id).first():
+        raise HTTPException(status_code=409, detail="Reviewed inspection evidence is sealed")
     count = db.query(EntityAttachment).filter(
         EntityAttachment.organization_id == current_user.organization_id,
         EntityAttachment.entity_type == "unit_inspection_records",
