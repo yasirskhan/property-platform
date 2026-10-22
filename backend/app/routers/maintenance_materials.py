@@ -284,6 +284,8 @@ def receive_materials(order_id: int, payload: Receipt,
     if source is None:
         raise HTTPException(409, "Vendor no longer eligible for new receiving")
     reference = payload.reference.strip()
+    if reference.upper().startswith("REV-"):
+        raise HTTPException(422, "REV- receipt references are reserved for audited corrections")
     replay = db.query(Movement).filter_by(order_id=row.id, reference=reference).first()
     if replay is not None:
         if replay.delta_qty == payload.quantity and replay.reason == payload.notes.strip() and replay.reverses_id is None:

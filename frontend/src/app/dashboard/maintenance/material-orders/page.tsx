@@ -37,6 +37,7 @@ export default function MaterialOrdersPage() {
   async function refresh() {
     const result = await apiGet("/api/maintenance/materials/orders?limit=100") as Order[];
     if(!Array.isArray(result))throw new Error("Invalid purchasing list");
+    setStock(null);
     setOrders(result);
   }
   useEffect(()=>{

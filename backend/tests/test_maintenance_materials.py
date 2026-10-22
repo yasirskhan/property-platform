@@ -225,3 +225,53 @@ def test_material_foreign_supplier_and_movement_actor_bindings_fail_closed():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_independent_owner_can_approve_admin_request_but_receiver_cannot_self_reverse():
+    from app.models.user import User, UserRole
+    from app.models.gl_transaction import GLTransaction
+    db, engine, actors, properties, orders, vendor, foreign_vendor = setup()
+    try:
+        admin, manager = actors[:2]
+        owner = User(
+            organization_id=admin.organization_id, role=UserRole.OWNER,
+            first_name="Purchasing", last_name="Owner",
+            email="purchase-owner@material.example", hashed_password="none",
+            is_active=True,
+        )
+        db.add(owner)
+        db.commit()
+        own_request = m.create_order(m.NewOrder(
+            work_order_id=orders[1].id,
+            request_key="OWNER-APPROVAL-CASE-00001", vendor_id=vendor.id,
+            sku="FILTER-OWNER-01", item_name="Approved owner maintenance filter",
+            quantity=2, unit_cost_cents=900,
+            reason="Purchase needs independent approval from the organization owner",
+        ), db=db, current_user=admin)
+        with pytest.raises(HTTPException) as self_approval:
+            m.decide_order(own_request["id"], m.Decision(
+                approved=True, reason="Not an independent review",
+            ), db=db, current_user=admin)
+        assert self_approval.value.status_code == 403
+        assert m.decide_order(own_request["id"], m.Decision(
+            approved=True, reason="Owner independently verified maintenance requirement",
+        ), db=db, current_user=owner)["status"] == "APPROVED"
+        receipt = m.receive_materials(own_request["id"], m.Receipt(
+            reference="ADMIN-RECEIPT", quantity=2,
+            notes="Admin personally inspected both physical units",
+        ), db=db, current_user=admin)
+        with pytest.raises(HTTPException) as self_reversal:
+            m.reverse_receipt(own_request["id"], receipt["physical_receipts"][0]["id"],
+                m.Correction(reason="Cannot reverse my own physical receiving"),
+                db=db, current_user=admin)
+        assert self_reversal.value.status_code == 403
+        assert m.reverse_receipt(
+            own_request["id"], receipt["physical_receipts"][0]["id"],
+            m.Correction(reason="Independent owner found receipt count wrong"),
+            db=db, current_user=owner)["net_received"] == 0
+        assert m.stock_at_property(properties[0].id, db=db, current_user=owner) == []
+        assert db.query(GLTransaction).count() == 0
+        assert db.query(PO).count() == 1 and db.query(Move).count() == 2
+    finally:
+        db.close()
+        engine.dispose()
