@@ -68,6 +68,7 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
         purchase_id = initial["id"]
         work_order_id = order.id
         manager_id = manager.id
+        supplier_id = supplier.id
     finally:
         db.close()
 
@@ -86,7 +87,7 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
             pw.expect(page.get_by_role("heading", name="Material purchasing and physical receipts")).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_label("Material work order")).to_have_value(str(work_order_id), timeout=15_000)
             page.get_by_role("button", name="Find eligible company vendors").click()
-            page.get_by_label("Material vendor").select_option(str(supplier.id))
+            page.get_by_label("Material vendor").select_option(str(supplier_id))
             page.get_by_label("Material SKU").fill("EXTRA-"+tag.upper())
             page.get_by_label("Material item name").fill("Additional maintenance cable")
             page.get_by_label("Material requested quantity").fill("1")
