@@ -27,6 +27,7 @@ from app.routers import maintenance_dispatch_groups as maintenance_dispatch_grou
 from app.routers import maintenance_dispatch_attention as maintenance_dispatch_attention_router
 from app.routers import maintenance_dispatch_reviews as maintenance_dispatch_reviews_router
 from app.routers import maintenance_policy_offers as maintenance_policy_offers_router
+from app.routers import maintenance_materials as maintenance_materials_router
 from app.routers import preventive_maintenance as preventive_maintenance_router
 from app.routers import password_reset as password_reset_router
 from app.routers import org_email as org_email_router
@@ -224,6 +225,7 @@ app.include_router(maintenance_dispatch_attention_router.router)
 app.include_router(maintenance_dispatch_reviews_router.router)
 app.include_router(maintenance_policy_offers_router.router)
 app.include_router(preventive_maintenance_router.router)
+app.include_router(maintenance_materials_router.router)
 app.include_router(password_reset_router.router)
 app.include_router(org_email_router.router)
 app.include_router(uploads_router.router)

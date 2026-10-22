@@ -10,8 +10,8 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "e6b4d2a7c910"
-EXPECTED_MODEL_TABLES = 214
+EXPECTED_HEAD = "c5d91a7e2f60"
+EXPECTED_MODEL_TABLES = 216
 
 
 def _run(command: list[str], database_url: str) -> subprocess.CompletedProcess[str]:
@@ -87,6 +87,13 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
             "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='unit_inspection_reviews'"
         )}
         assert {"unit_inspection_review_no_update", "unit_inspection_review_no_delete"} <= review_triggers
+        assert {"maintenance_material_orders", "maintenance_material_movements"} <= {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        movement_triggers = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_movements'"
+        )}
+        assert {"material_movement_no_update", "material_movement_no_delete"} <= movement_triggers
         assert columns["source_inspection_id"][3] == 0
         assert any(
             row[3] == "source_inspection_id"
