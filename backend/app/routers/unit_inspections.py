@@ -106,6 +106,8 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
     filename = Path(file.filename or "inspection-photo").name[:255]
     if not filename or filename in {".", ".."}:
         filename = "inspection-photo" + suffix
+    if Path(filename).suffix.lower() not in ({".jpg", ".jpeg"} if mime == "image/jpeg" else {suffix}):
+        raise HTTPException(status_code=422, detail="Photo filename extension does not match content type")
     locked = db.query(UnitInspectionRecord).filter(
         UnitInspectionRecord.id == record.id,
         UnitInspectionRecord.organization_id == current_user.organization_id,
