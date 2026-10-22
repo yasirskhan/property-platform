@@ -895,3 +895,67 @@ def test_pending_independent_review_queue_is_scoped_excludes_self_and_is_stable(
     finally:
         db.close()
         engine.dispose()
+
+def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypatch, tmp_path):
+    import asyncio
+    from io import BytesIO
+    from fastapi import UploadFile
+    from app.models.entity_attachment import EntityAttachment
+    from app.schemas.unit_inspection import InspectionReviewIn
+    from app.services.entity_notes import resolve_note_target
+
+    db, engine = _session()
+    try:
+        admin, manager, tenant, outsider, prop, hidden, foreign_prop, unit, hidden_unit, foreign_unit = _seed(db)
+        monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **kw: True)
+        monkeypatch.setattr(inspection_router, "attachment_path", lambda key: tmp_path / key)
+        record = inspection_router.create_inspection(
+            _input(unit, findings="Private roof photo evidence"), Response(),
+            db=db, current_user=manager,
+        )
+        valid_bytes = bytes.fromhex("89504e470d0a1a0a") + b"inspection-image"
+        def upload(data=valid_bytes, content_type="image/png"):
+            f = UploadFile(filename="roof.png", file=BytesIO(data))
+            f.headers = __import__("starlette.datastructures", fromlist=["Headers"]).Headers(
+                {"content-type": content_type})
+            return f
+        for actor in (tenant, outsider):
+            with pytest.raises(HTTPException):
+                asyncio.run(inspection_router.upload_inspection_photo(
+                    record.id, upload(), db=db, current_user=actor))
+        with pytest.raises(HTTPException) as forged:
+            asyncio.run(inspection_router.upload_inspection_photo(
+                record.id, upload(b"not an image"), db=db, current_user=manager))
+        assert forged.value.status_code == 422
+        assert db.query(EntityAttachment).count() == 0
+        saved = asyncio.run(inspection_router.upload_inspection_photo(
+            record.id, upload(), db=db, current_user=manager))
+        replay = asyncio.run(inspection_router.upload_inspection_photo(
+            record.id, upload(), db=db, current_user=manager))
+        assert replay["id"] == saved["id"]
+        assert db.query(EntityAttachment).count() == 1
+        assert len(inspection_router.list_inspection_photos(
+            record.id, db=db, current_user=admin)) == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_photo", action="evidence_uploaded").count() == 1
+        with pytest.raises(HTTPException):
+            resolve_note_target(db, current_user=admin,
+                                entity_type="unit_inspection_records", entity_id=record.id)
+        review = inspection_router.review_inspection(
+            record.id, InspectionReviewIn(
+                decision="FOLLOW_UP_REQUIRED",
+                notes="Independent photo and roof evidence indicate repair needed"),
+            Response(), db=db, current_user=admin)
+        assert review.inspection_id == record.id
+        with pytest.raises(HTTPException) as sealed:
+            asyncio.run(inspection_router.upload_inspection_photo(
+                record.id, upload(valid_bytes + b"later"), db=db, current_user=manager))
+        assert sealed.value.status_code == 409
+        assert db.query(EntityAttachment).count() == 1
+        with pytest.raises(HTTPException):
+            inspection_router.list_inspection_photos(record.id, db=db, current_user=tenant)
+    finally:
+        db.close()
+        engine.dispose()
+
+
