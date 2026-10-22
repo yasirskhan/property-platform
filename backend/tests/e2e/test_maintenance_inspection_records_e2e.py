@@ -171,13 +171,18 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
                       wait_until="domcontentloaded")
             pw.expect(page.get_by_text("Independent follow-up review " + tag)).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_role("heading", name="Independent inspection review")).to_be_visible(timeout=15_000)
+            page.context.set_offline(True)
             page.get_by_label("Inspection photo").set_input_files({
                 "name": "inspection-photo.png",
                 "mimeType": "image/png",
                 "buffer": bytes.fromhex("89504e470d0a1a0a") + b"inspection browser fixture",
             })
-            page.get_by_role("button", name="Add private evidence").click()
+            page.get_by_role("button", name="Save locally to sync later").click()
+            pw.expect(page.get_by_text("1 unsent photos on this device")).to_be_visible(timeout=15_000)
+            page.context.set_offline(False)
+            page.get_by_role("button", name="Sync pending photos").click()
             pw.expect(page.get_by_role("button", name=re.compile("inspection-photo.png"))).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_text("1 unsent photos on this device")).to_have_count(0)
             page.get_by_label("Independent review decision").select_option("FOLLOW_UP_REQUIRED")
             page.get_by_label("Review explanation").fill("Follow up on the observed exterior condition")
             page.get_by_role("button", name="Record independent review").click()
