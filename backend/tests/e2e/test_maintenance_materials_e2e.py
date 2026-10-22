@@ -19,7 +19,7 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
     from app.models.user import User, UserRole
     from app.models.work_order import WorkOrder, WorkOrderStatus
     from app.models.vendor import Vendor
-    from app.models.maintenance_material import MaintenanceMaterialMovement
+    from app.models.maintenance_material import MaintenanceMaterialMovement, MaintenanceMaterialIssue
     from app.routers import maintenance_materials as m
 
     tag = uuid4().hex[:10]
@@ -119,6 +119,17 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
             pw.expect(card).to_contain_text("Net received 3", timeout=15_000)
             card.get_by_role("button", name="View physical property stock").click()
             pw.expect(card).to_contain_text("3 units", timeout=15_000)
+            card.get_by_label("Material issue work order "+str(purchase_id)).fill(str(work_order_id))
+            card.get_by_label("Material issue reference "+str(purchase_id)).fill("E2E-ISSUE-"+tag)
+            card.get_by_label("Material issue quantity "+str(purchase_id)).fill("2")
+            card.get_by_label("Material issue notes "+str(purchase_id)).fill(
+                "Installed two verified filter parts for this work order")
+            card.get_by_role("button", name="Record physical material usage").click()
+            pw.expect(card).to_contain_text("Available from this request 1", timeout=15_000)
+            pw.expect(card).to_contain_text("Issued to work orders 2")
+            card.get_by_role("button", name="View physical property stock").click()
+            pw.expect(card).to_contain_text("1 units", timeout=15_000)
+            # Posting no money remains an invariant of material use.
 
             # A different live manager attests the second physical receipt.
             db = SessionLocal()
@@ -132,16 +143,31 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
                 positive = next(x for x in received["physical_receipts"]
                                 if x["reference"] == "E2E-SECOND-"+tag)
                 receipt_id = positive["id"]
+                manager_issue = m.issue_materials(purchase_id, m.IssueStock(
+                    target_work_order_id=work_order_id,
+                    reference="E2E-MANAGER-USE-"+tag, quantity=1,
+                    notes="A manager personally installed one additional replacement part",
+                ), db=db, current_user=manager)
+                manager_issue_id = next(i["id"] for i in manager_issue["material_issues"]
+                                        if i["reference"] == "E2E-MANAGER-USE-"+tag)
             finally:
                 db.close()
             card.get_by_role("button", name="View physical property stock").click()
             page.get_by_role("button", name="Refresh purchase history").click()
             pw.expect(card).to_contain_text("Net received 5", timeout=15_000)
+            pw.expect(card).to_contain_text("Issued to work orders 3", timeout=15_000)
+            page.once("dialog", lambda dialog: dialog.accept(
+                "Owner independently verified manager use was entered twice"))
+            manager_record = card.locator("p").filter(has_text="E2E-MANAGER-USE-"+tag)
+            manager_record.get_by_role("button", name="Reverse material usage").click()
+            pw.expect(card).to_contain_text("Issued to work orders 2", timeout=15_000)
+            pw.expect(card).to_contain_text("reverses usage #"+str(manager_issue_id))
             page.once("dialog", lambda dialog: dialog.accept(
                 "Correction after independent physical recount"))
             correction = card.locator("p").filter(has_text="E2E-SECOND-"+tag)
             correction.get_by_role("button", name="Reverse receipt").click()
             pw.expect(card).to_contain_text("Net received 3", timeout=15_000)
+            pw.expect(card).to_contain_text("Available from this request 1", timeout=15_000)
             page.reload(wait_until="domcontentloaded")
             card = page.locator("article").filter(has_text="Maintenance filter set " + tag).first
             pw.expect(card).to_contain_text("Net received 3", timeout=15_000)
@@ -153,6 +179,9 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
     try:
         events = db.query(MaintenanceMaterialMovement).filter_by(order_id=purchase_id).all()
         assert len(events) == 3 and sum(item.delta_qty for item in events) == 3
+        used = db.query(MaintenanceMaterialIssue).filter_by(material_order_id=purchase_id).all()
+        assert len(used) == 3 and sum(item.delta_qty for item in used) == 2
+        assert sum(item.reverses_id is not None for item in used) == 1
         assert sum(item.reverses_id is not None for item in events) == 1
         assert db.query(AuditLog).filter_by(
             entity_type="maintenance_material_movement", action="physical_receipt_reversed",

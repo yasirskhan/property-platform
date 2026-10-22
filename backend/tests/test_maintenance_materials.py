@@ -310,3 +310,150 @@ def test_material_approval_rejects_historical_price_and_independent_decision_tam
     finally:
         db.close()
         engine.dispose()
+
+
+def test_material_usage_proves_scope_conservation_independent_reversal_and_replay(monkeypatch):
+    from app.models.user import User, UserRole
+    from app.models.gl_transaction import GLTransaction
+    from app.models.maintenance_material import MaintenanceMaterialIssue as Issue
+    db, engine, actors, properties, orders, vendor, foreign_vendor = setup()
+    try:
+        admin, manager, tenant, _, _, outsider = actors
+        owner = User(
+            organization_id=admin.organization_id, role=UserRole.OWNER,
+            first_name="Stock", last_name="Review",
+            email="stock-review@material.example", hashed_password="test", is_active=True,
+        )
+        db.add(owner)
+        db.commit()
+        purchase = request(orders[1].id, vendor, db=db, actor=manager)
+        source_id = purchase["id"]
+        m.decide_order(source_id, m.Decision(
+            approved=True, reason="Independently authorize available maintenance stock",
+        ), db=db, current_user=admin)
+        m.receive_materials(source_id, m.Receipt(
+            reference="PHYSICAL-3", quantity=3,
+            notes="Verified three sealed replacement parts onsite",
+        ), db=db, current_user=manager)
+
+        payload = m.IssueStock(
+            target_work_order_id=orders[1].id, reference="USE-1",
+            quantity=2, notes="Installed two filters for authorized work order",
+        )
+        for wrong in (tenant, outsider):
+            with pytest.raises(HTTPException):
+                m.issue_materials(source_id, payload, db=db, current_user=wrong)
+        with pytest.raises(HTTPException) as wrong_property:
+            m.issue_materials(source_id, m.IssueStock(
+                target_work_order_id=orders[2].id, reference="WRONG-PROPERTY",
+                quantity=1, notes="Attempted cross-property physical stock use",
+            ), db=db, current_user=admin)
+        assert wrong_property.value.status_code == 409
+        with pytest.raises(HTTPException):
+            m.issue_materials(source_id, m.IssueStock(
+                target_work_order_id=orders[3].id, reference="OTHER-ORGANIZATION",
+                quantity=1, notes="Attempted cross-company physical stock use",
+            ), db=db, current_user=admin)
+        original_append = m.append_audit_log
+        def broken_audit(*args, **kwargs):
+            raise RuntimeError("simulated immutable stock usage audit failure")
+        monkeypatch.setattr(m, "append_audit_log", broken_audit)
+        with pytest.raises(RuntimeError, match="stock usage audit"):
+            m.issue_materials(source_id, payload, db=db, current_user=admin)
+        db.rollback()
+        monkeypatch.setattr(m, "append_audit_log", original_append)
+        assert db.query(Issue).count() == 0
+
+        accepted = m.issue_materials(source_id, payload, db=db, current_user=admin)
+        assert accepted["net_issued"] == 2 and accepted["available_stock"] == 1
+        same = m.issue_materials(source_id, payload, db=db, current_user=admin)
+        assert same["material_issues"] == accepted["material_issues"]
+        assert m.stock_at_property(properties[0].id, db=db, current_user=owner)[0]["quantity"] == 1
+        with pytest.raises(HTTPException):
+            m.issue_materials(source_id, m.IssueStock(
+                target_work_order_id=orders[1].id, reference="USE-1",
+                quantity=1, notes="Conflicting replay must never reduce count",
+            ), db=db, current_user=admin)
+        with pytest.raises(HTTPException):
+            m.issue_materials(source_id, m.IssueStock(
+                target_work_order_id=orders[1].id, reference="USE-EXCESS",
+                quantity=2, notes="Reject use beyond unallocated source stock",
+            ), db=db, current_user=manager)
+
+        receipt_id = accepted["physical_receipts"][0]["id"]
+        with pytest.raises(HTTPException) as cannot_reverse:
+            m.reverse_receipt(source_id, receipt_id, m.Correction(
+                reason="Cannot reverse stock consumed by maintenance",
+            ), db=db, current_user=owner)
+        assert cannot_reverse.value.status_code == 409
+        issue_id = accepted["material_issues"][0]["id"]
+        with pytest.raises(HTTPException) as self_reversal:
+            m.reverse_material_issue(source_id, issue_id, m.Correction(
+                reason="Same person cannot independently reverse own usage",
+            ), db=db, current_user=admin)
+        assert self_reversal.value.status_code == 403
+        with pytest.raises(HTTPException):
+            m.reverse_material_issue(source_id, issue_id, m.Correction(
+                reason="Property manager cannot approve issue reversal",
+            ), db=db, current_user=manager)
+        reversed_row = m.reverse_material_issue(source_id, issue_id, m.Correction(
+            reason="Independent owner verified usage entry was duplicated",
+        ), db=db, current_user=owner)
+        assert reversed_row["available_stock"] == 3 and reversed_row["net_issued"] == 0
+        replay = m.reverse_material_issue(source_id, issue_id, m.Correction(
+            reason="Independent owner verified usage entry was duplicated",
+        ), db=db, current_user=owner)
+        assert replay["available_stock"] == 3
+        assert len(replay["material_issues"]) == 2
+        assert db.query(Issue).count() == 2
+        with pytest.raises(HTTPException) as decision_conflict:
+            m.reverse_material_issue(source_id, issue_id, m.Correction(
+                reason="A different reversal reviewer must not replay approval",
+            ), db=db, current_user=admin)
+        assert decision_conflict.value.status_code in (403, 409)
+        assert db.query(AuditLog).filter_by(
+            entity_type="maintenance_material_issue",
+            action="stock_issued_to_work_order").count() == 1
+        assert db.query(AuditLog).filter_by(
+            entity_type="maintenance_material_issue",
+            action="stock_issue_reversed").count() == 1
+        correction = m.reverse_receipt(source_id, receipt_id, m.Correction(
+            reason="Owner corrected independent physical receipt count",
+        ), db=db, current_user=owner)
+        assert correction["available_stock"] == 0
+        assert m.stock_at_property(properties[0].id, db=db, current_user=admin) == []
+        assert db.query(GLTransaction).count() == 0
+        assert all(issue.target_work_order_id == orders[1].id for issue in db.query(Issue))
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_material_usage_foreign_actor_and_audit_tampering_are_denied():
+    from app.models.maintenance_material import MaintenanceMaterialIssue as Issue
+    db, engine, actors, properties, orders, vendor, foreign_vendor = setup()
+    try:
+        admin, manager = actors[:2]
+        purchase = request(orders[1].id, vendor, db=db, actor=manager)
+        m.decide_order(purchase["id"], m.Decision(
+            approved=True, reason="Independent staff stock allocation approved",
+        ), db=db, current_user=admin)
+        m.receive_materials(purchase["id"], m.Receipt(
+            reference="DELIVERY-STOCK", quantity=2, notes="Two units verified present onsite",
+        ), db=db, current_user=manager)
+        allocated = m.issue_materials(purchase["id"], m.IssueStock(
+            target_work_order_id=orders[1].id, reference="USED-STOCK",
+            quantity=1, notes="One replacement unit actually installed onsite",
+        ), db=db, current_user=manager)
+        issue = db.query(Issue).one()
+        issue.issued_by_id = actors[5].id
+        db.flush()
+        with pytest.raises(HTTPException) as forged:
+            m.list_orders(work_order_id=None, limit=20, db=db, current_user=admin)
+        assert forged.value.status_code == 409
+        db.rollback()
+        assert m.list_orders(work_order_id=None, limit=20, db=db, current_user=admin)[0]["net_issued"] == 1
+        assert allocated["gl_posted"] is False and allocated["tenant_charged"] is False
+    finally:
+        db.close()
+        engine.dispose()

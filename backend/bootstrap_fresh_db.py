@@ -27,7 +27,7 @@ def _alembic_config() -> Config:
     return cfg
 
 
-def _install_fresh_material_movement_guards() -> None:
+def _install_fresh_material_guards() -> None:
     """Match the append-only triggers created by material migration c5d91a7e2f60.
 
     Fresh bootstrap builds tables with ORM metadata and only stamps Alembic;
@@ -49,6 +49,19 @@ def _install_fresh_material_movement_guards() -> None:
                 BEFORE UPDATE OR DELETE ON maintenance_material_movements
                 FOR EACH ROW EXECUTE FUNCTION prevent_material_movement_mutation()
             """)
+            conn.exec_driver_sql("""
+                CREATE FUNCTION prevent_material_issue_mutation()
+                RETURNS trigger AS $stock_issue_guard$
+                BEGIN
+                    RAISE EXCEPTION 'maintenance_material_issues is append-only';
+                END;
+                $stock_issue_guard$ LANGUAGE plpgsql
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER material_issue_immutable
+                BEFORE UPDATE OR DELETE ON maintenance_material_issues
+                FOR EACH ROW EXECUTE FUNCTION prevent_material_issue_mutation()
+            """)
         elif engine.dialect.name == "sqlite":
             conn.exec_driver_sql("""
                 CREATE TRIGGER material_movement_no_update
@@ -62,6 +75,20 @@ def _install_fresh_material_movement_guards() -> None:
                 BEFORE DELETE ON maintenance_material_movements
                 BEGIN
                     SELECT RAISE(ABORT,'maintenance_material_movements is append-only');
+                END
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER material_issue_no_update
+                BEFORE UPDATE ON maintenance_material_issues
+                BEGIN
+                    SELECT RAISE(ABORT,'maintenance_material_issues is append-only');
+                END
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER material_issue_no_delete
+                BEFORE DELETE ON maintenance_material_issues
+                BEGIN
+                    SELECT RAISE(ABORT,'maintenance_material_issues is append-only');
                 END
             """)
         else:
@@ -82,7 +109,7 @@ def bootstrap() -> None:
         )
 
     Base.metadata.create_all(bind=engine)
-    _install_fresh_material_movement_guards()
+    _install_fresh_material_guards()
     # Fresh bootstraps skip data-only Alembic revisions; seed the same
     # hidden, unsubscribed HOA catalog without activating any billing.
     with Session(engine) as db:

@@ -1,3 +1,8 @@
+## 2026-10-22 | Physical material usage and independent correction, P5-PROC-06 — DETACHED CI-GATED
+Saved inspectable successor of 9e02224c, repairs 9e02224c run39804242468 backend FAILED, 54c4163a run39806479693 E2E FAILED, 2bd98911 run39852464256 security FAILED; patched f33e3a12/run39853320347 security FAILED (platform-admin); c3dd281a/run39853694091 pending six-job CI. Backend work-order issue of actual received stock, per-order locked physical conservation and prevention of reversing already consumed receipt quantities; immutable issue/reversal evidence and independent Owner/Admin decision; property/organization/actor scoping; staff UI for issue and audited correction; explicit NO GL, payable, tenant charge or supplier confirmation. New Alembic a15b6c7d8e90 extends model schema to 217 with SQLite/Postgres guards on both fresh bootstrap and upgrade; browser/backend tests exercise real use/retries/denials. Unpublished, unverified, full Phase 5 OPEN. Before promotion inspect code/CI and preserve one writer.
+
+---
+
 ## 2026-10-22 | P5-PM-05 bounded due backlog catch-up VERIFIED at exact SHA
 2d709e9e2db013b2a290a3cc9f0665d3ae422126, run39774116416: backend, frontend, platform-admin, security, e2e, staging-config ALL SUCCESS. The authorized operator may explicitly create up to twelve overdue tenantless work orders, each with immutable occurrence/audit evidence and safe replay, with actual browser E2E. This is not unattended dispatch, tenant billing, entry authority or complete P5-PM-05 acceptance. Next independent approved workflow is P5-PROC-06 internal purchasing/physical stock candidate; still needs its own hosted CI.
 

@@ -1,3 +1,8 @@
+## 2026-10-22 | P5-PROC-06 usage versus financial release gap
+Documented predecessor procurement physical receipts are published but not CI verified: run39778085927 FAILED 3 backend migration/bootstrap expectations, repairs 9e02224c backend FAILED and 54c4163a E2E FAILED; 2bd98911/run39852464256 security FAILED; f33e3a12/run39853320347 security FAILED for platform-admin; c3dd281a/run39853694091 patches both app locks and awaits six-green. Independent attached DETACHED issue/usage + reversal backend/UI/tests builds only on authentic physical receiving from that source, denies cross-property and foreign actors, preserves conservation and idempotent retry. No external supplier confirmation, stock valuation GL entry, bill, payment, tenant charge or production issue release. Full procurement line items, external/operator/security/restore acceptance and P5-FIN-07 remain OPEN.
+
+---
+
 ## 2026-10-22 | Verified preventive bounded catch-up versus unresolved PM acceptance
 P5-PM-05 source 2d709e9e / run39774116416 has all six required hosted jobs SUCCESS: staff manual up-to-12 occurrence catch-up, tenantless/no-charge, replay and browser test. This confirms this bounded workflow, not later scheduler restore/production acceptance, stock, external messaging or finance. Continue approved dependencies.
 

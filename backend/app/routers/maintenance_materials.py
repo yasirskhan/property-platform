@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
-from app.models.maintenance_material import MaintenanceMaterialOrder as Order, MaintenanceMaterialMovement as Movement
+from app.models.maintenance_material import (MaintenanceMaterialOrder as Order,
+    MaintenanceMaterialMovement as Movement, MaintenanceMaterialIssue as Issue)
 from app.models.audit_log import AuditLog
-from app.models.property import Property, PropertyAssignment
+from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import User, UserRole, Organization
 from app.models.vendor import Vendor
 from app.models.work_order import WorkOrder
@@ -49,6 +50,14 @@ class Receipt(BaseModel):
 class Correction(BaseModel):
     model_config = ConfigDict(extra="forbid")
     reason: str = Field(min_length=10, max_length=1000)
+
+
+class IssueStock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    target_work_order_id: int = Field(ge=1)
+    reference: str = Field(min_length=3, max_length=100)
+    quantity: int = Field(ge=1, le=10000)
+    notes: str = Field(min_length=10, max_length=1000)
 
 
 def _staff(db: Session, user: User) -> None:
@@ -111,6 +120,79 @@ def _net(db: Session, row: Order) -> int:
     if any(org != row.organization_id for org, _ in quantities):
         raise HTTPException(409, "Foreign-company stock movement binding detected")
     return sum(int(qty) for _, qty in quantities)
+
+
+def _issues(db: Session, row: Order) -> list[Issue]:
+    """Validate each issued unit and every immutable source/actor/audit binding."""
+    items = db.query(Issue).filter(Issue.material_order_id == row.id).order_by(
+        Issue.id.asc()).limit(201).all()
+    if len(items) > 200:
+        raise HTTPException(409, "Material usage history limit reached")
+    if items and row.status != "APPROVED":
+        raise HTTPException(409, "Unapproved stock issue integrity violation")
+    origins = {item.id: item for item in items if item.delta_qty > 0}
+    reversals = set()
+    for item in items:
+        if item.organization_id != row.organization_id:
+            raise HTTPException(409, "Cross-company stock issue binding detected")
+        actor = db.query(User.id).filter(
+            User.id == item.issued_by_id, User.organization_id == row.organization_id,
+        ).first()
+        target = db.query(WorkOrder).filter(WorkOrder.id == item.target_work_order_id).first()
+        if (actor is None or target is None or target.property_id != row.property_id
+                or db.query(Unit.id).filter(
+                    Unit.id == target.unit_id, Unit.property_id == row.property_id,
+                ).first() is None):
+            raise HTTPException(409, "Stock issue target or actor binding invalid")
+        if item.delta_qty < 0:
+            source = origins.get(item.reverses_id)
+            if (source is None or source.delta_qty != -item.delta_qty
+                    or source.target_work_order_id != item.target_work_order_id
+                    or source.id >= item.id
+                    or item.reverses_id in reversals):
+                raise HTTPException(409, "Stock issue reversal integrity violation")
+            reversals.add(item.reverses_id)
+        elif item.reverses_id is not None:
+            raise HTTPException(409, "Original stock issue references a reversal")
+        audit_action = "stock_issue_reversed" if item.delta_qty < 0 else "stock_issued_to_work_order"
+        audit = db.query(AuditLog).filter(
+            AuditLog.organization_id == row.organization_id,
+            AuditLog.entity_type == "maintenance_material_issue",
+            AuditLog.entity_id == item.id, AuditLog.action == audit_action,
+        ).one_or_none()
+        try:
+            details = json.loads(audit.new_value or "{}") if audit else {}
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(409, "Stock issue audit is corrupt") from exc
+        if (audit is None or audit.user_id != item.issued_by_id
+                or details.get("material_order_id") != row.id
+                or details.get("target_work_order_id") != item.target_work_order_id
+                or details.get("property_id") != row.property_id
+                or details.get("sku") != row.sku
+                or details.get("unit_cost_cents") != row.unit_cost_cents
+                or details.get("reference") != item.reference
+                or details.get("delta_qty") != item.delta_qty
+                or details.get("reverses_id") != item.reverses_id
+                or details.get("reason") != item.reason):
+            raise HTTPException(409, "Stock issue immutable audit binding mismatch")
+    used = sum(item.delta_qty for item in items)
+    if used < 0 or used > _net(db, row):
+        raise HTTPException(409, "Physical stock conservation violation")
+    return items
+
+
+def _available(db: Session, row: Order) -> int:
+    return _net(db, row) - sum(item.delta_qty for item in _issues(db, row))
+
+
+def _issue_out(item: Issue) -> dict:
+    return {
+        "id": item.id, "material_order_id": item.material_order_id,
+        "target_work_order_id": item.target_work_order_id,
+        "reference": item.reference, "delta_qty": item.delta_qty,
+        "issued_by_id": item.issued_by_id, "reverses_id": item.reverses_id,
+        "reason": item.reason, "recorded_at": item.recorded_at,
+    }
 
 
 def _assert_original_approval_evidence(db: Session, row: Order) -> None:
@@ -180,7 +262,12 @@ def _out(db: Session, row: Order) -> dict:
         raise HTTPException(409, "Foreign-company movement actor binding detected")
     if sum(x.delta_qty for x in events) < 0 or sum(x.delta_qty for x in events) > row.requested_qty:
         raise HTTPException(409, "Physical receipt quantity integrity violation")
+    issues = _issues(db, row)
+    issued = sum(item.delta_qty for item in issues)
     return {
+        "available_stock": sum(event.delta_qty for event in events) - issued,
+        "net_issued": issued,
+        "material_issues": [_issue_out(item) for item in issues],
         "id": row.id, "organization_id": row.organization_id,
         "property_id": row.property_id, "work_order_id": row.work_order_id,
         "vendor_id": row.vendor_id, "request_key": row.request_key, "sku": row.sku, "item_name": row.item_name,
@@ -381,11 +468,14 @@ def reverse_receipt(order_id: int, movement_id: int, payload: Correction,
         raise HTTPException(403, "Receiver cannot independently reverse own receipt")
     previous = db.query(Movement).filter(Movement.reverses_id == original.id).first()
     if previous is not None:
-        if previous.reason == payload.reason.strip():
+        if (previous.reason == payload.reason.strip()
+                and previous.received_by_id == current_user.id):
             return _out(db, row)
-        raise HTTPException(409, "Original receipt already reversed")
-    if _net(db, row) < original.delta_qty:
-        raise HTTPException(409, "Stock cannot become negative")
+        raise HTTPException(409, "Original receipt already reversed by another decision")
+    if _net(db, row) - original.delta_qty < sum(
+        event.delta_qty for event in _issues(db, row)
+    ):
+        raise HTTPException(409, "Receipt reversal would consume allocated stock")
     if db.query(Movement.id).filter(Movement.order_id == row.id).count() >= 200:
         raise HTTPException(409, "Manual receiving history limit reached")
     reversal = Movement(
@@ -408,6 +498,113 @@ def reverse_receipt(order_id: int, movement_id: int, payload: Correction,
                    "property_id": row.property_id, "sku": row.sku,
                    "quantity_delta": reversal.delta_qty, "reason": reversal.reason,
                    "financial_posted": False},
+    )
+    db.commit()
+    return _out(db, row)
+
+
+
+
+@router.post("/orders/{order_id}/issue", status_code=201)
+def issue_materials(order_id: int, payload: IssueStock,
+                    db: Session = Depends(get_db),
+                    current_user: User = Depends(get_current_user)):
+    """Record actual physical usage against a specific authorized work order."""
+    row = _purchase(db, current_user, order_id, write=True)
+    if row.status != "APPROVED":
+        raise HTTPException(409, "Material source must have independent approval")
+    target, property_row = _work(db, current_user, payload.target_work_order_id, write=True)
+    if property_row.id != row.property_id or target.property_id != row.property_id:
+        raise HTTPException(409, "Material stock cannot cross properties")
+    reference = payload.reference.strip()
+    if reference.upper().startswith("REV-USE-"):
+        raise HTTPException(422, "REV-USE references are reserved for independent reversal")
+    existing = db.query(Issue).filter_by(material_order_id=row.id, reference=reference).first()
+    if existing is not None:
+        if (existing.delta_qty == payload.quantity
+                and existing.target_work_order_id == target.id
+                and existing.reason == payload.notes.strip()
+                and existing.issued_by_id == current_user.id
+                and existing.reverses_id is None):
+            return _out(db, row)
+        raise HTTPException(409, "Conflicting material usage reference")
+    if len(_issues(db, row)) >= 200:
+        raise HTTPException(409, "Material usage history limit reached")
+    if _available(db, row) < payload.quantity:
+        raise HTTPException(409, "Insufficient unallocated physical stock")
+    issue = Issue(
+        organization_id=row.organization_id, material_order_id=row.id,
+        target_work_order_id=target.id, reference=reference,
+        delta_qty=payload.quantity, issued_by_id=current_user.id,
+        reason=payload.notes.strip(),
+    )
+    db.add(issue)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Concurrent material issue; reload before retrying") from exc
+    append_audit_log(
+        db, organization_id=row.organization_id, user_id=current_user.id,
+        entity_type="maintenance_material_issue", entity_id=issue.id,
+        action="stock_issued_to_work_order",
+        new_value={"material_order_id": row.id, "property_id": row.property_id,
+                   "target_work_order_id": target.id, "reference": reference,
+                   "delta_qty": payload.quantity, "reverses_id": None,
+                   "reason": issue.reason, "sku": row.sku,
+                   "unit_cost_cents": row.unit_cost_cents,
+                   "gl_posted": False, "tenant_charged": False},
+    )
+    db.commit()
+    return _out(db, row)
+
+
+@router.post("/orders/{order_id}/issues/{issue_id}/reverse")
+def reverse_material_issue(order_id: int, issue_id: int, payload: Correction,
+                           db: Session = Depends(get_db),
+                           current_user: User = Depends(get_current_user)):
+    row = _purchase(db, current_user, order_id, write=True)
+    if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
+        raise HTTPException(403, "Independent Owner/Admin issue reversal required")
+    previous = db.query(Issue).filter(
+        Issue.material_order_id == row.id, Issue.id == issue_id,
+        Issue.organization_id == row.organization_id, Issue.delta_qty > 0,
+    ).first()
+    if previous is None:
+        raise HTTPException(404, "Original physical stock issue not found")
+    if previous.issued_by_id == current_user.id:
+        raise HTTPException(403, "Issuer cannot reverse own stock issue")
+    existing = db.query(Issue).filter_by(reverses_id=previous.id).first()
+    if existing is not None:
+        if (existing.reason == payload.reason.strip()
+                and existing.issued_by_id == current_user.id):
+            return _out(db, row)
+        raise HTTPException(409, "Stock issue was already reversed by another decision")
+    if len(_issues(db, row)) >= 200:
+        raise HTTPException(409, "Material usage history limit reached")
+    reversal = Issue(
+        organization_id=row.organization_id, material_order_id=row.id,
+        target_work_order_id=previous.target_work_order_id,
+        reference="REV-USE-" + str(previous.id),
+        delta_qty=-previous.delta_qty, issued_by_id=current_user.id,
+        reverses_id=previous.id, reason=payload.reason.strip(),
+    )
+    db.add(reversal)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Concurrent issue reversal; reload before retrying") from exc
+    append_audit_log(
+        db, organization_id=row.organization_id, user_id=current_user.id,
+        entity_type="maintenance_material_issue", entity_id=reversal.id,
+        action="stock_issue_reversed",
+        new_value={"material_order_id": row.id, "property_id": row.property_id,
+                   "target_work_order_id": reversal.target_work_order_id,
+                   "reference": reversal.reference, "delta_qty": reversal.delta_qty,
+                   "reverses_id": previous.id, "reason": reversal.reason,
+                   "sku": row.sku, "unit_cost_cents": row.unit_cost_cents,
+                   "gl_posted": False, "tenant_charged": False},
     )
     db.commit()
     return _out(db, row)
@@ -449,5 +646,32 @@ def stock_at_property(property_id: int = Query(ge=1),
     ).group_by(Order.sku).all()
     if any(int(total) < 0 for _, _, total in counts):
         raise HTTPException(409, "Physical stock count integrity violation")
-    return [{"sku": sku, "item_name": name, "quantity": int(total)}
-            for sku, name, total in counts if total]
+    by_sku = {sku: {"sku": sku, "item_name": name, "quantity": int(total)}
+              for sku, name, total in counts}
+    # The property lock used in all issue/receiving writes protects this
+    # physical count against simultaneous source-order allocations.
+    issued = db.query(Issue, Order, WorkOrder).join(
+        Order, Issue.material_order_id == Order.id,
+    ).outerjoin(
+        WorkOrder, Issue.target_work_order_id == WorkOrder.id,
+    ).filter(
+        Order.organization_id == current_user.organization_id,
+        Order.property_id == property_id,
+    ).all()
+    for event, source, target in issued:
+        if (event.organization_id != source.organization_id
+                or target is None or target.property_id != property_id
+                or source.status != "APPROVED"):
+            raise HTTPException(409, "Property stock issue binding integrity violation")
+    # Validate immutable audit and reversal structures before trusting totals.
+    for source_id in {source.id for _, source, _ in issued}:
+        source = next(order for _, order, _ in issued if order.id == source_id)
+        _issues(db, source)
+    for event, source, _ in issued:
+        if source.sku not in by_sku:
+            raise HTTPException(409, "Stock issue has no received source")
+        by_sku[source.sku]["quantity"] -= event.delta_qty
+    if any(row["quantity"] < 0 for row in by_sku.values()):
+        raise HTTPException(409, "Property stock physical conservation violation")
+    return [row for row in sorted(by_sku.values(), key=lambda item: item["sku"])
+            if row["quantity"] > 0]

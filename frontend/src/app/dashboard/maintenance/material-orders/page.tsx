@@ -14,6 +14,9 @@ type Order = {
   vendor_delivery_confirmed:boolean;gl_posted:boolean;tenant_charged:boolean;
 };
 type Stock = {sku:string;item_name:string;quantity:number};
+type Issue = {id:number;material_order_id:number;target_work_order_id:number;
+  reference:string;delta_qty:number;issued_by_id:number;reverses_id:number|null;reason:string};
+type StockOrder = Order & {available_stock:number;net_issued:number;material_issues:Issue[]};
 
 export default function MaterialOrdersPage() {
   const [actor,setActor] = useState<Actor|null>(null);
@@ -26,16 +29,17 @@ export default function MaterialOrdersPage() {
   const [quantity,setQuantity] = useState("1");
   const [unitCost,setUnitCost] = useState("0");
   const [reason,setReason] = useState("");
-  const [orders,setOrders] = useState<Order[]>([]);
+  const [orders,setOrders] = useState<StockOrder[]>([]);
   const [reviews,setReviews] = useState<Record<number,string>>({});
   const [receipts,setReceipts] = useState<Record<number,{reference:string;quantity:string;notes:string}>>({});
+  const [allocations,setAllocations] = useState<Record<number,{reference:string;quantity:string;notes:string;target:string}>>({});
   const [stock,setStock] = useState<{property:number;rows:Stock[]}|null>(null);
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
   const [message,setMessage] = useState("");
 
   async function refresh() {
-    const result = await apiGet("/api/maintenance/materials/orders?limit=100") as Order[];
+    const result = await apiGet("/api/maintenance/materials/orders?limit=100") as StockOrder[];
     if(!Array.isArray(result))throw new Error("Invalid purchasing list");
     setStock(null);
     setOrders(result);
@@ -110,6 +114,39 @@ export default function MaterialOrdersPage() {
     finally{setBusy(false);}
   }
 
+  async function allocateStock(event:FormEvent<HTMLFormElement>, row:StockOrder) {
+    event.preventDefault();
+    const draft=allocations[row.id];
+    if(!draft||busy)return;
+    setBusy(true);setError("");setMessage("");
+    try {
+      await apiPost("/api/maintenance/materials/orders/"+row.id+"/issue",{
+        target_work_order_id:Number(draft.target),
+        reference:draft.reference.trim(),quantity:Number(draft.quantity),
+        notes:draft.notes.trim(),
+      });
+      await refresh();
+      setStock(null);
+      setMessage("Physical stock issued to an authorized work order and audited. No GL posting or tenant charge.");
+    }catch(cause){setError(cause instanceof Error?cause.message:"Stock issue failed");}
+    finally{setBusy(false);}
+  }
+
+  async function reverseStockIssue(row:StockOrder, issue:Issue) {
+    const reason=window.prompt("Independent stock issue reversal reason (at least 10 characters):");
+    if(reason===null)return;
+    if(reason.trim().length<10){setError("Reason must contain at least 10 characters");return;}
+    setBusy(true);setError("");setMessage("");
+    try {
+      await apiPost("/api/maintenance/materials/orders/"+row.id+"/issues/"+issue.id+"/reverse",{
+        reason:reason.trim(),
+      });
+      await refresh();setStock(null);
+      setMessage("Independent stock-use reversal recorded without changing original evidence or posting money.");
+    }catch(cause){setError(cause instanceof Error?cause.message:"Stock issue reversal failed");}
+    finally{setBusy(false);}
+  }
+
   async function reverse(row:Order,movement:Movement){
     const reason=window.prompt("Independent correction reason (at least 10 characters):");
     if(reason===null)return;
@@ -135,6 +172,11 @@ export default function MaterialOrdersPage() {
   }
 
   const reviewRole = actor && ["ADMIN","OWNER"].includes(String(actor.role).toUpperCase());
+  const allocationField=(id:number,field:"reference"|"quantity"|"notes"|"target",value:string)=>
+    setAllocations(old=>{
+      const previous=old[id] ?? {reference:"",quantity:"1",notes:"",target:""};
+      return {...old,[id]:{...previous,[field]:value}};
+    });
   const receiptField=(id:number,field:"reference"|"quantity"|"notes",value:string)=>
     setReceipts(old=>{
       const previous=old[id] ?? {reference:"",quantity:"1",notes:""};
@@ -143,7 +185,7 @@ export default function MaterialOrdersPage() {
   return <main className="space-y-5">
     <Link href="/dashboard/maintenance/work-orders" className="text-blue-800 underline">Back to maintenance work orders</Link>
     <h1 className="text-2xl font-semibold">Material purchasing and physical receipts</h1>
-    <p className="text-sm text-amber-800">Internal requests and staff-attested stock only. Supplier contact, invoices, payables, GL posting and tenant charges are NOT activated. Insurance/compliance verification and real supplier delivery are separate requirements.</p>
+    <p className="text-sm text-amber-800">Internal requests, staff-attested receipts and documented work-order use only. Supplier contact, invoices, payables, GL posting and tenant charges are NOT activated. Insurance/compliance verification and real supplier delivery are separate requirements.</p>
     {error && <p role="alert" className="rounded border p-3 text-red-700">{error}</p>}
     {message && <p role="status" className="rounded border p-3">{message}</p>}
     {!actor && !error && <p role="status">Verifying staff access…</p>}
@@ -198,7 +240,7 @@ export default function MaterialOrdersPage() {
         {orders.length===0 && <p>No material requests available for your current properties.</p>}
         {orders.map(row=><article key={row.id} className="space-y-3 rounded-lg border p-4">
           <h3 className="font-semibold">Purchase #{row.id}: {row.item_name} ({row.sku})</h3>
-          <p className="text-sm">Status: {row.status} · Requested {row.requested_qty} · Net received {row.net_received} · Unit cost {(row.unit_cost_cents/100).toFixed(2)} USD</p>
+          <p className="text-sm">Status: {row.status} · Requested {row.requested_qty} · Net received {row.net_received} · Issued to work orders {row.net_issued} · Available from this request {row.available_stock} · Unit cost {(row.unit_cost_cents/100).toFixed(2)} USD</p>
           <p className="text-sm">Vendor #{row.vendor_id} · Property #{row.property_id} · Requested by user #{row.requested_by_id}</p>
           <p className="text-sm">Reason: {row.reason}</p>
           <Link className="text-sm text-blue-800 underline" href={"/dashboard/maintenance/work-orders/"+row.work_order_id}>
@@ -233,6 +275,48 @@ export default function MaterialOrdersPage() {
             </label>
             <button disabled={busy} className="rounded border px-3 py-2 text-sm" type="submit">Record received stock</button>
           </form>}
+          {row.status==="APPROVED" && row.available_stock>0 && <form
+            onSubmit={event=>void allocateStock(event,row)} className="space-y-2 rounded border p-3">
+            <h4 className="font-semibold text-sm">Record actual stock use against a work order</h4>
+            <p className="text-xs">Only approved stock already physically received may be used. Work order must belong to this property. This does not book a financial expense or tenant charge.</p>
+            <label className="block text-sm">Target work order number
+              <input required min="1" type="number" aria-label={"Material issue work order "+row.id}
+                className="mt-1 block w-full rounded border p-2" value={allocations[row.id]?.target||""}
+                onChange={event=>allocationField(row.id,"target",event.target.value)}/>
+            </label>
+            <label className="block text-sm">Issue reference
+              <input required minLength={3} maxLength={100}
+                aria-label={"Material issue reference "+row.id}
+                className="mt-1 block w-full rounded border p-2" value={allocations[row.id]?.reference||""}
+                onChange={event=>allocationField(row.id,"reference",event.target.value)}/>
+            </label>
+            <label className="block text-sm">Physical units used
+              <input required min="1" max={row.available_stock} type="number"
+                aria-label={"Material issue quantity "+row.id}
+                className="mt-1 block w-full rounded border p-2" value={allocations[row.id]?.quantity||"1"}
+                onChange={event=>allocationField(row.id,"quantity",event.target.value)}/>
+            </label>
+            <label className="block text-sm">Usage / work performed evidence
+              <textarea required minLength={10} maxLength={1000}
+                aria-label={"Material issue notes "+row.id}
+                className="mt-1 block w-full rounded border p-2" value={allocations[row.id]?.notes||""}
+                onChange={event=>allocationField(row.id,"notes",event.target.value)}/>
+            </label>
+            <button type="submit" disabled={busy}
+              className="rounded border px-3 py-2 text-sm disabled:opacity-50">Record physical material usage</button>
+          </form>}
+          {row.material_issues.length>0 && <div className="text-sm space-y-1">
+            <h4 className="font-semibold">Immutable work-order material usage</h4>
+            {row.material_issues.map(issue=><p key={issue.id}>
+              Usage #{issue.id} · {issue.delta_qty>0?"+":""}{issue.delta_qty} units used · {issue.reference}
+              {" · "}work order #{issue.target_work_order_id} · by user #{issue.issued_by_id}
+              {issue.reverses_id?" · reverses usage #"+issue.reverses_id:""}
+              {issue.delta_qty>0 && reviewRole && actor!.id!==issue.issued_by_id &&
+                !row.material_issues.some(previous=>previous.reverses_id===issue.id) &&
+                <button type="button" disabled={busy} className="ml-2 underline"
+                  onClick={()=>void reverseStockIssue(row,issue)}>Reverse material usage</button>}
+            </p>)}
+          </div>}
           {row.physical_receipts.length>0 && <div className="text-sm">
             <h4 className="font-semibold">Immutable physical movement history</h4>
             {row.physical_receipts.map(event=><p key={event.id}>

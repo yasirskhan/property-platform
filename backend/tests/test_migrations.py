@@ -10,8 +10,8 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "c5d91a7e2f60"
-EXPECTED_MODEL_TABLES = 216
+EXPECTED_HEAD = "a15b6c7d8e90"
+EXPECTED_MODEL_TABLES = 217
 
 
 def _run(command: list[str], database_url: str) -> subprocess.CompletedProcess[str]:
@@ -94,6 +94,24 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
             "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_movements'"
         )}
         assert {"material_movement_no_update", "material_movement_no_delete"} <= movement_triggers
+        issue_triggers = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_issues'"
+        )}
+        assert {"material_issue_no_update", "material_issue_no_delete"} <= issue_triggers
+        # Verify the fresh path rejects SQL tampering with consumed stock too.
+        conn.execute("""INSERT INTO maintenance_material_issues
+            (organization_id, material_order_id, target_work_order_id,
+             reference, delta_qty, issued_by_id, reason, recorded_at)
+            VALUES (1,1,1,'bootstrap-issue-probe',1,1,'Test only','2026-10-22')""")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute("""UPDATE maintenance_material_issues
+                SET delta_qty=2 WHERE reference='bootstrap-issue-probe'""")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute("""DELETE FROM maintenance_material_issues
+                WHERE reference='bootstrap-issue-probe'""")
+        assert "maintenance_material_issues" in {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         # Bootstrap must enforce immutability, not merely stamp migration head.
         # This isolated test row intentionally has no related business records.
         conn.execute("""INSERT INTO maintenance_material_movements

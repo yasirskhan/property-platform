@@ -1,3 +1,10 @@
+## 2026-10-22 | P5-PROC-06 material issue/use stock conservation candidate
+- Published purchasing receipt base 1c0fb5996 CI run39778085927 FAILED backend bootstrap parity; repairs 9e02224c backend red, 54c4163a E2E red, 2bd98911 run39852464256 security FAILED; f33e3a12 patches Next.js 16.4.2 and React 19.2.9, run39853320347 security FAILED for platform-admin; c3dd281a patches both apps, run39853694091 pending six-green.
+- Unpublished DETACHED successor adds material issue/reversal route, source-order lock, same-property work-order binding, independent correction, immutable SQL/ORM stock evidence, authorized staff browser UI, failure/replay/security tests. Physical usage is NOT supplier proof or GL posting; operator and final financial acceptance OPEN.
+- The previous P5-INSP-04 f192562d5/run39722811542 and P5-PM-05 2d709e9e/run39774116416 each achieved all-six hosted SUCCESS. Earlier stale sections below are historical snapshots, not current CI state.
+
+---
+
 ## 2026-10-22 | Exact hosted Phase 5 maintenance verification
 - P5-INSP-04 original SHA-256/organization/inspection-bound offline photo acknowledgment f192562d5/run39722811542 ALL SIX SUCCESS; offline/mobile/operator acceptance still OPEN.
 - P5-PM-05 bounded operator backlog recovery 2d709e9e/run39774116416 ALL SIX SUCCESS; final P5-PM acceptance still OPEN.

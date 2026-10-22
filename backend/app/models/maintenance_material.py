@@ -55,3 +55,31 @@ class MaintenanceMaterialMovement(Base):
     reverses_id = Column(Integer, ForeignKey("maintenance_material_movements.id", ondelete="RESTRICT"))
     reason = Column(Text, nullable=False)
     recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class MaintenanceMaterialIssue(Base):
+    """Append-only issue/use allocation; negative rows reverse original issues.
+
+    Source is one approved purchase order on the SAME property; consumption
+    never posts a GL entry, creates a payable or charges a tenant.
+    """
+    __tablename__ = "maintenance_material_issues"
+    __table_args__ = (
+        UniqueConstraint("material_order_id", "reference", name="uq_material_issue_reference"),
+        UniqueConstraint("reverses_id", name="uq_material_issue_reversal"),
+        CheckConstraint("delta_qty != 0 AND delta_qty BETWEEN -10000 AND 10000",
+                        name="ck_material_issue_quantity"),
+    )
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="RESTRICT"),
+                             nullable=False, index=True)
+    material_order_id = Column(Integer, ForeignKey("maintenance_material_orders.id", ondelete="RESTRICT"),
+                               nullable=False, index=True)
+    target_work_order_id = Column(Integer, ForeignKey("work_orders.id", ondelete="RESTRICT"),
+                                  nullable=False)
+    reference = Column(String(100), nullable=False)
+    delta_qty = Column(Integer, nullable=False)
+    issued_by_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    reverses_id = Column(Integer, ForeignKey("maintenance_material_issues.id", ondelete="RESTRICT"))
+    reason = Column(Text, nullable=False)
+    recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
