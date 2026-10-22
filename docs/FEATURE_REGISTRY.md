@@ -1,3 +1,7 @@
+## 2026-10-21 | Private inspection photo evidence candidate, exact CI required
+
+Bounded photo upload and authorized view/download on immutable staff inspection records, content-hash retry key, independent review seal, tenant/foreign denial, audit and staff UI. Full P5-INSP-04 offline/mobile requirements remain OPEN and production release unchanged.
+
 ## 2026-10-21 Phase 5 independent review queue - exact CI required
 
 New authorized review queue for pending or reviewed unit inspection evidence, self-inspector exclusion, actual staff filter and same-organization independent reviewer identity with fail-closed corrupt foreign pointer and backend/browser tests. Not complete offline/photo evidence or operator acceptance. Source predecessor 66c7ffa49/run 39681565435 all six SUCCESS.

@@ -1,3 +1,7 @@
+## 2026-10-21 | P5-INSP-04 evidence and offline gap
+
+New photo evidence upload/review seal is a candidate requiring six-job CI and is not offline synchronization or operator approval. Virus scanning, source-mobile capture resilience and complete acceptance remain open; no automatic release.
+
 ## 2026-10-21 | Preventive recovery successor pending exact CI
 
 Bulk authorized health review is VERIFIED at 07dbcbfe, run 39677973524 (six SUCCESS). New blocked-only operator recovery UI/reason codes and post-revocation replay regression require exact successor six-job CI. This closes neither the complete PM recovery acceptance nor operator-release/financial/provider dependencies.
