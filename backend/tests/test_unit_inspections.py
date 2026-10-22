@@ -927,6 +927,18 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
             asyncio.run(inspection_router.upload_inspection_photo(
                 record.id, upload(b"not an image"), db=db, current_user=manager))
         assert forged.value.status_code == 422
+        original_os_open = inspection_router.os.open
+        def storage_failure(*args, **kwargs):
+            raise PermissionError("simulated attachment storage outage")
+        monkeypatch.setattr(inspection_router.os, "open", storage_failure)
+        with pytest.raises(PermissionError, match="storage outage"):
+            asyncio.run(inspection_router.upload_inspection_photo(
+                record.id, upload(), db=db, current_user=manager))
+        monkeypatch.setattr(inspection_router.os, "open", original_os_open)
+        assert db.query(EntityAttachment).count() == 0
+        assert db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_photo").count() == 0
+
         with pytest.raises(HTTPException) as wrong_extension:
             asyncio.run(inspection_router.upload_inspection_photo(
                 record.id,
