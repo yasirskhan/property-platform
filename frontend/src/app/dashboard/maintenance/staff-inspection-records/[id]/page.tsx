@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiPost, getToken } from "@/lib/api";
+import {pendingPhotos, savePending, discardPending, type PendingPhoto} from "@/lib/offlineInspectionPhotos";
 
 type ChecklistItem = { area: string; condition: string; notes: string };
 type FollowUp = { id: number; title: string; status: string; priority: string };
@@ -40,7 +41,9 @@ export default function StaffInspectionDetailPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState("");
-  const [actor, setActor] = useState<{ id: number; role: string } | null>(null);
+  const [localPhotos, setLocalPhotos] = useState<PendingPhoto[]>([]);
+  const [syncingLocal, setSyncingLocal] = useState(false);
+  const [actor, setActor] = useState<{ id: number; role: string; organization_id:number } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -81,7 +84,7 @@ export default function StaffInspectionDetailPage() {
   useEffect(() => {
     let active = true;
     apiGet("/auth/me")
-      .then((user: { id: number; role: string }) => { if (active) setActor(user); })
+      .then((user: { id: number; role: string; organization_id:number }) => { if (active) setActor(user); })
       .catch(() => { if (active) setReviewError("Unable to verify reviewer identity."); });
     return () => { active = false; };
   }, []);
@@ -130,6 +133,42 @@ export default function StaffInspectionDetailPage() {
     } catch (err) { setPhotoError(err instanceof Error ? err.message : "Upload failed"); }
     finally { setPhotoBusy(false); }
   }
+  async function loadLocalPhotos() {
+    if(actor&&record) setLocalPhotos(await pendingPhotos(actor.id,actor.organization_id,record.id));
+  }
+  useEffect(()=>{
+    if(!actor||!record)return;
+    loadLocalPhotos().catch(e=>setPhotoError(e instanceof Error?e.message:"Local photos unavailable"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[actor?.id,record?.id]);
+  async function queueOfflinePhoto(){
+    if(!actor||!record||!photoFile||review||photoBusy)return;
+    setPhotoBusy(true);setPhotoError("");
+    try{await savePending(actor.id,actor.organization_id,record.id,photoFile);setPhotoFile(null);await loadLocalPhotos();}
+    catch(e){setPhotoError(e instanceof Error?e.message:"Local save failed");}
+    finally{setPhotoBusy(false);}
+  }
+  async function syncLocalPhotos(){
+    if(!actor||!record||review||syncingLocal)return;
+    setSyncingLocal(true);setPhotoError("");
+    try{
+      const items=await pendingPhotos(actor.id,actor.organization_id,record.id);
+      for(const item of items){
+        const form=new FormData();
+        form.append("file",new File([item.body],item.name,{type:item.mime}));
+        await photoRequest(`/api/unit-inspections/${record.id}/photos`,{method:"POST",body:form});
+        await discardPending(item.key);
+      }
+      await reloadPhotos(record.id);
+    }catch(e){setPhotoError((e instanceof Error?e.message:"Sync failed")+". Unsent photos remain on this device.");}
+    finally{await loadLocalPhotos().catch(()=>{});setSyncingLocal(false);}
+  }
+  async function deleteLocalPhoto(key:string){
+    if(!window.confirm("Delete this unsent photo from this device?"))return;
+    try{await discardPending(key);await loadLocalPhotos();}
+    catch(e){setPhotoError(e instanceof Error?e.message:"Delete failed");}
+  }
+
   async function downloadPhoto(photoId: number, filename: string) {
     if (!record) return;
     try {
@@ -215,10 +254,23 @@ export default function StaffInspectionDetailPage() {
         {!review && <div className="space-y-2">
           <input aria-label="Inspection photo" type="file" accept="image/jpeg,image/png,image/webp"
             onChange={(event) => setPhotoFile(event.target.files?.[0] || null)} />
+          <button type="button" disabled={!photoFile || photoBusy || !actor} onClick={() => void queueOfflinePhoto()}
+            className="rounded border px-3 py-2 disabled:opacity-50">Save locally to sync later</button>
           <button type="button" disabled={!photoFile || photoBusy} onClick={() => void uploadPhoto()}
             className="rounded border px-3 py-2 disabled:opacity-50">
             {photoBusy ? "Uploading photo…" : "Add private evidence"}
           </button>
+        </div>}
+        <p className="text-xs text-amber-800">Local photos are stored on this device without server-side encryption. Do not use on shared devices. No automatic upload occurs.</p>
+        {localPhotos.length>0 && <div className="space-y-2">
+          <p role="status">{localPhotos.length} unsent photos on this device</p>
+          {localPhotos.map(item=><div key={item.key} className="flex gap-2 text-sm">
+            <span>{item.name}</span>
+            <button type="button" onClick={()=>void deleteLocalPhoto(item.key)} className="underline">Delete local photo</button>
+          </div>)}
+          {!review && <button type="button" disabled={syncingLocal || !actor} onClick={()=>void syncLocalPhotos()}
+            className="rounded border px-3 py-2 disabled:opacity-50">{syncingLocal?"Syncing…":"Sync pending photos"}</button>}
+          {review && <p role="alert">This inspection has been sealed. Unsent local photos cannot be added. Delete them locally.</p>}
         </div>}
       </section>
       {review && <section className="space-y-2 rounded-lg border p-3">
