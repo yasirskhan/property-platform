@@ -183,6 +183,15 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
             pw.expect(page.get_by_text(re.compile("Unsent photos remain on this device"))).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("1 unsent photos on this device")).to_be_visible(timeout=15_000)
             page.context.set_offline(False)
+            # Even when transport succeeds, an invalid server acknowledgment must
+            # retain local bytes for replay rather than silently losing evidence.
+            def missing_ack(route):
+                result = route.fetch()
+                route.fulfill(response=result, json={"id": None, "size_bytes": 0})
+            page.route("**/api/unit-inspections/*/photos", missing_ack, times=1)
+            page.get_by_role("button", name="Sync pending photos").click()
+            pw.expect(page.get_by_text("1 unsent photos on this device")).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_text(re.compile("Unsent photos remain on this device"))).to_be_visible(timeout=15_000)
             page.get_by_role("button", name="Sync pending photos").click()
             pw.expect(page.get_by_role("button", name=re.compile("inspection-photo.png"))).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("1 unsent photos on this device")).to_have_count(0)
