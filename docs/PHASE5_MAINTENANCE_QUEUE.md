@@ -1,3 +1,8 @@
+## 2026-10-21 | Inspection offline evidence queue candidate (UNPUBLISHED)
+Device-local IndexedDB photo drafts explicitly saved by staff, bounded and scoped to authenticated user/org/inspection, no stored credentials, manually synced only after reauthorization through existing private-photo API; failures retain unsent data. Disconnected-to-reconnected authenticated browser regression prepared. Pending predecessor green and full candidate CI. This does not establish safe cross-device sync, encryption at rest, or final P5-INSP-04 acceptance.
+
+---
+
 ## 2026-10-21 | Frozen inspection photo review manifest — DETACHED / EXACT CI REQUIRED
 
 Prepared staff review-time manifest of exact private photo IDs and SHA-256 hashes captured in immutable audit, with byte integrity on each read, corruption warnings, denial after role/property revocation, transactional audit-failure rollback and exact idempotent retry regression. This is not offline sync or P5-INSP-04 acceptance. Predecessor 7daf7132/run39703229920 all six SUCCESS; manifest successor requires own exact-SHA CI.

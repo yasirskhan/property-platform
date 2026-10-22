@@ -1,27 +1,26 @@
-# Property Platform | Phase 5 active checkpoint
+# Property Platform | Active Phase 5 checkpoint
+2026-10-21 UTC. ONLY yasirskhan/property-platform branch chatgpt/checkpoint-005-safety. Worker: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b .
+Read AGENTS.md, docs/SESSION_CONTROL.md, Phase 5 acceptance/queue/registers before development.
 
-Observed 2026-10-21 UTC. ONLY repository yasirskhan/property-platform and branch chatgpt/checkpoint-005-safety.
-Worker URL: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b .
-Read AGENTS.md, docs/SESSION_CONTROL.md, docs/PHASE5_ACCEPTANCE_AND_ISSUES.md, queue/feature/issue registers before edits.
-
-## Exact verified history
-- Original five failed backend tests at 8b8f9a36/run39546681328 repaired cb85b75e; its own run cancelled; all-six-green descendant a29fbbb94/run39551777384.
-- E2E failure 43bd41d2/run39636546917 repaired 63bc278d/run39664052218 six SUCCESS.
+## Exact CI history
+- Original five backend failures 8b8f9a36/run39546681328 -> cb85b75e repair (own run cancelled) -> a29fbbb94/run39551777384 all six SUCCESS.
+- 43bd41d2/run39636546917 E2E failed -> 63bc278d/run39664052218 six SUCCESS.
 - PM ce3bfe31/run39667729154 and 07dbcbfe/run39677973524 six SUCCESS.
-- Recovery UI TS2533 at f397f4e0/run39681280883 fixed 66c7ffa49/run39681565435 six SUCCESS.
-- Inspection reviewer/queue 04e73d951aebb2c3a19a4ab81e31f8775b63e1bb/run39695570182 six SUCCESS.
-- Private inspection photo upload/list/download 6c49d9850137810d74a5a5149529e4c9d9c1a249/run39699253318 six SUCCESS.
-- Inspection photo integrity, retry and immutable review-time audit snapshot 7daf7132db1ed6a89289c4c8861b0f2808cac325/run39703229920 six SUCCESS.
+- PM recovery TS2533 f397f4e0/run39681280883 -> 66c7ffa49/run39681565435 six SUCCESS.
+- Inspector reviewer/queue 04e73d95/run39695570182 six SUCCESS.
+- Private photo base 6c49d985/run39699253318 six SUCCESS.
+- Photo hash audit and integrity 7daf7132/run39703229920 six SUCCESS.
+- Photo manifest successor e12cc7c8/run39705097334 FAILED backend test due to fixture using different storage path; repaired 4fbdc8ea23c04a24627127798e66735abe148e73, run39707421759 was IN PROGRESS at preparation. Verify exact six jobs before calling this repair green.
 
-## Current publication / CI required
-- P5-INSP-04 implementation extends scoped staff photo evidence with immutable review-time photo IDs and SHA-256 manifest GET and UI, byte integrity status and corruption warnings, fail-closed corruption before independently sealing review, safe audit/storage outage rollback and exact retry, revoked/foreign/tenant isolation and browser regression coverage. Existing DB parent-row lock serializes upload and review; no provider/financial action.
-- Verify ALL SIX jobs backend/frontend/platform-admin/security/e2e/staging-config at exact new source SHA; read logs and fix underlying failure without weakening assertions. This batch is not VERIFIED while CI is pending.
-- Previous entire root handoff preserved verbatim at docs/AI_HANDOFF_ARCHIVE_2026-10-21_7daf.md; all older archives preserved; any inaccessible unsaved work UNKNOWN.
+## Current unpublished successor
+- Device-local inspection photo drafts through IndexedDB, explicit save, bounded 20 drafts per scoped user/organization/inspection, visible privacy warning, no credential persistence, no background delivery. Manual sync retries on same authenticated inspection-photo API, retains unsent drafts after failure and removes each only after acknowledged server upload. UI and connected/disconnected Playwright test.
+- Candidate is DETACHED at ffffc635592f74d0a61d7597f074ca5246c96219 and must not be published until 4fbdc8ea is all-six-green. Candidate has not undergone hosted CI or independent local compile, and is not yet full offline/mobile acceptance. Verify live HEAD before safe expected_sha force=false push.
 
-## Next
-1. Verify and repair the current manifest successor's exact six-job hosted CI.
-2. Continue approved P5-INSP-04 genuine offline/mobile retry semantics and broader Phase 5 dependencies (smart dispatch, maintenance escalation, procurement, finance) with backend/UI/authorization/audit/regressions, as externally independent.
-3. Reconcile acceptance/issue/feature registers against actual code and test evidence. No Phase 6 until all Phase 5 acceptance evidence complete.
+## Next executable work
+1. Verify all six jobs for repair 4fbdc8ea / run39707421759; fix any failure before publishing another feature.
+2. If green, promote detached offline draft/sync candidate with expected_sha and force=false. Run six jobs at exact SHA and fix actual failures. Review offline draft privacy, failure/retry, revocation and browser evidence.
+3. Complete remaining independent approved Phase5 workflows and reconcile exact acceptance. Do not start Phase6 before every Phase5 exit accepted.
 
-## OPEN/BLOCKED
-P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-INSP-04, P5-PM-05, P5-PROC-06, P5-FIN-07, P5-ACC-08 remain OPEN. Real provider credentials/receipts, settlement and operator acceptance BLOCKED EXTERNAL where required. Production/unattended/provider/finance releases remain OFF. No fabricated delivery, payment or signoff.
+## OPEN gates
+P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-INSP-04, P5-PM-05, P5-PROC-06, P5-FIN-07, P5-ACC-08 remain OPEN. Provider delivery, settlement and operator signoff require actual external evidence. Production unattended/provider/finance switches OFF. Unknown unsaved work UNKNOWN.
+Previous root handoff preserved verbatim at docs/AI_HANDOFF_ARCHIVE_2026-10-21_4fbd.md.

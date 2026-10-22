@@ -1,3 +1,6 @@
+## 2026-10-21 | Offline capture gap
+Explicit local draft/manual authenticated sync is prepared, not published. Sensitive images reside on the local device without server-side encryption; warn users and do not claim secure managed offline sync. Cross-device transfer, mobile lifecycle, storage eviction, operator acceptance remain OPEN.
+
 ## 2026-10-21 | Frozen inspection photo evidence review manifest — CURRENT EXACT CI REQUIRED
 
 Source 7daf7132/run39703229920 has all six jobs SUCCESS for photo byte integrity, duplicate retry, review audit snapshot and safe scope. New substantive successor adds scoped sealed-manifest API/UI with real-byte status, deny after revocation, audit-failure rollback/retry, review preflight against corrupted photos, and backend/browser regressions. The successor is published but NOT VERIFIED until its own exact six-job CI succeeds. Offline synchronization, operator signoff and full P5-INSP-04 acceptance remain OPEN. All production releases OFF.
