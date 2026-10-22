@@ -32,8 +32,8 @@ router = APIRouter(prefix="/api/unit-inspections", tags=["Unit Inspection Record
 # Private inspection evidence is intentionally distinct from generic shareable attachments.
 # Content-derived keys provide exact-upload replay without creating duplicate immutable rows.
 _INSPECTION_MIME = {
-    "image/jpeg": (b"\\xff\\xd8\\xff",),
-    "image/png": (b"\\x89PNG\\r\\n\\x1a\\n",),
+    "image/jpeg": (bytes.fromhex("ffd8ff"),),
+    "image/png": (bytes.fromhex("89504e470d0a1a0a"),),
     "image/webp": (b"RIFF",),
 }
 _MAX_PHOTO_BYTES = 10 * 1024 * 1024
