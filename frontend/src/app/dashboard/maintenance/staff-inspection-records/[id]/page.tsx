@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, getToken } from "@/lib/api";
 
 type ChecklistItem = { area: string; condition: string; notes: string };
 type FollowUp = { id: number; title: string; status: string; priority: string };
@@ -34,6 +34,10 @@ export default function StaffInspectionDetailPage() {
   const [reviewDecision, setReviewDecision] = useState<Review["decision"]>("CONFIRMED");
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewSaving, setReviewSaving] = useState(false);
+  const [photoItems, setPhotoItems] = useState<{id:number;original_name:string;size_bytes:number}[]>([]);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState("");
   const [actor, setActor] = useState<{ id: number; role: string } | null>(null);
 
   useEffect(() => {
@@ -91,6 +95,49 @@ export default function StaffInspectionDetailPage() {
     return () => { active = false; };
   }, [record]);
 
+  const photoBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  async function reloadPhotos(recordId: number) {
+    const result = await apiGet(`/api/unit-inspections/${recordId}/photos`) as typeof photoItems;
+    if (!Array.isArray(result)) throw new Error("Invalid inspection evidence list");
+    setPhotoItems(result);
+  }
+  useEffect(() => {
+    if (!record) return;
+    reloadPhotos(record.id).catch((err) => setPhotoError(err instanceof Error ? err.message : "Photos unavailable"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record?.id]);
+
+  async function photoRequest(path: string, options: RequestInit = {}) {
+    const token = getToken();
+    if (!token) throw new Error("Authentication required");
+    const response = await fetch(`${photoBase}${path}`, {
+      ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error(`Photo request failed (${response.status})`);
+    return response;
+  }
+  async function uploadPhoto() {
+    if (!record || !photoFile || review || photoBusy) return;
+    setPhotoBusy(true); setPhotoError("");
+    try {
+      const body = new FormData();
+      body.append("file", photoFile);
+      await photoRequest(`/api/unit-inspections/${record.id}/photos`, {method:"POST",body});
+      await reloadPhotos(record.id);
+      setPhotoFile(null);
+    } catch (err) { setPhotoError(err instanceof Error ? err.message : "Upload failed"); }
+    finally { setPhotoBusy(false); }
+  }
+  async function downloadPhoto(photoId: number, filename: string) {
+    if (!record) return;
+    try {
+      const response = await photoRequest(`/api/unit-inspections/${record.id}/photos/${photoId}`);
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
+    } catch (err) { setPhotoError(err instanceof Error ? err.message : "Download failed"); }
+  }
+
   async function saveReview() {
     if (!record || reviewSaving || review || reviewNotes.trim().length < 10) return;
     setReviewSaving(true); setReviewError(""); setReviewMessage("");
@@ -141,6 +188,24 @@ export default function StaffInspectionDetailPage() {
           </li>)}
         </ul>}
         {followUps.length === 100 && <p className="text-xs text-slate-500">Showing the most recent 100 linked work orders.</p>}
+      </section>
+      <section className="space-y-3 rounded-lg border p-3">
+        <h3 className="font-semibold">Private inspection photo evidence</h3>
+        <p className="text-xs">JPEG, PNG or WebP. Evidence remains private and cannot be removed or replaced through the inspection workflow. Upload closes after independent review.</p>
+        {photoError && <p role="alert">{photoError}</p>}
+        <ul>{photoItems.map((photo) => <li key={photo.id}>
+          <button type="button" className="underline" onClick={() => void downloadPhoto(photo.id, photo.original_name)}>
+            {photo.original_name} ({photo.size_bytes} bytes)
+          </button>
+        </li>)}</ul>
+        {!review && <div className="space-y-2">
+          <input aria-label="Inspection photo" type="file" accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => setPhotoFile(event.target.files?.[0] || null)} />
+          <button type="button" disabled={!photoFile || photoBusy} onClick={() => void uploadPhoto()}
+            className="rounded border px-3 py-2 disabled:opacity-50">
+            {photoBusy ? "Uploading photo…" : "Add private evidence"}
+          </button>
+        </div>}
       </section>
       <section className="space-y-3 rounded-lg border p-3">
         <h3 className="font-semibold">Independent inspection review</h3>

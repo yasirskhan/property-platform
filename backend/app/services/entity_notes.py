@@ -15,6 +15,7 @@ _FORBIDDEN_TABLES = {
     "audit_log",
     "entity_notes",
     "entity_attachments",
+    "unit_inspection_records",  # Inspection photos use independent private scope, never generic sharing.
     "tax_profiles",  # Tax identifiers must never use generic notes/unencrypted attachments.
     "tax_w9_documents",
     "application_private_details",

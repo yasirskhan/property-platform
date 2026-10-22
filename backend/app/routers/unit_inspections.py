@@ -3,9 +3,17 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 from datetime import date
+from hashlib import sha256
+from pathlib import Path
+from sqlalchemy.exc import IntegrityError
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
+from fastapi.responses import FileResponse
+from app.models.entity_attachment import EntityAttachment
+from app.models.unit_inspection import UnitInspectionRecord, UnitInspectionReview
+from app.services.attachment_storage import attachment_path
+from app.services.audit import append_audit_log
 
 from app.core.database import get_db
 from app.models.user import User
@@ -20,6 +28,132 @@ from app.services.unit_inspections import (get_inspection, list_inspections, rec
     get_inspection_review, independently_review_inspection)
 
 router = APIRouter(prefix="/api/unit-inspections", tags=["Unit Inspection Records"])
+
+# Private inspection evidence is intentionally distinct from generic shareable attachments.
+# Content-derived keys provide exact-upload replay without creating duplicate immutable rows.
+_INSPECTION_MIME = {
+    "image/jpeg": (b"\\xff\\xd8\\xff",),
+    "image/png": (b"\\x89PNG\\r\\n\\x1a\\n",),
+    "image/webp": (b"RIFF",),
+}
+_MAX_PHOTO_BYTES = 10 * 1024 * 1024
+
+
+def _photo_info(db: Session, inspection_id: int, actor: User):
+    if inspection_id < 1:
+        raise HTTPException(status_code=422, detail="Invalid inspection record ID")
+    try:
+        record = get_inspection(db, actor=actor, inspection_id=inspection_id)
+    except ReportDeliveryError as exc:
+        raise _error(exc) from exc
+    return record
+
+
+def _photo_list(db: Session, inspection_id: int, actor: User):
+    record = _photo_info(db, inspection_id, actor)
+    return db.query(EntityAttachment).filter(
+        EntityAttachment.organization_id == actor.organization_id,
+        EntityAttachment.entity_type == "unit_inspection_records",
+        EntityAttachment.entity_id == record.id,
+        EntityAttachment.is_active.is_(True),
+        EntityAttachment.share_with_tenants.is_(False),
+        EntityAttachment.share_with_owners.is_(False),
+    ).order_by(EntityAttachment.id.asc()).limit(100).all()
+
+
+@router.get("/{inspection_id}/photos")
+def list_inspection_photos(inspection_id: int,
+                           db: Session = Depends(get_db),
+                           current_user: User = Depends(get_current_user)):
+    return [{"id": x.id, "original_name": x.original_name, "size_bytes": x.size_bytes,
+             "created_at": x.created_at} for x in _photo_list(db, inspection_id, current_user)]
+
+
+@router.get("/{inspection_id}/photos/{photo_id}")
+def download_inspection_photo(inspection_id: int, photo_id: int,
+                              db: Session = Depends(get_db),
+                              current_user: User = Depends(get_current_user)):
+    row = next((x for x in _photo_list(db, inspection_id, current_user) if x.id == photo_id), None)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Inspection photo not found")
+    path = attachment_path(row.storage_key)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Inspection photo bytes unavailable")
+    return FileResponse(path, media_type=row.content_type, filename=row.original_name,
+                        headers={"Cache-Control": "private, no-store"})
+
+
+@router.post("/{inspection_id}/photos", status_code=201)
+async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(...),
+                                  db: Session = Depends(get_db),
+                                  current_user: User = Depends(get_current_user)):
+    # Reject tenant, cross-company, revoked membership and retired inventory
+    # using the exact inspection scope before reading untrusted bytes.
+    record = _photo_info(db, inspection_id, current_user)
+    mime = file.content_type or ""
+    if mime not in _INSPECTION_MIME:
+        raise HTTPException(status_code=422, detail="JPEG, PNG or WebP photo required")
+    data = await file.read(_MAX_PHOTO_BYTES + 1)
+    if not data or len(data) > _MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="Photo must be 1 byte to 10 MB")
+    if not data.startswith(_INSPECTION_MIME[mime][0]):
+        raise HTTPException(status_code=422, detail="Photo content does not match declared type")
+    if mime == "image/webp" and (len(data) < 12 or data[8:12] != b"WEBP"):
+        raise HTTPException(status_code=422, detail="Invalid WebP photo")
+    suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[mime]
+    key = "inspection-%d-%d-%s%s" % (
+        current_user.organization_id, record.id, sha256(data).hexdigest(), suffix)
+    filename = Path(file.filename or "inspection-photo").name[:255]
+    if not filename or filename in {".", ".."}:
+        filename = "inspection-photo" + suffix
+    locked = db.query(UnitInspectionRecord).filter(
+        UnitInspectionRecord.id == record.id,
+        UnitInspectionRecord.organization_id == current_user.organization_id,
+    ).with_for_update().one()
+    # Recheck authorization under lock before committing immutable evidence.
+    _photo_info(db, locked.id, current_user)
+    if db.query(UnitInspectionReview.id).filter_by(inspection_id=locked.id).first():
+        raise HTTPException(status_code=409, detail="Reviewed inspection evidence is sealed")
+    existing = db.query(EntityAttachment).filter_by(storage_key=key).first()
+    if existing is not None:
+        if (existing.entity_id != locked.id or existing.organization_id != current_user.organization_id
+                or not existing.is_active):
+            raise HTTPException(status_code=409, detail="Photo evidence key conflict")
+        return {"id": existing.id, "original_name": existing.original_name,
+                "size_bytes": existing.size_bytes, "created_at": existing.created_at}
+    path = attachment_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and path.read_bytes() != data:
+        raise HTTPException(status_code=409, detail="Photo storage integrity conflict")
+    path.write_bytes(data)
+    item = EntityAttachment(
+        organization_id=current_user.organization_id,
+        entity_type="unit_inspection_records", entity_id=locked.id, storage_key=key,
+        original_name=filename, content_type=mime, size_bytes=len(data),
+        share_with_owners=False, share_with_tenants=False,
+        uploaded_by_id=current_user.id, is_active=True,
+    )
+    try:
+        db.add(item)
+        db.flush()
+        append_audit_log(db, organization_id=current_user.organization_id,
+                         user_id=current_user.id,
+                         entity_type="unit_inspection_photo", entity_id=item.id,
+                         action="evidence_uploaded",
+                         new_value={"inspection_id": locked.id, "sha256": sha256(data).hexdigest(),
+                                    "size_bytes": len(data), "mime": mime})
+        db.commit()
+        db.refresh(item)
+    except IntegrityError:
+        db.rollback()
+        replay = db.query(EntityAttachment).filter_by(storage_key=key).first()
+        if replay is None:
+            raise
+        item = replay
+    return {"id": item.id, "original_name": item.original_name,
+            "size_bytes": item.size_bytes, "created_at": item.created_at}
+
+
 
 
 def _error(exc: ReportDeliveryError) -> HTTPException:
