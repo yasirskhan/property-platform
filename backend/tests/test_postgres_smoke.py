@@ -10,8 +10,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_HEAD = "e6b4d2a7c910"
-EXPECTED_MODEL_TABLES = 214
+EXPECTED_HEAD = "c5d91a7e2f60"
+EXPECTED_MODEL_TABLES = 216
 
 
 @pytest.mark.integration
@@ -78,6 +78,13 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
                 "AND NOT tgisinternal"
             )).scalars())
         assert "crew_time_immutable" in triggers
+        with engine.connect() as conn:
+            material_triggers = set(conn.execute(text(
+                "SELECT tgname FROM pg_trigger "
+                "WHERE tgrelid = 'maintenance_material_movements'::regclass "
+                "AND NOT tgisinternal"
+            )).scalars())
+        assert "material_movement_immutable" in material_triggers
         assert cols["tenant_id"]["nullable"] is True
         source_fks = inspect(engine).get_foreign_keys("work_orders")
         assert any(

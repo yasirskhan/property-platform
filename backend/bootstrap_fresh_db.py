@@ -27,6 +27,47 @@ def _alembic_config() -> Config:
     return cfg
 
 
+def _install_fresh_material_movement_guards() -> None:
+    """Match the append-only triggers created by material migration c5d91a7e2f60.
+
+    Fresh bootstrap builds tables with ORM metadata and only stamps Alembic;
+    stamping does NOT execute that migration's trigger DDL. Existing databases
+    obtain the guards from Alembic upgrade, never from this fresh-only path.
+    """
+    with engine.begin() as conn:
+        if engine.dialect.name == "postgresql":
+            conn.exec_driver_sql("""
+                CREATE FUNCTION prevent_material_movement_mutation()
+                RETURNS trigger AS $
+                BEGIN
+                    RAISE EXCEPTION 'maintenance_material_movements is append-only';
+                END;
+                $ LANGUAGE plpgsql
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER material_movement_immutable
+                BEFORE UPDATE OR DELETE ON maintenance_material_movements
+                FOR EACH ROW EXECUTE FUNCTION prevent_material_movement_mutation()
+            """)
+        elif engine.dialect.name == "sqlite":
+            conn.exec_driver_sql("""
+                CREATE TRIGGER material_movement_no_update
+                BEFORE UPDATE ON maintenance_material_movements
+                BEGIN
+                    SELECT RAISE(ABORT,'maintenance_material_movements is append-only');
+                END
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER material_movement_no_delete
+                BEFORE DELETE ON maintenance_material_movements
+                BEGIN
+                    SELECT RAISE(ABORT,'maintenance_material_movements is append-only');
+                END
+            """)
+        else:
+            raise RuntimeError("Unsupported database for immutable stock evidence")
+
+
 def bootstrap() -> None:
     inspector = inspect(engine)
     existing = sorted(t for t in inspector.get_table_names() if t != "alembic_version")
@@ -41,6 +82,7 @@ def bootstrap() -> None:
         )
 
     Base.metadata.create_all(bind=engine)
+    _install_fresh_material_movement_guards()
     # Fresh bootstraps skip data-only Alembic revisions; seed the same
     # hidden, unsubscribed HOA catalog without activating any billing.
     with Session(engine) as db:
