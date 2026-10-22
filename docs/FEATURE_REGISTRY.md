@@ -1,3 +1,9 @@
+## 2026-10-22 | P5-PROC-06 internal purchasing/physical receipt candidate
+
+| Surface | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| /dashboard/maintenance/material-orders | capability | — | core | yes | MAINTENANCE.WORK_ORDERS; independently reviewed by Owner/Admin | no | 🔧 DETACHED, CI REQUIRED | Internal material request→independent approval→partial physical staff receipt→immutable audited reversal. Per-org idempotent request and bounded history; real customer UI and browser/regression tests. Supplier confirmation, warehouse consumption, payment, GL and tenant charges NOT implemented. P5-PROC-06 remains OPEN |
+
 ## 2026-10-22 | P5-INSP-04 and P5-PM-05 continuing verification
 - P5-INSP-04 device-local photo drafts, private photo integrity and sealed review manifest exist on source 60880747 (six-green 39715164052). SHA-256 + exact organization/inspection upload acknowledgment, scoped local deletion and atomic 20-draft cap are published in f192562d, run 39722811542 pending all-six verification. No encrypted local storage or final offline/mobile acceptance claim.
 - P5-PM-05 authorized 1-12 occurrence operator catch-up is saved as inspectable DETACHED successor of f192562d (latest candidate below), with full API/UI, per-occurrence audit, tenantless no-charge guarantees, rollback/retry behavior and backend/browser regression. Do not call it published or green until expected-SHA promotion and exact six-job CI.
