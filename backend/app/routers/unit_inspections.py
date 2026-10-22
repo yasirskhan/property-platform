@@ -135,9 +135,16 @@ def read_sealed_inspection_photo_manifest(inspection_id: int,
     for photo_id, digest in zip(ids, hashes):
         row = rows.get(photo_id)
         present = bool(row is not None and row.storage_key.split("-")[-1].split(".")[0] == digest)
+        intact = False
+        if present:
+            try:
+                _verified_photo_bytes(row)
+                intact = True
+            except HTTPException:
+                intact = False
         photos.append({"id": photo_id, "sha256": digest,
                        "original_name": row.original_name if present else None,
-                       "record_present": present})
+                       "record_present": present, "bytes_verified": intact})
     return {"sealed": True, "photos": photos}
 
 

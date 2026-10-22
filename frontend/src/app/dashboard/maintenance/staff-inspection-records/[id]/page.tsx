@@ -34,7 +34,7 @@ export default function StaffInspectionDetailPage() {
   const [reviewDecision, setReviewDecision] = useState<Review["decision"]>("CONFIRMED");
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewSaving, setReviewSaving] = useState(false);
-  const [sealedPhotos, setSealedPhotos] = useState<{id:number;sha256:string;original_name:string|null;record_present:boolean}[]>([]);
+  const [sealedPhotos, setSealedPhotos] = useState<{id:number;sha256:string;original_name:string|null;record_present:boolean;bytes_verified:boolean}[]>([]);
   const [manifestError, setManifestError] = useState("");
   const [photoItems, setPhotoItems] = useState<{id:number;original_name:string;size_bytes:number}[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -228,6 +228,7 @@ export default function StaffInspectionDetailPage() {
         <ul className="space-y-1 text-sm">{sealedPhotos.map((photo) => <li key={photo.id}>
           Photo #{photo.id}: {photo.original_name || "Evidence record unavailable"} · SHA-256 {photo.sha256}
           {!photo.record_present && <span role="alert"> · Evidence record missing or changed</span>}
+          {photo.record_present && !photo.bytes_verified && <span role="alert"> · Stored bytes failed integrity verification</span>}
         </li>)}</ul>
       </section>}
       <section className="space-y-3 rounded-lg border p-3">

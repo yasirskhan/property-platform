@@ -981,6 +981,7 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
         assert frozen["photos"][0]["id"] == saved["id"]
         assert frozen["photos"][0]["sha256"] == review_details["photo_evidence_hashes"][0]
         assert frozen["photos"][0]["record_present"] is True
+        assert frozen["photos"][0]["bytes_verified"] is True
         with pytest.raises(HTTPException):
             inspection_router.read_sealed_inspection_photo_manifest(
                 record.id, db=db, current_user=tenant)
@@ -1000,6 +1001,9 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
             inspection_router.download_inspection_photo(
                 record.id, photo_row.id, db=db, current_user=admin)
         assert damaged.value.status_code == 409
+        corrupted_manifest = inspection_router.read_sealed_inspection_photo_manifest(
+            record.id, db=db, current_user=admin)
+        assert corrupted_manifest["photos"][0]["bytes_verified"] is False
         with pytest.raises(HTTPException) as damaged_retry:
             asyncio.run(inspection_router.upload_inspection_photo(
                 record.id, upload(), db=db, current_user=manager))
