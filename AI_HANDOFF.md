@@ -14,6 +14,10 @@ Observed 2026-10-21 UTC. ONLY yasirskhan/property-platform branch chatgpt/checkp
 - Tenant/foreign org access, invalid content, duplicate retries, no duplicate audit, and review sealing have backend regression coverage. This is NOT offline sync/photo malware scanning/operator acceptance, and P5-INSP-04 remains OPEN.
 - Verify all six GitHub CI jobs at the exact new publication SHA. Read real failures and repair before publishing a successor. Do not infer success from a pending run.
 
+## Saved unpublished successor
+- Detached source candidate 6e68aab662074e93ccc6145b459a3c1e738a8fc5, descendant of published 6c49d9850137810d74a5a5149529e4c9d9c1a249: strict per-inspection photo bound, safe exact replay after sealing, active-inventory revalidation, MIME-extension matching, immutable review-audit photo hash snapshot, backend negatives and browser photo upload/seal regression.
+- UNPUBLISHED and NOT hosted-tested. Only publish after 6c49 passes ALL SIX exact-SHA jobs; reconcile live branch before any write. Any unsaved inaccessible work is UNKNOWN.
+
 ## Required next task
 1. Verify new backend/frontend/platform-admin/security/e2e/staging-config CI; diagnose any regression, fix and repeat exact SHA verification.
 2. Extend approved P5-INSP-04 with review-bound photo evidence manifest, failure recovery and authenticated browser coverage; maintain real scope and upload replay safety.
