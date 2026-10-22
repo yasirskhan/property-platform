@@ -8,9 +8,11 @@ async function run<T>(mode:IDBTransactionMode,fn:(store:IDBObjectStore,ok:(v:T)=
     open.onerror=()=>reject(open.error);
     open.onsuccess=()=>{
       const db=open.result, tx=db.transaction(STORE,mode);
-      tx.onerror=()=>reject(tx.error);
-      tx.oncomplete=()=>db.close();
-      fn(tx.objectStore(STORE),resolve,reject);
+      let result:T;
+      tx.onerror=()=>{db.close();reject(tx.error);};
+      tx.onabort=()=>{db.close();reject(tx.error);};
+      tx.oncomplete=()=>{db.close();resolve(result);};
+      fn(tx.objectStore(STORE),(v)=>{result=v;},reject);
     };
   });
 }
