@@ -195,5 +195,25 @@ def test_independent_postgres_issues_and_reversals_preserve_physical_stock():
                 entity_type="maintenance_material_issue",
                 action="stock_issue_reversed",
             ).count() == 1
+
+        # A manager who participated in the original real transaction loses
+        # all fresh issue rights as soon as their live property grant is revoked.
+        with Session(engine) as db:
+            grant = db.query(PropertyAssignment).filter_by(
+                user_id=ids["receiver"], property_id=ids["property"],
+                role=UserRole.MANAGER,
+            ).one()
+            grant.is_active = False
+            db.commit()
+        with Session(engine) as db:
+            revoked = db.get(User, ids["receiver"])
+            with pytest.raises(HTTPException) as blocked:
+                m.issue_materials(source_id, m.IssueStock(
+                    target_work_order_id=ids["work"], reference="REVOKED-ISSUE",
+                    quantity=1, notes="Revoked property manager cannot allocate stock",
+                ), db=db, current_user=revoked)
+            assert blocked.value.status_code in (403, 404)
+            db.rollback()
+            assert db.query(Issue).filter_by(material_order_id=source_id).count() == 2
     finally:
         engine.dispose()
