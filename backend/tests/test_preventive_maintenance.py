@@ -299,6 +299,54 @@ def test_preventive_schedule_due_work_order_exactly_once_and_no_tenant_financial
         engine.dispose()
 
 
+
+def test_bounded_manual_backlog_recovery_replay_is_scoped_tenantless_and_audited():
+    db, engine, actors, _, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        schedule = pm.create_schedule(db, admin, unit_id=units[0].id,
+            title="Backlog air handlers", description="Verify each overdue service interval",
+            interval_days=1, next_due_date=date.today())
+        # Simulate a genuine four-day backlog accumulated while the scheduler
+        # was unavailable; public schedule creation never permits past starts.
+        schedule.next_due_date = date.today() - timedelta(days=3)
+        db.commit()
+        for rejected in (tenant, outsider):
+            with pytest.raises(HTTPException):
+                pm.catch_up_due(db, rejected, schedule.id, as_of=date.today())
+            db.rollback()
+        for invalid in (0, 13):
+            with pytest.raises(HTTPException) as bad:
+                pm.catch_up_due(db, manager, schedule.id, as_of=date.today(), limit=invalid)
+            assert bad.value.status_code == 422
+        with pytest.raises(HTTPException):
+            pm.catch_up_due(db, admin, schedule.id, as_of=date.today() + timedelta(days=1))
+        first = pm.catch_up_due(db, manager, schedule.id, as_of=date.today(), limit=2)
+        assert len(first["created_work_order_ids"]) == 2
+        assert first["remaining_due"] is True
+        second = pm.catch_up_due(db, admin, schedule.id, as_of=date.today(), limit=12)
+        assert len(second["created_work_order_ids"]) == 2
+        assert second["remaining_due"] is False
+        ids = first["created_work_order_ids"] + second["created_work_order_ids"]
+        assert len(set(ids)) == 4
+        assert [o.work_order_id for o in pm.list_occurrences(db, admin, schedule.id)] == list(reversed(ids))
+        assert db.query(WorkOrder).filter(WorkOrder.id.in_(ids)).count() == 4
+        assert all(wo.tenant_id is None and wo.permission_to_enter is False
+                   and wo.total_cost is None and wo.request_origin == "staff"
+                   for wo in db.query(WorkOrder).filter(WorkOrder.id.in_(ids)))
+        assert db.query(AuditLog).filter_by(entity_type="preventive_maintenance_occurrence",
+                                            action="generated").count() == 4
+        replay = pm.catch_up_due(db, admin, schedule.id, as_of=date.today())
+        assert replay["created_work_order_ids"] == []
+        assert db.query(WorkOrder).count() == 4
+        pm.set_active(db, admin, schedule.id, False)
+        with pytest.raises(HTTPException) as paused:
+            pm.catch_up_due(db, admin, schedule.id, as_of=date.today())
+        assert paused.value.status_code == 409
+    finally:
+        db.close()
+        engine.dispose()
+
 def test_schedule_settings_pause_only_atomic_audit_and_preserve_due():
     db, engine, actors, props, units = seeded()
     try:

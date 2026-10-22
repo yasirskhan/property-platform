@@ -451,6 +451,41 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
     return wo, True
 
 
+def catch_up_due(db: Session, actor: User, schedule_id: int, *,
+                 as_of: date, limit: int = 12) -> dict:
+    """Explicit operator recovery of a bounded backlog, using the proven single-
+    occurrence lock/audit/authorization transaction for EACH generated order.
+
+    Partial progress is durable: a failed later occurrence may be retried
+    safely; no attempted or failed occurrence is reported as created.
+    """
+    if limit < 1 or limit > 12:
+        raise HTTPException(status_code=422, detail="Catch-up limit must be 1 to 12")
+    if as_of > date.today():
+        raise HTTPException(status_code=422, detail="Cannot generate future occurrences")
+    schedule = read_schedule(db, actor, schedule_id)
+    if not schedule.active:
+        raise HTTPException(status_code=409, detail="Schedule is paused")
+    ids: list[int] = []
+    for _ in range(limit):
+        order, created = generate_due(db, actor, schedule_id, as_of=as_of)
+        if not created:
+            break
+        # generate_due always creates tenantless, nonfinancial staff orders.
+        if order.tenant_id is not None or order.request_origin != "staff":
+            raise HTTPException(status_code=409, detail="Invalid preventive occurrence")
+        ids.append(order.id)
+    current = read_schedule(db, actor, schedule_id)
+    return {
+        "schedule_id": current.id, "as_of": as_of,
+        "created_work_order_ids": ids,
+        "remaining_due": bool(
+            current.active and current.next_due_date <= as_of
+            and (current.end_date is None or current.next_due_date <= current.end_date)
+        ),
+    }
+
+
 def list_occurrences(db: Session, actor: User, schedule_id: int,
                      *, limit: int = 100, offset: int = 0):
     """Authorized durable evidence for every generated occurrence."""

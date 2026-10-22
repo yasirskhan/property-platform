@@ -149,6 +149,24 @@ def generate(schedule_id: int, as_of: Annotated[date | None, Query()] = None,
     return GeneratedOut(work_order_id=wo.id, newly_created=fresh, tenant_id=wo.tenant_id)
 
 
+class CatchUpOut(BaseModel):
+    schedule_id: int
+    as_of: date
+    created_work_order_ids: list[int]
+    remaining_due: bool
+
+
+@router.post("/schedules/{schedule_id}/catch-up", response_model=CatchUpOut)
+def catch_up(schedule_id: int,
+             limit: Annotated[int, Query(ge=1, le=12)] = 12,
+             as_of: Annotated[date | None, Query()] = None,
+             db: Session = Depends(get_db),
+             current_user: User = Depends(get_current_user)):
+    return service.catch_up_due(
+        db, current_user, schedule_id, as_of=as_of or date.today(), limit=limit,
+    )
+
+
 class OccurrenceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

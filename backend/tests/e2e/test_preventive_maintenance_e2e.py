@@ -74,6 +74,11 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             pw.expect(page.get_by_role("status").filter(
                 has_text="Due occurrence already exists"
             )).to_be_visible(timeout=15_000)
+            page.once("dialog", lambda dialog: dialog.accept())
+            card.get_by_role("button", name="Recover due backlog (up to 12)").click()
+            pw.expect(page.get_by_role("status").filter(
+                has_text="No further due work orders created"
+            )).to_be_visible(timeout=15_000)
             card.get_by_role("button", name="Pause", exact=True).click()
             pw.expect(card).to_contain_text("Paused", timeout=15_000)
             pw.expect(card.get_by_role("button", name="Generate due work order")).to_be_disabled()

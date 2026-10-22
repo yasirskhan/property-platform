@@ -12,6 +12,7 @@ type Schedule = {
 };
 type Occurrence = { id: number; schedule_id: number; due_date: string; work_order_id: number };
 type Generation = { work_order_id: number; newly_created: boolean; tenant_id: number | null };
+type CatchUp = { schedule_id: number; as_of: string; created_work_order_ids: number[]; remaining_due: boolean };
 type ExecutionStatus = { schedule_id: number; executor_user_id: number; status: string; due: boolean; block_reason?: string | null };
 type DuePreview = { schedule_id: number; active: boolean; as_of: string; due_dates: string[]; has_more: boolean };
 
@@ -255,6 +256,37 @@ export default function PreventiveMaintenancePage() {
     } finally { setBusyId(null); }
   }
 
+  async function catchUp(row: Schedule) {
+    if (!window.confirm(
+      "Generate up to 12 overdue tenantless work orders for this schedule? Each creates an audited maintenance occurrence, without dispatching staff, entry rights, or charges."
+    )) return;
+    setBusyId(row.id); setError(""); setNotice("");
+    try {
+      const result = await apiPost(
+        `/api/maintenance/preventive/schedules/${row.id}/catch-up?limit=12`,
+      ) as CatchUp;
+      if (result.schedule_id !== row.id || !Array.isArray(result.created_work_order_ids) ||
+          result.created_work_order_ids.length > 12 ||
+          result.created_work_order_ids.some(id=>!Number.isSafeInteger(id)||id<1)) {
+        throw new Error("Unexpected catch-up response.");
+      }
+      const updated = await apiGet(
+        `/api/maintenance/preventive/schedules/${row.id}`
+      ) as Schedule;
+      setSchedules(old=>old.map(item=>item.id===row.id?updated:item));
+      setBatchHealth(old=>{const next={...old};delete next[row.id];return next;});
+      setShowBlockedOnly(false);
+      setPreview(prior=>prior?.schedule_id===row.id?null:prior);
+      setNotice(result.created_work_order_ids.length
+        ? `${result.created_work_order_ids.length} audited tenantless work orders created. ${result.remaining_due?"More backlog remains; review before repeating.":"No remaining due backlog."}`
+        : "No further due work orders created. Existing occurrences remain unchanged.");
+      if(historyId===row.id)await showHistory(row.id);
+    } catch (cause) {
+      setError((cause instanceof Error?cause.message:"Recovery failed.") +
+        " Check occurrence history before retrying: earlier successful orders remain recorded.");
+    } finally {setBusyId(null);}
+  }
+
   async function inspectLoadedExecution() {
     if (!schedules.length || batchHealthLoading) return;
     setBatchHealthLoading(true); setBatchHealthError("");
@@ -486,6 +518,11 @@ export default function PreventiveMaintenancePage() {
           <button disabled={busyId !== null || !row.active} onClick={() => void generate(row)}
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Generate due work order
+          </button>
+          <button type="button" disabled={busyId !== null || !row.active}
+            onClick={() => void catchUp(row)}
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+            Recover due backlog (up to 12)
           </button>
           <button type="button" disabled={busyId !== null || row.active}
             onClick={() => startEditing(row)}
