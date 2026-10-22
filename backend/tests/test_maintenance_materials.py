@@ -128,8 +128,7 @@ def test_material_orders_require_current_manager_scope_and_vendor_organization()
             user_id=manager.id, property_id=properties[0].id).one()
         assigned.role = type(assigned.role).CREW
         db.commit()
-        with pytest.raises(HTTPException):
-            m.list_orders(db=db, current_user=manager)
+        assert m.list_orders(db=db, current_user=manager) == []
         with pytest.raises(HTTPException):
             m.receive_materials(one["id"], m.Receipt(
                 reference="DENIED-2", quantity=1, notes="Revoked manager cannot receive"),
@@ -145,3 +144,35 @@ def test_receipt_history_data_cannot_be_mutated_when_database_triggers_installed
     """Migration test separately proves real DB triggers on fresh and legacy paths."""
     from app.models.maintenance_material import MaintenanceMaterialMovement
     assert MaintenanceMaterialMovement.__table__.name == "maintenance_material_movements"
+
+
+def test_material_receipt_audit_failure_rolls_back_without_inventory_change(monkeypatch):
+    db, engine, actors, properties, orders, vendor, foreign_vendor = setup()
+    try:
+        admin, manager = actors[:2]
+        row = request(orders[1].id, vendor, db=db, actor=manager)
+        m.decide_order(row["id"], m.Decision(
+            approved=True, reason="Independently approve necessary maintenance filters",
+        ), db=db, current_user=admin)
+        original = m.append_audit_log
+        def failed_audit(*args, **kwargs):
+            raise RuntimeError("simulated immutable audit storage failure")
+        monkeypatch.setattr(m, "append_audit_log", failed_audit)
+        with pytest.raises(RuntimeError, match="immutable audit"):
+            m.receive_materials(row["id"], m.Receipt(
+                reference="AUDIT-INTERRUPTED", quantity=2,
+                notes="Physical count interrupted by audit failure",
+            ), db=db, current_user=manager)
+        db.rollback()
+        monkeypatch.setattr(m, "append_audit_log", original)
+        assert db.query(Move).count() == 0
+        assert m.stock_at_property(properties[0].id, db=db, current_user=admin) == []
+        complete = m.receive_materials(row["id"], m.Receipt(
+            reference="AUDIT-INTERRUPTED", quantity=2,
+            notes="Physical count interrupted by audit failure",
+        ), db=db, current_user=manager)
+        assert complete["net_received"] == 2
+        assert db.query(Move).count() == 1
+    finally:
+        db.close()
+        engine.dispose()

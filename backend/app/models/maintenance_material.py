@@ -50,6 +50,6 @@ class MaintenanceMaterialMovement(Base):
     reference = Column(String(100), nullable=False)
     delta_qty = Column(Integer, nullable=False)
     received_by_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
-    reverses_id = Column(Integer, ForeignKey("maintenance_material_movements.id", ondelete="RESTRICT"), unique=True)
+    reverses_id = Column(Integer, ForeignKey("maintenance_material_movements.id", ondelete="RESTRICT"))
     reason = Column(Text, nullable=False)
     recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
