@@ -12,7 +12,13 @@ Read AGENTS.md, docs/SESSION_CONTROL.md, Phase 5 acceptance/queue/registers befo
 - Photo hash audit and integrity 7daf7132/run39703229920 six SUCCESS.
 - Photo manifest successor e12cc7c8/run39705097334 FAILED backend test due to fixture using different storage path; repaired 4fbdc8ea23c04a24627127798e66735abe148e73, run39707421759 was IN PROGRESS at preparation. Verify exact six jobs before calling this repair green.
 
-## Current unpublished successor
+## Current Phase 5 offline-sync safety candidate (hosted CI required)
+- Verified source 9e3ece8ac6f3fa8b17cd43a48e4e47d2367191b8, run 39709716528 ALL SIX SUCCESS. It already includes photo manifest, stored-byte integrity and explicit offline drafts; do not replay older saved candidates.
+- New implementation revalidates live authenticated identity before EACH queued local photo, rejects cross-account/cross-inspection local data, and only deletes unsent bytes after valid server acknowledgment (positive id, matching size). Browser regression simulates HTTP success with malformed acknowledgment and verifies local evidence survives then succeeds via idempotent replay.
+- This new source requires all-six exact-SHA hosted CI; full Phase 5 and offline/mobile acceptance remain OPEN. Previous complete handoff archived verbatim at docs/AI_HANDOFF_ARCHIVE_2026-10-21_9e3ece.md.
+
+## Previous prepared successor (now incorporated in verified 9e3ece)
+
 - Device-local inspection photo drafts through IndexedDB, explicit save, bounded 20 drafts per scoped user/organization/inspection, visible privacy warning, no credential persistence, no background delivery. Manual sync retries on same authenticated inspection-photo API, retains unsent drafts after failure and removes each only after acknowledged server upload. UI and connected/disconnected Playwright test.
 - Candidate is DETACHED at ffffc635592f74d0a61d7597f074ca5246c96219 and must not be published until 4fbdc8ea is all-six-green. Candidate has not undergone hosted CI or independent local compile, and is not yet full offline/mobile acceptance. Verify live HEAD before safe expected_sha force=false push.
 
