@@ -157,9 +157,20 @@ export default function StaffInspectionDetailPage() {
         throw new Error("Account changed. Reopen this inspection before syncing local evidence");
       const items=await pendingPhotos(actor.id,actor.organization_id,record.id);
       for(const item of items){
+        // Each upload is independently authenticated: an account switch or token
+        // revocation mid-batch must leave unacknowledged local evidence untouched.
+        const verified = await apiGet("/auth/me") as {id:number;organization_id:number};
+        if(verified.id!==actor.id || verified.organization_id!==actor.organization_id)
+          throw new Error("Account changed during upload. Remaining local evidence was retained");
+        if(item.user!==verified.id || item.org!==verified.organization_id || item.inspection!==record.id)
+          throw new Error("Local photo scope changed. Remaining evidence was retained");
         const form=new FormData();
         form.append("file",new File([item.body],item.name,{type:item.mime}));
-        await photoRequest(`/api/unit-inspections/${record.id}/photos`,{method:"POST",body:form});
+        const response=await photoRequest(`/api/unit-inspections/${record.id}/photos`,{method:"POST",body:form});
+        const acknowledged=await response.json() as {id?:number;size_bytes?:number};
+        if(!Number.isSafeInteger(acknowledged.id) || (acknowledged.id??0)<1 ||
+            acknowledged.size_bytes!==item.body.size)
+          throw new Error("Photo upload lacked valid server acknowledgment. Local evidence retained");
         await discardPending(item.key);
       }
       await reloadPhotos(record.id);
