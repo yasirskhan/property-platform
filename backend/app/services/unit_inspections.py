@@ -6,6 +6,8 @@ inspections. No inspection is fabricated from WorkOrder or Unit flags.
 from __future__ import annotations
 
 import json
+from hashlib import sha256
+from pathlib import Path
 from datetime import date
 from typing import Mapping
 
@@ -15,6 +17,7 @@ from fastapi import HTTPException
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.unit_inspection import UnitInspectionRecord, UnitInspectionReview
 from app.models.entity_attachment import EntityAttachment
+from app.services.attachment_storage import attachment_path
 from app.models.user import User, UserRole
 from app.schemas.unit_inspection import (InspectionChecklistItem, UnitInspectionCreateIn, UnitInspectionOut,
     InspectionReviewIn, InspectionReviewOut)
@@ -393,6 +396,27 @@ def independently_review_inspection(
             return _review_output(db, previous)
         raise HTTPException(status_code=409, detail="Inspection already has an immutable independent review")
 
+    photo_evidence = db.query(EntityAttachment).filter(
+        EntityAttachment.organization_id == actor.organization_id,
+        EntityAttachment.entity_type == "unit_inspection_records",
+        EntityAttachment.entity_id == inspection_id,
+        EntityAttachment.is_active.is_(True),
+        EntityAttachment.share_with_owners.is_(False),
+        EntityAttachment.share_with_tenants.is_(False),
+    ).order_by(EntityAttachment.id.asc()).all()
+    if len(photo_evidence) > 100:
+        raise HTTPException(status_code=409, detail="Inspection photo evidence count invalid")
+    for photo in photo_evidence:
+        digest = photo.storage_key.removesuffix(Path(photo.storage_key).suffix).split("-")[-1]
+        if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
+            raise HTTPException(status_code=409, detail="Inspection photo checksum invalid")
+        try:
+            bytes_on_disk = attachment_path(photo.storage_key).read_bytes()
+        except OSError as exc:
+            raise HTTPException(status_code=409, detail="Inspection photo evidence unavailable") from exc
+        if len(bytes_on_disk) != photo.size_bytes or sha256(bytes_on_disk).hexdigest() != digest:
+            raise HTTPException(status_code=409, detail="Inspection photo evidence integrity failed")
+
     row = UnitInspectionReview(
         organization_id=actor.organization_id,
         inspection_id=inspection_id,
@@ -402,14 +426,7 @@ def independently_review_inspection(
     )
     db.add(row)
     db.flush()
-    photo_evidence = db.query(EntityAttachment.id, EntityAttachment.storage_key).filter(
-        EntityAttachment.organization_id == actor.organization_id,
-        EntityAttachment.entity_type == "unit_inspection_records",
-        EntityAttachment.entity_id == inspection_id,
-        EntityAttachment.is_active.is_(True),
-        EntityAttachment.share_with_owners.is_(False),
-        EntityAttachment.share_with_tenants.is_(False),
-    ).order_by(EntityAttachment.id.asc()).all()
+
     append_audit_log(
         db, organization_id=actor.organization_id, user_id=actor.id,
         entity_type="unit_inspection_review", entity_id=row.id,
