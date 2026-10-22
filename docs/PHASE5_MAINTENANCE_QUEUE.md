@@ -1,3 +1,8 @@
+## 2026-10-22 | Offline inspection photo scope and SHA-256 acknowledgment hardening — CI REQUIRED
+Add matched organization/inspection/content checksum to authenticated server upload acknowledgments, require those with positive ID and exact size before deleting any device-local photo, reject changed login tokens mid-sync and scope device-local deletion to the original account+inspection. Enforce 20-photo per-scope cap atomically across simultaneous browser tabs. Extend SQL/API and authenticated disconnected/retry browser regression with forged checksum and foreign organization acknowledgments. Previous source 608807471855b8be537204f85e6c3e42eea2d50f / run39715164052 all six SUCCESS. This successor needs its OWN six-job exact-SHA CI; P5-INSP-04 and all other Phase 5 exit gates remain OPEN. Manual local photos are NOT encrypted or cross-device synchronized.
+
+---
+
 ## 2026-10-21 | Inspection offline evidence queue candidate (UNPUBLISHED)
 Device-local IndexedDB photo drafts explicitly saved by staff, bounded and scoped to authenticated user/org/inspection, no stored credentials, manually synced only after reauthorization through existing private-photo API; failures retain unsent data. Disconnected-to-reconnected authenticated browser regression prepared. Pending predecessor green and full candidate CI. This does not establish safe cross-device sync, encryption at rest, or final P5-INSP-04 acceptance.
 

@@ -42,6 +42,14 @@ _INSPECTION_MIME = {
 _MAX_PHOTO_BYTES = 10 * 1024 * 1024
 
 
+def _photo_upload_ack(row: EntityAttachment, inspection_id: int, digest: str) -> dict:
+    """Bound acknowledgment: offline clients must verify scope, size and exact bytes."""
+    return {"id": row.id, "inspection_id": inspection_id,
+            "organization_id": row.organization_id, "sha256": digest,
+            "original_name": row.original_name, "size_bytes": row.size_bytes,
+            "created_at": row.created_at}
+
+
 def _verified_photo_bytes(row: EntityAttachment) -> bytes:
     expected = row.storage_key.removesuffix(Path(row.storage_key).suffix).split("-")[-1]
     if len(expected) != 64 or any(ch not in "0123456789abcdef" for ch in expected):
@@ -166,8 +174,9 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
     if mime == "image/webp" and (len(data) < 12 or data[8:12] != b"WEBP"):
         raise HTTPException(status_code=422, detail="Invalid WebP photo")
     suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[mime]
+    digest = sha256(data).hexdigest()
     key = "inspection-%d-%d-%s%s" % (
-        current_user.organization_id, record.id, sha256(data).hexdigest(), suffix)
+        current_user.organization_id, record.id, digest, suffix)
     filename = Path(file.filename or "inspection-photo").name[:255]
     if not filename or filename in {".", ".."}:
         filename = "inspection-photo" + suffix
@@ -193,8 +202,7 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
                 or not existing.is_active):
             raise HTTPException(status_code=409, detail="Photo evidence key conflict")
         _verified_photo_bytes(existing)
-        return {"id": existing.id, "original_name": existing.original_name,
-                "size_bytes": existing.size_bytes, "created_at": existing.created_at}
+        return _photo_upload_ack(existing, locked.id, digest)
     if db.query(UnitInspectionReview.id).filter_by(inspection_id=locked.id).first():
         raise HTTPException(status_code=409, detail="Reviewed inspection evidence is sealed")
     count = db.query(EntityAttachment).filter(
@@ -237,7 +245,7 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
                          user_id=current_user.id,
                          entity_type="unit_inspection_photo", entity_id=item.id,
                          action="evidence_uploaded",
-                         new_value={"inspection_id": locked.id, "sha256": sha256(data).hexdigest(),
+                         new_value={"inspection_id": locked.id, "sha256": digest,
                                     "size_bytes": len(data), "mime": mime})
         db.commit()
         db.refresh(item)
@@ -256,8 +264,7 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
         # leave an uncommitted attachment or audit record in the session.
         db.rollback()
         raise
-    return {"id": item.id, "original_name": item.original_name,
-            "size_bytes": item.size_bytes, "created_at": item.created_at}
+    return _photo_upload_ack(item, locked.id, digest)
 
 
 

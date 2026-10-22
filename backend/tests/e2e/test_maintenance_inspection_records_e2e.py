@@ -183,15 +183,23 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
             pw.expect(page.get_by_text(re.compile("Unsent photos remain on this device"))).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("1 unsent photos on this device")).to_be_visible(timeout=15_000)
             page.context.set_offline(False)
-            # Even when transport succeeds, an invalid server acknowledgment must
-            # retain local bytes for replay rather than silently losing evidence.
-            def missing_ack(route):
+            # Transport and ID/size success are insufficient to purge a local
+            # draft: a forged checksum or mismatched organization must retain it.
+            def wrong_digest(route):
                 result = route.fetch()
-                route.fulfill(response=result, json={"id": None, "size_bytes": 0})
-            page.route("**/api/unit-inspections/*/photos", missing_ack, times=1)
+                route.fulfill(response=result, json={**result.json(), "sha256": "0" * 64})
+            page.route("**/api/unit-inspections/*/photos", wrong_digest, times=1)
             page.get_by_role("button", name="Sync pending photos").click()
             pw.expect(page.get_by_text("1 unsent photos on this device")).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text(re.compile("Unsent photos remain on this device"))).to_be_visible(timeout=15_000)
+            def wrong_organization(route):
+                result = route.fetch()
+                acknowledged = result.json()
+                route.fulfill(response=result, json={
+                    **acknowledged, "organization_id": acknowledged["organization_id"] + 1})
+            page.route("**/api/unit-inspections/*/photos", wrong_organization, times=1)
+            page.get_by_role("button", name="Sync pending photos").click()
+            pw.expect(page.get_by_text("1 unsent photos on this device")).to_be_visible(timeout=15_000)
             page.get_by_role("button", name="Sync pending photos").click()
             pw.expect(page.get_by_role("button", name=re.compile("inspection-photo.png"))).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("1 unsent photos on this device")).to_have_count(0)

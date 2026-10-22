@@ -90,6 +90,19 @@ export default function StaffInspectionDetailPage() {
   }, []);
 
   useEffect(() => {
+    // Another tab logging out or changing accounts must not leave private
+    // device-local drafts visible under a stale authenticated identity.
+    const identityChanged=(event:StorageEvent)=>{
+      if(event.key==="token" || event.key===null){
+        setActor(null);setLocalPhotos([]);setPhotoFile(null);
+        setPhotoError("Account session changed. Reload to verify access to local evidence.");
+      }
+    };
+    window.addEventListener("storage",identityChanged);
+    return ()=>window.removeEventListener("storage",identityChanged);
+  }, []);
+
+  useEffect(() => {
     if (!record) return;
     let active = true;
     setReviewLoading(true);
@@ -164,14 +177,27 @@ export default function StaffInspectionDetailPage() {
           throw new Error("Account changed during upload. Remaining local evidence was retained");
         if(item.user!==verified.id || item.org!==verified.organization_id || item.inspection!==record.id)
           throw new Error("Local photo scope changed. Remaining evidence was retained");
+        const tokenAtUpload=getToken();
+        if(!tokenAtUpload)throw new Error("Authentication required. Evidence retained");
         const form=new FormData();
         form.append("file",new File([item.body],item.name,{type:item.mime}));
         const response=await photoRequest(`/api/unit-inspections/${record.id}/photos`,{method:"POST",body:form});
-        const acknowledged=await response.json() as {id?:number;size_bytes?:number};
+        const acknowledged=await response.json() as {
+          id?:number;inspection_id?:number;organization_id?:number;sha256?:string;size_bytes?:number;
+        };
+        const digest=Array.from(new Uint8Array(
+          await crypto.subtle.digest("SHA-256",await item.body.arrayBuffer()),
+        )).map(byte=>byte.toString(16).padStart(2,"0")).join("");
         if(!Number.isSafeInteger(acknowledged.id) || (acknowledged.id??0)<1 ||
-            acknowledged.size_bytes!==item.body.size)
-          throw new Error("Photo upload lacked valid server acknowledgment. Local evidence retained");
-        await discardPending(item.key);
+            acknowledged.inspection_id!==record.id ||
+            acknowledged.organization_id!==verified.organization_id ||
+            acknowledged.sha256!==digest || acknowledged.size_bytes!==item.body.size)
+          throw new Error("Photo upload lacked matching scope/byte acknowledgment. Local evidence retained");
+        // Recheck in-memory identity after the network call; a switch during
+        // upload must not purge the original account's unsent evidence.
+        if(getToken()!==tokenAtUpload)
+          throw new Error("Session changed during upload. Local evidence retained");
+        await discardPending(item.key,verified.id,verified.organization_id,record.id);
       }
       await reloadPhotos(record.id);
     }catch(e){setPhotoError((e instanceof Error?e.message:"Sync failed")+". Unsent photos remain on this device.");}
@@ -179,7 +205,8 @@ export default function StaffInspectionDetailPage() {
   }
   async function deleteLocalPhoto(key:string){
     if(!window.confirm("Delete this unsent photo from this device?"))return;
-    try{await discardPending(key);await loadLocalPhotos();}
+    try{if(!actor||!record)throw new Error("Account scope unavailable");
+      await discardPending(key,actor.id,actor.organization_id,record.id);await loadLocalPhotos();}
     catch(e){setPhotoError(e instanceof Error?e.message:"Delete failed");}
   }
 

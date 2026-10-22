@@ -968,6 +968,11 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
         replay = asyncio.run(inspection_router.upload_inspection_photo(
             record.id, upload(), db=db, current_user=manager))
         assert replay["id"] == saved["id"]
+        from hashlib import sha256
+        assert saved["sha256"] == sha256(valid_bytes).hexdigest()
+        assert saved["organization_id"] == admin.organization_id
+        assert saved["inspection_id"] == record.id
+        assert replay == saved  # exact byte+scope acknowledgment survives retries
         assert db.query(EntityAttachment).count() == 1
         assert len(inspection_router.list_inspection_photos(
             record.id, db=db, current_user=admin)) == 1
