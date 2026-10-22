@@ -910,6 +910,9 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
         admin, manager, tenant, outsider, prop, hidden, foreign_prop, unit, hidden_unit, foreign_unit = _seed(db)
         monkeypatch.setattr(unit_inspections, "permission_allows_user", lambda *a, **kw: True)
         monkeypatch.setattr(inspection_router, "attachment_path", lambda key: tmp_path / key)
+        # The independent-review service also validates the original bytes.
+        # Both code paths must use the same isolated storage fixture.
+        monkeypatch.setattr(unit_inspections, "attachment_path", lambda key: tmp_path / key)
         record = inspection_router.create_inspection(
             _input(unit, findings="Private roof photo evidence"), Response(),
             db=db, current_user=manager,
