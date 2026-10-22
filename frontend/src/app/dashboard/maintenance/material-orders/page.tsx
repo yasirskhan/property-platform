@@ -136,7 +136,10 @@ export default function MaterialOrdersPage() {
 
   const reviewRole = actor && ["ADMIN","OWNER"].includes(String(actor.role).toUpperCase());
   const receiptField=(id:number,field:"reference"|"quantity"|"notes",value:string)=>
-    setReceipts(old=>({...old,[id]:{reference:"",quantity:"1",notes:"",...old[id],[field]:value}}));
+    setReceipts(old=>{
+      const previous=old[id] ?? {reference:"",quantity:"1",notes:""};
+      return {...old,[id]:{...previous,[field]:value}};
+    });
   return <main className="space-y-5">
     <Link href="/dashboard/maintenance/work-orders" className="text-blue-800 underline">Back to maintenance work orders</Link>
     <h1 className="text-2xl font-semibold">Material purchasing and physical receipts</h1>
