@@ -195,7 +195,7 @@ export default function StaffInspectionDetailPage() {
   }, [record?.id, review?.id]);
 
   async function saveReview() {
-    if (!record || reviewSaving || review || reviewNotes.trim().length < 10) return;
+    if (!record || reviewSaving || review || localPhotos.length > 0 || reviewNotes.trim().length < 10) return;
     setReviewSaving(true); setReviewError(""); setReviewMessage("");
     try {
       const result: Review = await apiPost(`/api/unit-inspections/${record.id}/review`, {
@@ -301,6 +301,7 @@ export default function StaffInspectionDetailPage() {
           <p>Reviewed by {review.reviewer_name ? `${review.reviewer_name} (user #${review.reviewer_id})` : `user #${review.reviewer_id}`} on {review.reviewed_at}</p>
           <p className="text-xs">This decision is immutable. Subsequent changes require separate audited follow-up.</p>
         </div>}
+        {mayReview && localPhotos.length > 0 && <p role="alert" className="text-sm text-amber-800">Sync or delete all unsent photos on this device before independent review.</p>}
         {mayReview && <div className="space-y-3">
           <label className="block text-sm">Independent review decision
             <select value={reviewDecision} onChange={(e) => setReviewDecision(e.target.value as Review["decision"])}
@@ -315,7 +316,7 @@ export default function StaffInspectionDetailPage() {
               placeholder="Describe the independent review findings (at least 10 characters)." />
           </label>
           <button type="button" onClick={saveReview}
-            disabled={reviewSaving || reviewNotes.trim().length < 10}
+            disabled={reviewSaving || localPhotos.length > 0 || reviewNotes.trim().length < 10}
             className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">
             {reviewSaving ? "Saving…" : "Record independent review"}
           </button>
