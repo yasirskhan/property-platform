@@ -38,11 +38,11 @@ def _install_fresh_material_movement_guards() -> None:
         if engine.dialect.name == "postgresql":
             conn.exec_driver_sql("""
                 CREATE FUNCTION prevent_material_movement_mutation()
-                RETURNS trigger AS $
+                RETURNS trigger AS $stock_guard$
                 BEGIN
                     RAISE EXCEPTION 'maintenance_material_movements is append-only';
                 END;
-                $ LANGUAGE plpgsql
+                $stock_guard$ LANGUAGE plpgsql
             """)
             conn.exec_driver_sql("""
                 CREATE TRIGGER material_movement_immutable
