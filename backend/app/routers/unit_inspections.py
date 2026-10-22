@@ -121,6 +121,14 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
             raise HTTPException(status_code=409, detail="Photo evidence key conflict")
         return {"id": existing.id, "original_name": existing.original_name,
                 "size_bytes": existing.size_bytes, "created_at": existing.created_at}
+    count = db.query(EntityAttachment).filter(
+        EntityAttachment.organization_id == current_user.organization_id,
+        EntityAttachment.entity_type == "unit_inspection_records",
+        EntityAttachment.entity_id == locked.id,
+        EntityAttachment.is_active.is_(True),
+    ).count()
+    if count >= 100:
+        raise HTTPException(status_code=409, detail="Inspection photo evidence limit reached")
     path = attachment_path(key)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and path.read_bytes() != data:
