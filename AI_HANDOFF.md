@@ -17,6 +17,11 @@ Read root AGENTS.md, docs/SESSION_CONTROL.md, acceptance/queue/registers before 
 - This successor must pass ALL SIX hosted CI jobs on its exact new published SHA before verified. No offline synchronization, vendor messaging, payment, or production release enabled.
 - Previous entire handoff is preserved verbatim at docs/AI_HANDOFF_ARCHIVE_2026-10-21_6c49.md. Older archives retained.
 
+## Saved unpublished Phase 5 review manifest successor
+- DETACHED Git commit 11763e39d1d495bac234b24f0c6e6971bd8d1281, based on published 7daf7132db1ed6a89289c4c8861b0f2808cac325. Adds scoped frozen review photo manifest endpoint, staff UI and corruption warnings, fail-closed missing/tampered-byte verification, audit failure rollback plus exact retry and storage-outage, foreign/tenant/revoked membership regression.
+- This successor is NOT published and NOT hosted-tested. Publish only after run 39703229920 has all six jobs successful at 7daf SHA. Preserve expected_sha force=false, never overwrite concurrent changes.
+- Worker URL: https://chatgpt.com/c/6ad84ca5-a438-83ea-873f-bd30c7e55a3b . Unsaved inaccessible work UNKNOWN.
+
 ## Next
 1. Check new source SHA and each of backend/frontend/platform-admin/security/e2e/staging-config. Fix real failures, rerun until exact six-green.
 2. Implement next independently actionable Phase 5 inspection evidence attachment/offline/recovery or PM/procurement workflow from current acceptance matrix, with actual UI, authorization, durable audit and regressions.
