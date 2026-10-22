@@ -457,3 +457,49 @@ def test_material_usage_foreign_actor_and_audit_tampering_are_denied():
     finally:
         db.close()
         engine.dispose()
+
+
+def test_multiple_same_sku_purchase_sources_preserve_company_property_stock():
+    db, engine, actors, properties, orders, vendor, _ = setup()
+    try:
+        admin, manager = actors[:2]
+        first = request(orders[1].id, vendor, db=db, actor=manager)
+        second = m.create_order(m.NewOrder(
+            work_order_id=orders[1].id,
+            request_key="SAME-SKU-SECOND-ORDER-0001",
+            vendor_id=vendor.id, sku="FILTER-02",
+            item_name="Air handler filtration kit",
+            quantity=2, unit_cost_cents=12345,
+            reason="Second independent physical stock purchase order",
+        ), db=db, current_user=manager)
+        for created, qty, receipt_ref in (
+            (first, 5, "FIRST-PHYSICAL-5"),
+            (second, 2, "SECOND-PHYSICAL-2"),
+        ):
+            m.decide_order(created["id"], m.Decision(
+                approved=True,
+                reason="Independently authorized separate physical purchasing source",
+            ), db=db, current_user=admin)
+            m.receive_materials(created["id"], m.Receipt(
+                reference=receipt_ref, quantity=qty,
+                notes="Actual sealed parts physically counted at property",
+            ), db=db, current_user=manager)
+        assert m.stock_at_property(properties[0].id, db=db, current_user=admin)[0]["quantity"] == 7
+        used = m.issue_materials(first["id"], m.IssueStock(
+            target_work_order_id=orders[1].id,
+            reference="ISSUED-ONLY-FROM-FIRST",
+            quantity=2,
+            notes="Two filters installed from first verified source",
+        ), db=db, current_user=manager)
+        assert used["available_stock"] == 3
+        assert m.stock_at_property(properties[0].id, db=db, current_user=admin)[0]["quantity"] == 5
+        with pytest.raises(HTTPException) as forbidden_reversal:
+            m.reverse_receipt(first["id"], used["physical_receipts"][0]["id"],
+                m.Correction(reason="Cannot reverse issued first source stock"),
+                db=db, current_user=admin)
+        assert forbidden_reversal.value.status_code == 409
+        assert m.list_orders(work_order_id=orders[1].id, limit=20,
+                             db=db, current_user=admin)[0]["id"] == second["id"]
+    finally:
+        db.close()
+        engine.dispose()

@@ -650,7 +650,7 @@ def stock_at_property(property_id: int = Query(ge=1),
               for sku, name, total in counts}
     # The property lock used in all issue/receiving writes protects this
     # physical count against simultaneous source-order allocations.
-    issued = db.query(Issue, Order, WorkOrder).join(
+    issued = db.query(Issue, Order, WorkOrder).select_from(Issue).join(
         Order, Issue.material_order_id == Order.id,
     ).outerjoin(
         WorkOrder, Issue.target_work_order_id == WorkOrder.id,
