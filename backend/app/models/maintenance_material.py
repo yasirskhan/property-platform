@@ -14,6 +14,7 @@ class MaintenanceMaterialOrder(Base):
                         name="ck_material_order_quantity"),
         CheckConstraint("unit_cost_cents >= 0 AND unit_cost_cents <= 100000000",
                         name="ck_material_order_unit_cost"),
+        UniqueConstraint("organization_id", "request_key", name="uq_material_order_org_request"),
         CheckConstraint("status IN ('REQUESTED','APPROVED','DENIED')",
                         name="ck_material_order_status"),
     )
@@ -22,6 +23,7 @@ class MaintenanceMaterialOrder(Base):
     property_id = Column(Integer, ForeignKey("properties.id", ondelete="RESTRICT"), nullable=False, index=True)
     work_order_id = Column(Integer, ForeignKey("work_orders.id", ondelete="RESTRICT"), nullable=False, index=True)
     vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="RESTRICT"), nullable=False)
+    request_key = Column(String(80), nullable=False)
     sku = Column(String(60), nullable=False)
     item_name = Column(String(255), nullable=False)
     requested_qty = Column(Integer, nullable=False)

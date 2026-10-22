@@ -26,7 +26,7 @@ def setup():
 
 def request(wo_id, vendor, *, db, actor):
     return m.create_order(m.NewOrder(
-        work_order_id=wo_id, vendor_id=vendor.id, sku="FILTER-02",
+        work_order_id=wo_id, request_key="DETERMINISTIC-REQUEST-00000001", vendor_id=vendor.id, sku="FILTER-02",
         item_name="Air handler filtration kit", quantity=5, unit_cost_cents=12345,
         reason="Replace worn filters as part of maintenance",
     ), db=db, current_user=actor)
@@ -39,6 +39,15 @@ def test_material_purchase_independent_approval_partial_receipts_reverse_and_rep
         wo = orders[1]
         created = request(wo.id, vendor, db=db, actor=manager)
         assert created["status"] == "REQUESTED" and created["net_received"] == 0
+        assert request(wo.id, vendor, db=db, actor=manager)["id"] == created["id"]
+        assert db.query(PO).count() == 1
+        with pytest.raises(HTTPException):
+            m.create_order(m.NewOrder(
+                work_order_id=wo.id, request_key="DETERMINISTIC-REQUEST-00000001",
+                vendor_id=vendor.id, sku="FILTER-02",
+                item_name="Air handler filtration kit", quantity=4, unit_cost_cents=12345,
+                reason="Conflicting retry would duplicate procurement",
+            ), db=db, current_user=manager)
         assert created["gl_posted"] is False and created["tenant_charged"] is False
         assert created["vendor_delivery_confirmed"] is False
         with pytest.raises(HTTPException) as self_review:

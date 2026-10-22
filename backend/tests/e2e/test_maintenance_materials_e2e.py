@@ -60,7 +60,7 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
         db.add(order)
         db.commit()
         initial = m.create_order(m.NewOrder(
-            work_order_id=order.id, vendor_id=supplier.id, sku="E2E-"+tag.upper(),
+            work_order_id=order.id, request_key="E2E-REQUEST-"+tag.upper(), vendor_id=supplier.id, sku="E2E-"+tag.upper(),
             item_name="Maintenance filter set " + tag,
             quantity=5, unit_cost_cents=1900,
             reason="Maintenance needs independently approved filter stock",

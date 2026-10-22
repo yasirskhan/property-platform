@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet, apiPost } from "@/lib/api";
 
@@ -17,6 +17,7 @@ type Stock = {sku:string;item_name:string;quantity:number};
 
 export default function MaterialOrdersPage() {
   const [actor,setActor] = useState<Actor|null>(null);
+  const requestKey = useRef("");
   const [workOrder,setWorkOrder] = useState("");
   const [vendors,setVendors] = useState<Vendor[]>([]);
   const [vendorId,setVendorId] = useState("");
@@ -67,11 +68,13 @@ export default function MaterialOrdersPage() {
   async function submit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();if(busy)return;setBusy(true);setError("");setMessage("");
     try{
+      if(!requestKey.current)requestKey.current=crypto.randomUUID();
       await apiPost("/api/maintenance/materials/orders",{
-        work_order_id:Number(workOrder),vendor_id:Number(vendorId),sku:sku.trim(),
+        request_key:requestKey.current,work_order_id:Number(workOrder),vendor_id:Number(vendorId),sku:sku.trim(),
         item_name:itemName.trim(),quantity:Number(quantity),unit_cost_cents:Number(unitCost),
         reason:reason.trim(),
       });
+      requestKey.current="";
       setMessage("Purchase request recorded. Independent Owner/Admin review is required. No vendor was contacted.");
       setSku("");setItemName("");setReason("");
       await refresh();

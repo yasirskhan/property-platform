@@ -21,6 +21,7 @@ router = APIRouter(prefix="/api/maintenance/materials", tags=["Maintenance Mater
 class NewOrder(BaseModel):
     model_config = ConfigDict(extra="forbid")
     work_order_id: int = Field(ge=1)
+    request_key: str = Field(min_length=16, max_length=80, pattern=r"^[A-Za-z0-9-]+$")
     vendor_id: int = Field(ge=1)
     sku: str = Field(min_length=2, max_length=60, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
     item_name: str = Field(min_length=3, max_length=255)
@@ -90,10 +91,13 @@ def _purchase(db: Session, actor: User, order_id: int, *, write: bool):
     return row
 
 
-def _net(db: Session, order_id: int) -> int:
-    return int(db.query(func.coalesce(func.sum(Movement.delta_qty), 0)).filter(
-        Movement.order_id == order_id,
-    ).scalar() or 0)
+def _net(db: Session, row: Order) -> int:
+    quantities = db.query(Movement.organization_id, Movement.delta_qty).filter(
+        Movement.order_id == row.id,
+    ).all()
+    if any(org != row.organization_id for org, _ in quantities):
+        raise HTTPException(409, "Foreign-company stock movement binding detected")
+    return sum(int(qty) for _, qty in quantities)
 
 
 def _movement(row: Movement) -> dict:
@@ -106,12 +110,16 @@ def _movement(row: Movement) -> dict:
 
 def _out(db: Session, row: Order) -> dict:
     events = db.query(Movement).filter(
-        Movement.organization_id == row.organization_id, Movement.order_id == row.id,
-    ).order_by(Movement.id.asc()).all()
+        Movement.order_id == row.id,
+    ).order_by(Movement.id.asc()).limit(201).all()
+    if len(events) > 200:
+        raise HTTPException(409, "Manual receiving history limit reached")
+    if any(x.organization_id != row.organization_id for x in events):
+        raise HTTPException(409, "Foreign-company stock movement binding detected")
     return {
         "id": row.id, "organization_id": row.organization_id,
         "property_id": row.property_id, "work_order_id": row.work_order_id,
-        "vendor_id": row.vendor_id, "sku": row.sku, "item_name": row.item_name,
+        "vendor_id": row.vendor_id, "request_key": row.request_key, "sku": row.sku, "item_name": row.item_name,
         "requested_qty": row.requested_qty, "unit_cost_cents": row.unit_cost_cents,
         "reason": row.reason, "status": row.status,
         "requested_by_id": row.requested_by_id, "requested_at": row.requested_at,
@@ -171,10 +179,25 @@ def create_order(payload: NewOrder, db: Session = Depends(get_db),
     ).first()
     if vendor is None:
         raise HTTPException(404, "Eligible organization vendor not found")
+    existing = db.query(Order).filter(
+        Order.organization_id == current_user.organization_id,
+        Order.request_key == payload.request_key,
+    ).first()
+    if existing is not None:
+        if (existing.work_order_id == wo.id and existing.property_id == prop.id
+                and existing.vendor_id == payload.vendor_id
+                and existing.sku == payload.sku.upper()
+                and existing.item_name == payload.item_name.strip()
+                and existing.requested_qty == payload.quantity
+                and existing.unit_cost_cents == payload.unit_cost_cents
+                and existing.reason == payload.reason.strip()
+                and existing.requested_by_id == current_user.id):
+            return _out(db, existing)
+        raise HTTPException(409, "Conflicting purchase request retry")
     row = Order(
         organization_id=current_user.organization_id, property_id=prop.id,
         work_order_id=wo.id, vendor_id=payload.vendor_id,
-        sku=payload.sku.upper(), item_name=payload.item_name.strip(),
+        request_key=payload.request_key, sku=payload.sku.upper(), item_name=payload.item_name.strip(),
         requested_qty=payload.quantity, unit_cost_cents=payload.unit_cost_cents,
         reason=payload.reason.strip(), status="REQUESTED",
         requested_by_id=current_user.id,
@@ -185,7 +208,7 @@ def create_order(payload: NewOrder, db: Session = Depends(get_db),
         db, organization_id=current_user.organization_id, user_id=current_user.id,
         entity_type="maintenance_material_order", entity_id=row.id, action="requested",
         new_value={"work_order_id": wo.id, "property_id": prop.id,
-                   "vendor_id": row.vendor_id, "sku": row.sku,
+                   "vendor_id": row.vendor_id, "request_key": row.request_key, "sku": row.sku,
                    "quantity": row.requested_qty, "unit_cost_cents": row.unit_cost_cents,
                    "reason": row.reason, "external_order_sent": False},
     )
@@ -241,8 +264,10 @@ def receive_materials(order_id: int, payload: Receipt,
         if replay.delta_qty == payload.quantity and replay.reason == payload.notes.strip() and replay.reverses_id is None:
             return _out(db, row)
         raise HTTPException(409, "Conflicting receipt reference")
-    if _net(db, row.id) + payload.quantity > row.requested_qty:
+    if _net(db, row) + payload.quantity > row.requested_qty:
         raise HTTPException(409, "Receiving exceeds approved quantity")
+    if db.query(Movement.id).filter(Movement.order_id == row.id).count() >= 200:
+        raise HTTPException(409, "Manual receiving history limit reached")
     receipt = Movement(
         organization_id=row.organization_id, order_id=row.id,
         reference=reference, delta_qty=payload.quantity,
@@ -283,8 +308,10 @@ def reverse_receipt(order_id: int, movement_id: int, payload: Correction,
         if previous.reason == payload.reason.strip():
             return _out(db, row)
         raise HTTPException(409, "Original receipt already reversed")
-    if _net(db, row.id) < original.delta_qty:
+    if _net(db, row) < original.delta_qty:
         raise HTTPException(409, "Stock cannot become negative")
+    if db.query(Movement.id).filter(Movement.order_id == row.id).count() >= 200:
+        raise HTTPException(409, "Manual receiving history limit reached")
     reversal = Movement(
         organization_id=row.organization_id, order_id=row.id,
         reference="REV-" + str(original.id), delta_qty=-original.delta_qty,
