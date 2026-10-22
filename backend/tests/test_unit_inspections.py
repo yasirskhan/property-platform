@@ -949,6 +949,16 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
         assert wrong_extension.value.status_code == 422
 
         assert db.query(EntityAttachment).count() == 0
+        original_append = inspection_router.append_audit_log
+        def abort_audit(*args, **kwargs):
+            raise RuntimeError("simulated audit transaction interruption")
+        monkeypatch.setattr(inspection_router, "append_audit_log", abort_audit)
+        with pytest.raises(RuntimeError, match="audit transaction interruption"):
+            asyncio.run(inspection_router.upload_inspection_photo(
+                record.id, upload(), db=db, current_user=manager))
+        monkeypatch.setattr(inspection_router, "append_audit_log", original_append)
+        assert db.query(EntityAttachment).count() == 0
+        assert db.query(AuditLog).filter_by(entity_type="unit_inspection_photo").count() == 0
         saved = asyncio.run(inspection_router.upload_inspection_photo(
             record.id, upload(), db=db, current_user=manager))
         replay = asyncio.run(inspection_router.upload_inspection_photo(
