@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
 from app.models.maintenance_material import MaintenanceMaterialOrder as Order, MaintenanceMaterialMovement as Movement
@@ -203,7 +204,13 @@ def create_order(payload: NewOrder, db: Session = Depends(get_db),
         requested_by_id=current_user.id,
     )
     db.add(row)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        # A parallel writer on another property may win the unique request
+        # key. Fail closed rather than fabricate duplicate procurement.
+        raise HTTPException(409, "Concurrent purchase request key conflict; reload before retrying") from exc
     append_audit_log(
         db, organization_id=current_user.organization_id, user_id=current_user.id,
         entity_type="maintenance_material_order", entity_id=row.id, action="requested",
@@ -274,7 +281,11 @@ def receive_materials(order_id: int, payload: Receipt,
         received_by_id=current_user.id, reason=payload.notes.strip(),
     )
     db.add(receipt)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Concurrent receipt reference conflict; reload before retrying") from exc
     append_audit_log(
         db, organization_id=row.organization_id, user_id=current_user.id,
         entity_type="maintenance_material_movement", entity_id=receipt.id,
@@ -319,7 +330,11 @@ def reverse_receipt(order_id: int, movement_id: int, payload: Correction,
         reason=payload.reason.strip(),
     )
     db.add(reversal)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Concurrent physical reversal; reload before retrying") from exc
     append_audit_log(
         db, organization_id=row.organization_id, user_id=current_user.id,
         entity_type="maintenance_material_movement", entity_id=reversal.id,
@@ -358,5 +373,7 @@ def stock_at_property(property_id: int = Query(ge=1),
         Movement.organization_id == current_user.organization_id,
         Order.property_id == property_id, Order.status == "APPROVED",
     ).group_by(Order.sku, Order.item_name).all()
+    if any(int(total) < 0 for _, _, total in counts):
+        raise HTTPException(409, "Physical stock count integrity violation")
     return [{"sku": sku, "item_name": name, "quantity": int(total)}
             for sku, name, total in counts if total]

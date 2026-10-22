@@ -84,6 +84,22 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
             page.goto(BASE_URL + "/dashboard/maintenance/material-orders?work_order_id="+str(work_order_id),
                       wait_until="domcontentloaded")
             pw.expect(page.get_by_role("heading", name="Material purchasing and physical receipts")).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_label("Material work order")).to_have_value(str(work_order_id), timeout=15_000)
+            page.get_by_role("button", name="Find eligible company vendors").click()
+            page.get_by_label("Material vendor").select_option(str(supplier.id))
+            page.get_by_label("Material SKU").fill("EXTRA-"+tag.upper())
+            page.get_by_label("Material item name").fill("Additional maintenance cable")
+            page.get_by_label("Material requested quantity").fill("1")
+            page.get_by_label("Material unit cost cents").fill("600")
+            page.get_by_label("Material request reason").fill("Replacement cable needed for the maintenance work order")
+            page.get_by_role("button", name="Submit internal material request").click()
+            pw.expect(page.get_by_role("status").filter(
+                has_text="Purchase request recorded"
+            )).to_be_visible(timeout=15_000)
+            # The admin requester cannot approve their own submitted request.
+            self_card = page.locator("article").filter(has_text="Additional maintenance cable").first
+            pw.expect(self_card).to_be_visible(timeout=15_000)
+            pw.expect(self_card.get_by_role("button", name="Approve internal request")).to_have_count(0)
             card = page.locator("article").filter(has_text="Maintenance filter set " + tag).first
             pw.expect(card).to_be_visible(timeout=15_000)
             pw.expect(card).to_contain_text("Status: REQUESTED")

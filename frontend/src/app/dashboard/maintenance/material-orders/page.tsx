@@ -188,7 +188,7 @@ export default function MaterialOrdersPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Authorized purchasing history</h2>
-          <button className="rounded border px-3 py-2 text-sm" type="button" onClick={()=>void refresh()}>
+          <button className="rounded border px-3 py-2 text-sm" type="button" onClick={()=>void refresh().catch(cause=>setError(cause instanceof Error?cause.message:"Could not refresh"))}>
             Refresh purchase history</button>
         </div>
         {orders.length===0 && <p>No material requests available for your current properties.</p>}
