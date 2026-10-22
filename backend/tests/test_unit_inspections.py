@@ -975,6 +975,16 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
         review_details = __import__("json").loads(review_audit.new_value)
         assert review_details["photo_evidence_ids"] == [saved["id"]]
         assert len(review_details["photo_evidence_hashes"][0]) == 64
+        frozen = inspection_router.read_sealed_inspection_photo_manifest(
+            record.id, db=db, current_user=admin)
+        assert frozen["sealed"] is True and len(frozen["photos"]) == 1
+        assert frozen["photos"][0]["id"] == saved["id"]
+        assert frozen["photos"][0]["sha256"] == review_details["photo_evidence_hashes"][0]
+        assert frozen["photos"][0]["record_present"] is True
+        with pytest.raises(HTTPException):
+            inspection_router.read_sealed_inspection_photo_manifest(
+                record.id, db=db, current_user=tenant)
+
 
         sealed_replay = asyncio.run(inspection_router.upload_inspection_photo(
             record.id, upload(), db=db, current_user=manager))
