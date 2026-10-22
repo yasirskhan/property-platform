@@ -1,3 +1,8 @@
+## 2026-10-22 | P5-PM-05 bounded due backlog catch-up VERIFIED at exact SHA
+2d709e9e2db013b2a290a3cc9f0665d3ae422126, run39774116416: backend, frontend, platform-admin, security, e2e, staging-config ALL SUCCESS. The authorized operator may explicitly create up to twelve overdue tenantless work orders, each with immutable occurrence/audit evidence and safe replay, with actual browser E2E. This is not unattended dispatch, tenant billing, entry authority or complete P5-PM-05 acceptance. Next independent approved workflow is P5-PROC-06 internal purchasing/physical stock candidate; still needs its own hosted CI.
+
+---
+
 ## 2026-10-22 | P5-PROC-06 first physical-stock approval/receiving workflow — DETACHED / UNVERIFIED
 Inspectably saved successor of P5-PM-05 candidate 2d709e9e. Internal work-order materials request with stable owner/org request idempotency key; live authorized property/vendor/manager checks; independent Owner/Admin decision; partial staff-attested physical receipts and stock summary; append-only audited independent reversal; PostgreSQL property-first locking, unique receipt/reversal identifiers and safe retry; no supplier delivery, payables, invoices, GL, tenant charges, warehouse issue/consumption or production release. Customer-facing staff page and work-order link, model registration, incremental migration/head and fresh/legacy bootstrap parity, backend rollback/scope/audit regressions and authenticated browser purchase→approve→receive→reverse. This is a meaningful but incomplete P5-PROC-06 vertical slice. Remains DETACHED pending predecessor six-green, hosted CI at its own SHA, review of operator/restore/security acceptance and remaining purchasing/inventory/finance scope.
 

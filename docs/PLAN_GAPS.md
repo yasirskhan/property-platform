@@ -1,3 +1,6 @@
+## 2026-10-22 | Verified preventive bounded catch-up versus unresolved PM acceptance
+P5-PM-05 source 2d709e9e / run39774116416 has all six required hosted jobs SUCCESS: staff manual up-to-12 occurrence catch-up, tenantless/no-charge, replay and browser test. This confirms this bounded workflow, not later scheduler restore/production acceptance, stock, external messaging or finance. Continue approved dependencies.
+
 ## 2026-10-22 | P5-PROC-06 controlled physical stock, deferred commitments
 A first single-line, property/work-order-bound material procurement workflow is saved as an inspectable DETACHED successor of 2d709e9e. Request idempotency, live org/property/vendor scope, independent Owner/Admin approval, manual physical receipt with exact references and reversible append-only stock movements are coded with staff UI, migration and backend/browser tests. This is internal attestation only: NO supplier message/delivery confirmation, stock issue/consumption, multishipment supplier acknowledgement, multi-line purchase order, invoice, payables, GL posting, tenant charge or production release. Independent vendor contracts and operator/restore/security approval require external evidence. Separate hosted CI is mandatory before even the internal slice is VERIFIED.
 

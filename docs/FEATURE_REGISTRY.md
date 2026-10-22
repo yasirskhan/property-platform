@@ -1,3 +1,8 @@
+## 2026-10-22 | Exact hosted Phase 5 maintenance verification
+- P5-INSP-04 original SHA-256/organization/inspection-bound offline photo acknowledgment f192562d5/run39722811542 ALL SIX SUCCESS; offline/mobile/operator acceptance still OPEN.
+- P5-PM-05 bounded operator backlog recovery 2d709e9e/run39774116416 ALL SIX SUCCESS; final P5-PM acceptance still OPEN.
+- P5-PROC-06 initial approval/physical stock workflow is a separate candidate requiring hosted CI and external supplier/finance acceptance. Do not mark full P5-PROC-06 complete.
+
 ## 2026-10-22 | P5-PROC-06 internal purchasing/physical receipt candidate
 
 | Surface | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
