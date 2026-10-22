@@ -1,6 +1,6 @@
 ## 2026-10-21 | Frozen inspection photo review manifest — DETACHED / EXACT CI REQUIRED
 
-Prepared staff review-time manifest of exact private photo IDs and SHA-256 hashes captured in immutable audit, with byte integrity on each read, corruption warnings, denial after role/property revocation, transactional audit-failure rollback and exact idempotent retry regression. This is not offline sync or P5-INSP-04 acceptance. Current predecessor 7daf7132/run39703229920 requires all six successful hosted jobs before publication.
+Prepared staff review-time manifest of exact private photo IDs and SHA-256 hashes captured in immutable audit, with byte integrity on each read, corruption warnings, denial after role/property revocation, transactional audit-failure rollback and exact idempotent retry regression. This is not offline sync or P5-INSP-04 acceptance. Predecessor 7daf7132/run39703229920 all six SUCCESS; manifest successor requires own exact-SHA CI.
 
 ---
 
