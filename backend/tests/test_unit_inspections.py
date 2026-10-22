@@ -971,6 +971,20 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
             asyncio.run(inspection_router.upload_inspection_photo(
                 record.id, upload(valid_bytes + b"later"), db=db, current_user=manager))
         assert sealed.value.status_code == 409
+        photo_row = db.query(EntityAttachment).one()
+        photo_path = tmp_path / photo_row.storage_key
+        photo_path.write_bytes(b"tampered evidence")
+        with pytest.raises(HTTPException) as damaged:
+            inspection_router.download_inspection_photo(
+                record.id, photo_row.id, db=db, current_user=admin)
+        assert damaged.value.status_code == 409
+        with pytest.raises(HTTPException) as damaged_retry:
+            asyncio.run(inspection_router.upload_inspection_photo(
+                record.id, upload(), db=db, current_user=manager))
+        assert damaged_retry.value.status_code == 409
+        photo_path.write_bytes(valid_bytes)
+        assert inspection_router.download_inspection_photo(
+            record.id, photo_row.id, db=db, current_user=admin).status_code == 200
         assert db.query(EntityAttachment).count() == 1
         prop.is_active = False
         db.commit()
