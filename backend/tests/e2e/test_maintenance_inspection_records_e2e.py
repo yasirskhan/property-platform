@@ -171,6 +171,13 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
                       wait_until="domcontentloaded")
             pw.expect(page.get_by_text("Independent follow-up review " + tag)).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_role("heading", name="Independent inspection review")).to_be_visible(timeout=15_000)
+            page.get_by_label("Inspection photo").set_input_files({
+                "name": "inspection-photo.png",
+                "mimeType": "image/png",
+                "buffer": bytes.fromhex("89504e470d0a1a0a") + b"inspection browser fixture",
+            })
+            page.get_by_role("button", name="Add private evidence").click()
+            pw.expect(page.get_by_role("button", name=re.compile("inspection-photo.png"))).to_be_visible(timeout=15_000)
             page.get_by_label("Independent review decision").select_option("FOLLOW_UP_REQUIRED")
             page.get_by_label("Review explanation").fill("Follow up on the observed exterior condition")
             page.get_by_role("button", name="Record independent review").click()
@@ -179,6 +186,7 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
                 has_text="Independent inspection review recorded and audited."
             )).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("Decision: FOLLOW UP REQUIRED")).to_be_visible(timeout=15_000)
+            pw.expect(page.get_by_role("button", name="Add private evidence")).to_have_count(0)
             page.reload(wait_until="domcontentloaded")
             pw.expect(page.get_by_text("Decision: FOLLOW UP REQUIRED")).to_be_visible(timeout=15_000)
             pw.expect(page.get_by_text("Follow up on the observed exterior condition")).to_be_visible()
