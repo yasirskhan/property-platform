@@ -1,5 +1,6 @@
 """Staff procurement approval and attested physical receiving, WITHOUT payables."""
 from datetime import datetime
+import json
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import func
@@ -8,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
 from app.models.maintenance_material import MaintenanceMaterialOrder as Order, MaintenanceMaterialMovement as Movement
+from app.models.audit_log import AuditLog
 from app.models.property import Property, PropertyAssignment
 from app.models.user import User, UserRole, Organization
 from app.models.vendor import Vendor
@@ -98,6 +100,7 @@ def _purchase(db: Session, actor: User, order_id: int, *, write: bool):
             raise HTTPException(409, "Material approval/requester binding mismatch")
     if write:
         row = db.query(Order).populate_existing().filter(Order.id == row.id).with_for_update().one()
+    _assert_original_approval_evidence(db, row)
     return row
 
 
@@ -110,6 +113,47 @@ def _net(db: Session, row: Order) -> int:
     return sum(int(qty) for _, qty in quantities)
 
 
+def _assert_original_approval_evidence(db: Session, row: Order) -> None:
+    """Current business fields must still match the immutable request/decision."""
+    logs = db.query(AuditLog).filter(
+        AuditLog.organization_id == row.organization_id,
+        AuditLog.entity_type == "maintenance_material_order",
+        AuditLog.entity_id == row.id,
+    ).order_by(AuditLog.id.asc()).all()
+    requested = [entry for entry in logs if entry.action == "requested"]
+    decisions = [entry for entry in logs if entry.action == "reviewed"]
+    if len(requested) != 1 or len(decisions) > 1:
+        raise HTTPException(409, "Purchase request audit evidence missing or duplicated")
+    try:
+        origin = json.loads(requested[0].new_value or "{}")
+        if (origin.get("work_order_id") != row.work_order_id
+                or origin.get("property_id") != row.property_id
+                or origin.get("vendor_id") != row.vendor_id
+                or origin.get("request_key") != row.request_key
+                or origin.get("sku") != row.sku
+                or origin.get("quantity") != row.requested_qty
+                or origin.get("unit_cost_cents") != row.unit_cost_cents
+                or origin.get("reason") != row.reason
+                or requested[0].user_id != row.requested_by_id):
+            raise ValueError("Original request binding changed")
+        if row.status == "REQUESTED":
+            if decisions or row.reviewed_by_id is not None:
+                raise ValueError("Pending state has decision evidence")
+        else:
+            if (len(decisions) != 1 or row.reviewed_by_id is None
+                    or row.reviewed_by_id == row.requested_by_id
+                    or not row.reviewed_at or not row.decision_reason):
+                raise ValueError("Independent approval evidence missing")
+            decision = json.loads(decisions[0].new_value or "{}")
+            if (decision.get("status") != row.status
+                    or decision.get("reason") != row.decision_reason
+                    or decision.get("reviewer_id") != row.reviewed_by_id
+                    or decisions[0].user_id != row.reviewed_by_id):
+                raise ValueError("Independent decision binding changed")
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(409, "Material request immutable audit integrity violation") from exc
+
+
 def _movement(row: Movement) -> dict:
     return {
         "id": row.id, "delta_qty": row.delta_qty, "reference": row.reference,
@@ -119,6 +163,7 @@ def _movement(row: Movement) -> dict:
 
 
 def _out(db: Session, row: Order) -> dict:
+    _assert_original_approval_evidence(db, row)
     events = db.query(Movement).filter(
         Movement.order_id == row.id,
     ).order_by(Movement.id.asc()).limit(201).all()

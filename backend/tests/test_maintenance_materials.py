@@ -275,3 +275,38 @@ def test_independent_owner_can_approve_admin_request_but_receiver_cannot_self_re
     finally:
         db.close()
         engine.dispose()
+
+
+def test_material_approval_rejects_historical_price_and_independent_decision_tampering():
+    db, engine, actors, properties, orders, vendor, foreign_vendor = setup()
+    try:
+        admin, manager = actors[:2]
+        row = request(orders[1].id, vendor, db=db, actor=manager)
+        stored = db.query(PO).filter_by(id=row["id"]).one()
+        stored.unit_cost_cents = 999999
+        db.flush()
+        with pytest.raises(HTTPException) as tampered_price:
+            m.list_orders(work_order_id=None, limit=50, db=db, current_user=admin)
+        assert tampered_price.value.status_code == 409
+        db.rollback()
+        m.decide_order(row["id"], m.Decision(
+            approved=True, reason="Owner administrator verified actual purchase amount",
+        ), db=db, current_user=admin)
+        stored = db.query(PO).filter_by(id=row["id"]).one()
+        stored.reviewed_by_id = manager.id
+        db.flush()
+        with pytest.raises(HTTPException) as changed_reviewer:
+            m.receive_materials(row["id"], m.Receipt(
+                reference="FORGED-DECISION", quantity=1,
+                notes="Attempt to rely on forged approval record",
+            ), db=db, current_user=manager)
+        assert changed_reviewer.value.status_code == 409
+        db.rollback()
+        assert db.query(Move).count() == 0
+        assert m.receive_materials(row["id"], m.Receipt(
+            reference="AUTHORIZED-RECEIPT", quantity=1,
+            notes="Physical receipt bound to actual approved request",
+        ), db=db, current_user=manager)["net_received"] == 1
+    finally:
+        db.close()
+        engine.dispose()
