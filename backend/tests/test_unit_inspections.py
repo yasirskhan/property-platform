@@ -994,6 +994,18 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
         assert frozen["photos"][0]["bytes_verified"] is True
         with pytest.raises(HTTPException):
             inspection_router.read_sealed_inspection_photo_manifest(
+                record.id, db=db, current_user=outsider)
+        assigned = db.query(PropertyAssignment).filter_by(
+            user_id=manager.id, property_id=prop.id).one()
+        assigned.is_active = False
+        db.flush()
+        with pytest.raises(HTTPException):
+            inspection_router.read_sealed_inspection_photo_manifest(
+                record.id, db=db, current_user=manager)
+        assigned.is_active = True
+        db.flush()
+        with pytest.raises(HTTPException):
+            inspection_router.read_sealed_inspection_photo_manifest(
                 record.id, db=db, current_user=tenant)
 
 
