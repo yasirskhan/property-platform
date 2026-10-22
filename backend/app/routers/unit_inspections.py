@@ -248,6 +248,11 @@ async def upload_inspection_photo(inspection_id: int, file: UploadFile = File(..
             raise
         _verified_photo_bytes(replay)
         item = replay
+    except Exception:
+        # Leave the content-hashed bytes for an exact safe replay, but never
+        # leave an uncommitted attachment or audit record in the session.
+        db.rollback()
+        raise
     return {"id": item.id, "original_name": item.original_name,
             "size_bytes": item.size_bytes, "created_at": item.created_at}
 
