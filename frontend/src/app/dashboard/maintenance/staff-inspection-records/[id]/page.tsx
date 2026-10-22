@@ -34,6 +34,8 @@ export default function StaffInspectionDetailPage() {
   const [reviewDecision, setReviewDecision] = useState<Review["decision"]>("CONFIRMED");
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewSaving, setReviewSaving] = useState(false);
+  const [sealedPhotos, setSealedPhotos] = useState<{id:number;sha256:string;original_name:string|null;record_present:boolean}[]>([]);
+  const [manifestError, setManifestError] = useState("");
   const [photoItems, setPhotoItems] = useState<{id:number;original_name:string;size_bytes:number}[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -138,6 +140,18 @@ export default function StaffInspectionDetailPage() {
     } catch (err) { setPhotoError(err instanceof Error ? err.message : "Download failed"); }
   }
 
+  useEffect(() => {
+    if (!record || !review) return;
+    let active = true;
+    apiGet(`/api/unit-inspections/${record.id}/photo-manifest`)
+      .then((result: {sealed:boolean;photos:typeof sealedPhotos}) => {
+        if (!result.sealed || !Array.isArray(result.photos)) throw new Error("Photo review manifest unavailable");
+        if (active) setSealedPhotos(result.photos);
+      })
+      .catch((err) => { if (active) setManifestError(err instanceof Error ? err.message : "Manifest unavailable"); });
+    return () => { active = false; };
+  }, [record?.id, review?.id]);
+
   async function saveReview() {
     if (!record || reviewSaving || review || reviewNotes.trim().length < 10) return;
     setReviewSaving(true); setReviewError(""); setReviewMessage("");
@@ -207,6 +221,15 @@ export default function StaffInspectionDetailPage() {
           </button>
         </div>}
       </section>
+      {review && <section className="space-y-2 rounded-lg border p-3">
+        <h3 className="font-semibold">Sealed photo evidence at independent review</h3>
+        {manifestError && <p role="alert">{manifestError}</p>}
+        {sealedPhotos.length === 0 && !manifestError && <p className="text-sm">No photos included in this review.</p>}
+        <ul className="space-y-1 text-sm">{sealedPhotos.map((photo) => <li key={photo.id}>
+          Photo #{photo.id}: {photo.original_name || "Evidence record unavailable"} · SHA-256 {photo.sha256}
+          {!photo.record_present && <span role="alert"> · Evidence record missing or changed</span>}
+        </li>)}</ul>
+      </section>}
       <section className="space-y-3 rounded-lg border p-3">
         <h3 className="font-semibold">Independent inspection review</h3>
         <p className="text-xs text-slate-600">
