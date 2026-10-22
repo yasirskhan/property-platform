@@ -669,6 +669,12 @@ export default function WorkOrderDetailPage() {
               </div>
             )}
           </header>
+          {["ADMIN","OWNER","MANAGER"].includes(String(viewer?.role||"").toUpperCase()) && (
+            <Link href={"/dashboard/maintenance/material-orders?work_order_id="+order.id}
+              className="inline-flex rounded-lg border bg-white px-4 py-2 text-sm text-blue-800 underline">
+              Request materials and view purchase approvals
+            </Link>
+          )}
           <section className="rounded-xl border bg-white p-5">
             <h2 className="font-semibold">Available next step</h2>
             <p className="mt-1 text-xs text-slate-500">
