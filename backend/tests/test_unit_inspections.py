@@ -901,6 +901,7 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
     from io import BytesIO
     from fastapi import UploadFile
     from app.models.entity_attachment import EntityAttachment
+    from app.models.unit_inspection import UnitInspectionReview
     from app.schemas.unit_inspection import InspectionReviewIn
     from app.services.entity_notes import resolve_note_target
 
@@ -972,6 +973,19 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
         with pytest.raises(HTTPException):
             resolve_note_target(db, current_user=admin,
                                 entity_type="unit_inspection_records", entity_id=record.id)
+        review_photo = db.query(EntityAttachment).one()
+        reviewed_path = tmp_path / review_photo.storage_key
+        reviewed_path.write_bytes(b"damaged before review")
+        with pytest.raises(HTTPException) as corrupt_review:
+            inspection_router.review_inspection(
+                record.id, InspectionReviewIn(
+                    decision="FOLLOW_UP_REQUIRED",
+                    notes="Independent photo evidence requires verified source bytes"),
+                Response(), db=db, current_user=admin)
+        assert corrupt_review.value.status_code == 409
+        assert db.query(UnitInspectionReview).filter_by(inspection_id=record.id).count() == 0
+        assert db.query(AuditLog).filter_by(entity_type="unit_inspection_review").count() == 0
+        reviewed_path.write_bytes(valid_bytes)
         review = inspection_router.review_inspection(
             record.id, InspectionReviewIn(
                 decision="FOLLOW_UP_REQUIRED",
