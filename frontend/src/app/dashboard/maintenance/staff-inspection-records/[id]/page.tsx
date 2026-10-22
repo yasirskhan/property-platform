@@ -152,6 +152,9 @@ export default function StaffInspectionDetailPage() {
     if(!actor||!record||review||syncingLocal)return;
     setSyncingLocal(true);setPhotoError("");
     try{
+      const current = await apiGet("/auth/me") as {id:number;organization_id:number};
+      if(current.id!==actor.id || current.organization_id!==actor.organization_id)
+        throw new Error("Account changed. Reopen this inspection before syncing local evidence");
       const items=await pendingPhotos(actor.id,actor.organization_id,record.id);
       for(const item of items){
         const form=new FormData();
