@@ -1,3 +1,10 @@
+## 2026-10-22 | Phase 5 independent unresolved acceptance
+P5-INSP-04: Photo upload acknowledgment must be bound to exact org/inspection/byte digest before local deletion. Published f192562d is pending exact six-job CI. Device-local IndexedDB photos remain readable without encryption, require manual sync, and do not establish cross-device or full mobile acceptance.
+P5-PM-05: Bounded authorized recovery of multiple overdue maintenance occurrences with tested retries and persistent history has an inspectable DETACHED candidate after f192562d. It still requires publication and all six hosted jobs. Backend creates tenantless uncharged work orders only; no dispatch, payroll or delivery.
+P5-PROC-06 purchase approvals, receiving/stock and cost allocation plus P5-FIN-07 ledger posting/reversal are independently unfinished. Real providers, payment credentials, operator acceptance, restores and security signoff remain external gates; do not fabricate successful acceptance.
+
+---
+
 ## 2026-10-21 | Offline capture gap
 Explicit local draft/manual authenticated sync is prepared, not published. Sensitive images reside on the local device without server-side encryption; warn users and do not claim secure managed offline sync. Cross-device transfer, mobile lifecycle, storage eviction, operator acceptance remain OPEN.
 

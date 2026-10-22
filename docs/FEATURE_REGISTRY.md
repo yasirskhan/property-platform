@@ -1,3 +1,10 @@
+## 2026-10-22 | P5-INSP-04 and P5-PM-05 continuing verification
+- P5-INSP-04 device-local photo drafts, private photo integrity and sealed review manifest exist on source 60880747 (six-green 39715164052). SHA-256 + exact organization/inspection upload acknowledgment, scoped local deletion and atomic 20-draft cap are published in f192562d, run 39722811542 pending all-six verification. No encrypted local storage or final offline/mobile acceptance claim.
+- P5-PM-05 authorized 1-12 occurrence operator catch-up is saved as inspectable DETACHED successor of f192562d (latest candidate below), with full API/UI, per-occurrence audit, tenantless no-charge guarantees, rollback/retry behavior and backend/browser regression. Do not call it published or green until expected-SHA promotion and exact six-job CI.
+- P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-PROC-06, P5-FIN-07, P5-ACC-08 and full P5-INSP-04/P5-PM-05 remain OPEN. Production dispatch/provider/finance switches OFF.
+
+---
+
 ## 2026-10-21 | P5-INSP-04 offline photo draft/sync candidate
 Saved DETACHED UI+IndexedDB module and authenticated browser reconnect test; not verified or accepted. Existing immutable photo manifest source is published, latest repair still requires all-six CI. External/operator signoff unresolved.
 
