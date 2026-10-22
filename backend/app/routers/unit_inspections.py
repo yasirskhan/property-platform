@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 from datetime import date
 from hashlib import sha256
+import json
 import os
 from pathlib import Path
 from sqlalchemy.exc import IntegrityError
@@ -12,6 +13,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse
 from app.models.entity_attachment import EntityAttachment
+from app.models.audit_log import AuditLog
 from app.models.unit_inspection import UnitInspectionRecord, UnitInspectionReview
 from app.services.attachment_storage import attachment_path
 from app.services.audit import append_audit_log
@@ -95,6 +97,48 @@ def download_inspection_photo(inspection_id: int, photo_id: int,
     return Response(content=data, media_type=row.content_type,
                     headers={"Cache-Control": "private, no-store",
                              "Content-Disposition": f'attachment; filename="inspection-{row.id}"'})
+
+
+@router.get("/{inspection_id}/photo-manifest")
+def read_sealed_inspection_photo_manifest(inspection_id: int,
+                                           db: Session = Depends(get_db),
+                                           current_user: User = Depends(get_current_user)):
+    """Frozen review-time evidence list; never infer reviewed photos from later data."""
+    record = _photo_info(db, inspection_id, current_user)
+    reviewed = db.query(UnitInspectionReview).filter(
+        UnitInspectionReview.inspection_id == record.id,
+        UnitInspectionReview.organization_id == current_user.organization_id,
+    ).first()
+    if reviewed is None:
+        return {"sealed": False, "photos": []}
+    audit = db.query(AuditLog).filter(
+        AuditLog.organization_id == current_user.organization_id,
+        AuditLog.entity_type == "unit_inspection_review",
+        AuditLog.entity_id == reviewed.id,
+        AuditLog.action == "independent_review_recorded",
+    ).one_or_none()
+    if audit is None:
+        raise HTTPException(status_code=409, detail="Sealed inspection evidence manifest unavailable")
+    try:
+        snapshot = json.loads(audit.new_value or "{}")
+        ids, hashes = snapshot["photo_evidence_ids"], snapshot["photo_evidence_hashes"]
+        if (not isinstance(ids, list) or not isinstance(hashes, list) or len(ids) != len(hashes)
+                or len(ids) > 100 or len(set(ids)) != len(ids)
+                or any(not isinstance(i, int) or i < 1 for i in ids)
+                or any(not isinstance(h, str) or len(h) != 64
+                       or any(ch not in "0123456789abcdef" for ch in h) for h in hashes)):
+            raise ValueError("Invalid manifest")
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(status_code=409, detail="Sealed inspection evidence manifest invalid") from exc
+    rows = {row.id: row for row in _photo_list(db, record.id, current_user)}
+    photos = []
+    for photo_id, digest in zip(ids, hashes):
+        row = rows.get(photo_id)
+        present = bool(row is not None and row.storage_key.split("-")[-1].split(".")[0] == digest)
+        photos.append({"id": photo_id, "sha256": digest,
+                       "original_name": row.original_name if present else None,
+                       "record_present": present})
+    return {"sealed": True, "photos": photos}
 
 
 @router.post("/{inspection_id}/photos", status_code=201)
