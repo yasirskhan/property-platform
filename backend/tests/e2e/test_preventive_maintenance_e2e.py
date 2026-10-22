@@ -107,3 +107,88 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             pw.expect(fresh).to_contain_text("Ends ")
         finally:
             browser.close()
+
+
+def test_operator_recovers_three_backlogged_occurrences_in_browser():
+    """Live staff UI performs and safely replays a bounded catch-up, not just a preview."""
+    from uuid import uuid4
+    from app.core.database import SessionLocal
+    from app.models.property import Property, Unit
+    from app.models.user import User
+    from app.models.preventive_maintenance import PreventiveMaintenanceOccurrence
+    from app.models.work_order import WorkOrder
+    from app.services import preventive_maintenance as pm
+
+    title = "E2E backlog recovery " + uuid4().hex[:10]
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter(User.email == EMAIL).one()
+        unit = db.query(Unit).join(Property, Property.id == Unit.property_id).filter(
+            Property.organization_id == admin.organization_id,
+            Unit.unit_number == "E2E-1",
+            Property.is_active.is_(True),
+        ).first()
+        assert unit is not None
+        schedule = pm.create_schedule(
+            db, admin, unit_id=unit.id, title=title,
+            description="Independent operator recovery for a missed maintenance backlog",
+            interval_days=1, next_due_date=date.today(),
+        )
+        schedule_id = schedule.id
+        schedule.next_due_date = date.today() - timedelta(days=2)
+        db.commit()
+    finally:
+        db.close()
+
+    with pw.sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        try:
+            page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
+            page.locator('input[type="email"]').fill(EMAIL)
+            page.locator('input[type="password"]').fill(PASSWORD)
+            page.get_by_role("button", name="Log In", exact=True).click()
+            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            pw.expect(page.get_by_text("Signed in as", exact=True)).to_be_visible(timeout=15_000)
+            page.goto(BASE_URL + "/dashboard/maintenance/preventive", wait_until="domcontentloaded")
+            page.get_by_label("Search preventive schedules").fill(title)
+            page.get_by_role("button", name="Search schedules").click()
+            card = page.locator("article").filter(has_text=title).first
+            pw.expect(card).to_be_visible(timeout=15_000)
+            card.get_by_role("button", name="Preview due backlog").click()
+            pw.expect(card.get_by_role("heading", name="Due backlog preview — no work orders created")).to_be_visible(timeout=15_000)
+            page.once("dialog", lambda dialog: dialog.accept())
+            card.get_by_role("button", name="Recover due backlog (up to 12)").click()
+            pw.expect(page.get_by_role("status").filter(
+                has_text="3 audited tenantless work orders created"
+            )).to_be_visible(timeout=15_000)
+            card.get_by_role("button", name="Occurrence history").click()
+            pw.expect(card.get_by_role("link", name=re.compile(r"Work order #[0-9]+"))).to_have_count(3, timeout=15_000)
+            page.once("dialog", lambda dialog: dialog.accept())
+            card.get_by_role("button", name="Recover due backlog (up to 12)").click()
+            pw.expect(page.get_by_role("status").filter(
+                has_text="No further due work orders created"
+            )).to_be_visible(timeout=15_000)
+            page.reload(wait_until="domcontentloaded")
+            page.get_by_label("Search preventive schedules").fill(title)
+            page.get_by_role("button", name="Search schedules").click()
+            card = page.locator("article").filter(has_text=title).first
+            pw.expect(card).to_be_visible(timeout=15_000)
+            card.get_by_role("button", name="Occurrence history").click()
+            pw.expect(card.get_by_role("link", name=re.compile(r"Work order #[0-9]+"))).to_have_count(3, timeout=15_000)
+        finally:
+            browser.close()
+
+    db = SessionLocal()
+    try:
+        occurrences = db.query(PreventiveMaintenanceOccurrence).filter_by(
+            schedule_id=schedule_id).all()
+        assert len(occurrences) == 3
+        ids = [item.work_order_id for item in occurrences]
+        assert len(set(ids)) == 3
+        orders = db.query(WorkOrder).filter(WorkOrder.id.in_(ids)).all()
+        assert len(orders) == 3
+        assert all(item.tenant_id is None and item.permission_to_enter is False
+                   and item.total_cost is None for item in orders)
+    finally:
+        db.close()
