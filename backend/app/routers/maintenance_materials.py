@@ -87,6 +87,15 @@ def _purchase(db: Session, actor: User, order_id: int, *, write: bool):
     wo, prop = _work(db, actor, row.work_order_id, write=write)
     if row.property_id != prop.id or wo.property_id != row.property_id:
         raise HTTPException(409, "Material order location mismatch")
+    if db.query(Vendor.id).filter(
+        Vendor.id == row.vendor_id, Vendor.organization_id == row.organization_id,
+    ).first() is None:
+        raise HTTPException(409, "Material supplier company binding mismatch")
+    for user_id in (row.requested_by_id, row.reviewed_by_id):
+        if user_id is not None and db.query(User.id).filter(
+            User.id == user_id, User.organization_id == row.organization_id,
+        ).first() is None:
+            raise HTTPException(409, "Material approval/requester binding mismatch")
     if write:
         row = db.query(Order).populate_existing().filter(Order.id == row.id).with_for_update().one()
     return row
@@ -117,6 +126,15 @@ def _out(db: Session, row: Order) -> dict:
         raise HTTPException(409, "Manual receiving history limit reached")
     if any(x.organization_id != row.organization_id for x in events):
         raise HTTPException(409, "Foreign-company stock movement binding detected")
+    received_by = {x.received_by_id for x in events}
+    permitted_users = {id_ for (id_,) in db.query(User.id).filter(
+        User.organization_id == row.organization_id,
+        User.id.in_(received_by),
+    ).all()} if received_by else set()
+    if permitted_users != received_by:
+        raise HTTPException(409, "Foreign-company movement actor binding detected")
+    if sum(x.delta_qty for x in events) < 0 or sum(x.delta_qty for x in events) > row.requested_qty:
+        raise HTTPException(409, "Physical receipt quantity integrity violation")
     return {
         "id": row.id, "organization_id": row.organization_id,
         "property_id": row.property_id, "work_order_id": row.work_order_id,
@@ -366,13 +384,22 @@ def stock_at_property(property_id: int = Query(ge=1),
         PropertyAssignment.deleted_at.is_(None),
     ).first() is None:
         raise HTTPException(403, "Current property manager assignment required")
-    counts = db.query(Order.sku, Order.item_name, func.sum(Movement.delta_qty)).join(
+    foreign_bind = db.query(Movement.id).join(
+        Order, Movement.order_id == Order.id,
+    ).filter(
+        Order.organization_id == current_user.organization_id,
+        Order.property_id == property_id,
+        Movement.organization_id != current_user.organization_id,
+    ).first()
+    if foreign_bind is not None:
+        raise HTTPException(409, "Cross-organization material movement detected")
+    counts = db.query(Order.sku, func.min(Order.item_name), func.sum(Movement.delta_qty)).join(
         Movement, Movement.order_id == Order.id,
     ).filter(
         Order.organization_id == current_user.organization_id,
         Movement.organization_id == current_user.organization_id,
         Order.property_id == property_id, Order.status == "APPROVED",
-    ).group_by(Order.sku, Order.item_name).all()
+    ).group_by(Order.sku).all()
     if any(int(total) < 0 for _, _, total in counts):
         raise HTTPException(409, "Physical stock count integrity violation")
     return [{"sku": sku, "item_name": name, "quantity": int(total)}

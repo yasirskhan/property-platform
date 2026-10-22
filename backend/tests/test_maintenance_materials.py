@@ -122,8 +122,8 @@ def test_material_orders_require_current_manager_scope_and_vendor_organization()
         with pytest.raises(HTTPException):
             request(orders[2].id, vendor, db=db, actor=manager)
         one = request(orders[1].id, vendor, db=db, actor=manager)
-        assert len(m.list_orders(db=db, current_user=manager)) == 1
-        assert m.list_orders(db=db, current_user=foreign) == []
+        assert len(m.list_orders(work_order_id=None, limit=50, db=db, current_user=manager)) == 1
+        assert m.list_orders(work_order_id=None, limit=50, db=db, current_user=foreign) == []
         for bad in (tenant, crew, foreign):
             with pytest.raises(HTTPException):
                 m.decide_order(one["id"], m.Decision(
@@ -137,7 +137,7 @@ def test_material_orders_require_current_manager_scope_and_vendor_organization()
             user_id=manager.id, property_id=properties[0].id).one()
         assigned.role = type(assigned.role).CREW
         db.commit()
-        assert m.list_orders(db=db, current_user=manager) == []
+        assert m.list_orders(work_order_id=None, limit=50, db=db, current_user=manager) == []
         with pytest.raises(HTTPException):
             m.receive_materials(one["id"], m.Receipt(
                 reference="DENIED-2", quantity=1, notes="Revoked manager cannot receive"),
@@ -182,6 +182,46 @@ def test_material_receipt_audit_failure_rolls_back_without_inventory_change(monk
         ), db=db, current_user=manager)
         assert complete["net_received"] == 2
         assert db.query(Move).count() == 1
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_material_foreign_supplier_and_movement_actor_bindings_fail_closed():
+    db, engine, actors, properties, orders, vendor, foreign_vendor = setup()
+    try:
+        admin, manager = actors[:2]
+        row = request(orders[1].id, vendor, db=db, actor=manager)
+        stored = db.query(PO).filter_by(id=row["id"]).one()
+        stored.vendor_id = foreign_vendor.id
+        db.flush()
+        with pytest.raises(HTTPException) as forged_vendor:
+            m.list_orders(work_order_id=None, limit=50, db=db, current_user=admin)
+        assert forged_vendor.value.status_code == 409
+        stored.vendor_id = vendor.id
+        db.commit()
+        m.decide_order(row["id"], m.Decision(
+            approved=True, reason="Source material purchase verified by administrator",
+        ), db=db, current_user=admin)
+        m.receive_materials(row["id"], m.Receipt(
+            reference="VALID-REFERENCE", quantity=1,
+            notes="One legitimate received part inspected",
+        ), db=db, current_user=manager)
+        movement = db.query(Move).filter_by(order_id=row["id"]).one()
+        movement.organization_id = actors[5].organization_id
+        db.flush()
+        with pytest.raises(HTTPException) as forged_movement:
+            m.list_orders(work_order_id=None, limit=50, db=db, current_user=admin)
+        assert forged_movement.value.status_code == 409
+        with pytest.raises(HTTPException):
+            m.stock_at_property(properties[0].id, db=db, current_user=admin)
+        db.rollback()  # These tests do not install migration immutability triggers.
+        movement = db.query(Move).filter_by(order_id=row["id"]).one()
+        movement.received_by_id = actors[5].id
+        db.flush()
+        with pytest.raises(HTTPException) as forged_actor:
+            m.list_orders(work_order_id=None, limit=50, db=db, current_user=admin)
+        assert forged_actor.value.status_code == 409
     finally:
         db.close()
         engine.dispose()
