@@ -947,6 +947,14 @@ def test_private_inspection_photo_upload_scope_retry_sealing_and_audit(monkeypat
                 notes="Independent photo and roof evidence indicate repair needed"),
             Response(), db=db, current_user=admin)
         assert review.inspection_id == record.id
+        review_audit = db.query(AuditLog).filter_by(
+            entity_type="unit_inspection_review", entity_id=review.id,
+            action="independent_review_recorded",
+        ).one()
+        review_details = __import__("json").loads(review_audit.new_value)
+        assert review_details["photo_evidence_ids"] == [saved["id"]]
+        assert len(review_details["photo_evidence_hashes"][0]) == 64
+
         sealed_replay = asyncio.run(inspection_router.upload_inspection_photo(
             record.id, upload(), db=db, current_user=manager))
         assert sealed_replay["id"] == saved["id"]

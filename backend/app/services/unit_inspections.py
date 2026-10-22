@@ -14,6 +14,7 @@ from fastapi import HTTPException
 
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.unit_inspection import UnitInspectionRecord, UnitInspectionReview
+from app.models.entity_attachment import EntityAttachment
 from app.models.user import User, UserRole
 from app.schemas.unit_inspection import (InspectionChecklistItem, UnitInspectionCreateIn, UnitInspectionOut,
     InspectionReviewIn, InspectionReviewOut)
@@ -401,6 +402,14 @@ def independently_review_inspection(
     )
     db.add(row)
     db.flush()
+    photo_evidence = db.query(EntityAttachment.id, EntityAttachment.storage_key).filter(
+        EntityAttachment.organization_id == actor.organization_id,
+        EntityAttachment.entity_type == "unit_inspection_records",
+        EntityAttachment.entity_id == inspection_id,
+        EntityAttachment.is_active.is_(True),
+        EntityAttachment.share_with_owners.is_(False),
+        EntityAttachment.share_with_tenants.is_(False),
+    ).order_by(EntityAttachment.id.asc()).all()
     append_audit_log(
         db, organization_id=actor.organization_id, user_id=actor.id,
         entity_type="unit_inspection_review", entity_id=row.id,
@@ -410,6 +419,8 @@ def independently_review_inspection(
             "reviewer_id": actor.id, "decision": payload.decision,
             "notes": payload.notes, "financial_effect": False,
             "original_inspection_changed": False,
+            "photo_evidence_ids": [item.id for item in photo_evidence],
+            "photo_evidence_hashes": [item.storage_key.split("-")[-1].split(".")[0] for item in photo_evidence],
         },
     )
     db.commit()
