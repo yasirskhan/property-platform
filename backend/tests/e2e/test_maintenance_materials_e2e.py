@@ -221,6 +221,45 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
             page.get_by_role("button", name="Refresh purchase history").click()
             pw.expect(card).to_contain_text("Report #"+str(variance_id)+" · RESTORED", timeout=15_000)
             pw.expect(card).to_contain_text("Available from this request 1")
+
+            # Two real work-order material lines must be approved as one whole
+            # requisition through the visible independent staff interface.
+            db = SessionLocal()
+            try:
+                manager = db.query(User).filter(User.id == manager_id).one()
+                batch = m.create_material_batch(m.MaterialBatchRequest(
+                    batch_key="E2E-BATCH-MANAGER-"+tag.upper(),
+                    work_order_id=work_order_id,vendor_id=supplier_id,
+                    reason="Two separate repair parts require independent approval",
+                    lines=[
+                        m.BatchItem(sku="E2E-A-"+tag.upper(),
+                            item_name="Filter bracket "+tag,quantity=2,unit_cost_cents=800),
+                        m.BatchItem(sku="E2E-B-"+tag.upper(),
+                            item_name="Pipe bracket "+tag,quantity=1,unit_cost_cents=1200),
+                    ],
+                ),db=db,current_user=manager)
+                batch_id=batch["id"]
+            finally:
+                db.close()
+            page.get_by_role("button",name="Refresh purchase history").click()
+            group=page.locator("article").filter(has_text="Internal request #"+str(batch_id)).first
+            pw.expect(group).to_contain_text("REQUESTED",timeout=15_000)
+            group.get_by_label("Batch decision reason "+str(batch_id)).fill(
+                "Independent administrator reviewed and approved both items")
+            group.get_by_role("button",name="Approve entire requisition").click()
+            pw.expect(group).to_contain_text("APPROVED",timeout=15_000)
+            db = SessionLocal()
+            try:
+                manager = db.query(User).filter(User.id == manager_id).one()
+                for line in batch["lines"]:
+                    receipt=m.receive_materials(line["order_id"],m.Receipt(
+                        reference="E2E-BATCH-"+str(line["line_number"])+"-"+tag,
+                        quantity=line["quantity"],
+                        notes="Independent physical receipt and count of this material line",
+                    ),db=db,current_user=manager)
+                    assert receipt["net_received"]==line["quantity"]
+            finally:
+                db.close()
         finally:
             browser.close()
 
