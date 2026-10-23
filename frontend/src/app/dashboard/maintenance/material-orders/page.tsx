@@ -14,6 +14,16 @@ type Order = {
   vendor_delivery_confirmed:boolean;gl_posted:boolean;tenant_charged:boolean;
 };
 type Stock = {sku:string;item_name:string;quantity:number};
+type BatchLine = {sku:string;item_name:string;quantity:string;unit_cost_cents:string};
+type InternalBatch = {
+  id:number;batch_key:string;organization_id:number;property_id:number;work_order_id:number;
+  vendor_id:number;requested_by_id:number;reviewed_by_id:number|null;
+  reason:string;review_reason:string|null;status:string;
+  estimated_total_cents:number;line_count:number;
+  external_order_sent:boolean;gl_posted:boolean;tenant_charged:boolean;
+  lines:{line_number:number;order_id:number;sku:string;item_name:string;
+    quantity:number;unit_cost_cents:number}[];
+};
 type Issue = {id:number;material_order_id:number;target_work_order_id:number;
   reference:string;delta_qty:number;issued_by_id:number;reverses_id:number|null;reason:string};
 type StockVariance = {id:number;request_key:string;quantity:number;reason:string;
@@ -40,15 +50,28 @@ export default function MaterialOrdersPage() {
   const [variances,setVariances] = useState<Record<number,{quantity:string;reason:string}>>({});
   const varianceKeys=useRef<Record<number,string>>({});
   const [stock,setStock] = useState<{property:number;rows:Stock[]}|null>(null);
+  const [batches,setBatches] = useState<InternalBatch[]>([]);
+  const [batchReason,setBatchReason] = useState("");
+  const [batchReview,setBatchReview] = useState<Record<number,string>>({});
+  const [batchLines,setBatchLines] = useState<BatchLine[]>([
+    {sku:"",item_name:"",quantity:"1",unit_cost_cents:"0"},
+    {sku:"",item_name:"",quantity:"1",unit_cost_cents:"0"},
+  ]);
+  const batchKey=useRef("");
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
   const [message,setMessage] = useState("");
 
   async function refresh() {
-    const result = await apiGet("/api/maintenance/materials/orders?limit=100") as StockOrder[];
-    if(!Array.isArray(result))throw new Error("Invalid purchasing list");
+    const [result,multi]=await Promise.all([
+      apiGet("/api/maintenance/materials/orders?limit=100"),
+      apiGet("/api/maintenance/materials/batches?limit=50"),
+    ]) as [StockOrder[],InternalBatch[]];
+    if(!Array.isArray(result)||!Array.isArray(multi))
+      throw new Error("Invalid scoped materials purchasing list");
     setStock(null);
     setOrders(result);
+    setBatches(multi);
   }
   useEffect(()=>{
     const query = new URLSearchParams(window.location.search);
@@ -92,6 +115,50 @@ export default function MaterialOrdersPage() {
     }catch(cause){setError(cause instanceof Error?cause.message:"Purchase request failed");}
     finally{setBusy(false);}
   }
+
+  async function requestBatch(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(busy)return;
+    if(!batchKey.current)batchKey.current=crypto.randomUUID();
+    setBusy(true);setError("");setMessage("");
+    try{
+      await apiPost("/api/maintenance/materials/batches",{
+        batch_key:batchKey.current,work_order_id:Number(workOrder),
+        vendor_id:Number(vendorId),reason:batchReason.trim(),
+        lines:batchLines.map(line=>({
+          sku:line.sku.trim(),item_name:line.item_name.trim(),
+          quantity:Number(line.quantity),unit_cost_cents:Number(line.unit_cost_cents),
+        })),
+      });
+      batchKey.current="";
+      setBatchReason("");
+      setBatchLines([
+        {sku:"",item_name:"",quantity:"1",unit_cost_cents:"0"},
+        {sku:"",item_name:"",quantity:"1",unit_cost_cents:"0"},
+      ]);
+      await refresh();
+      setMessage("All material lines saved together for independent Owner/Admin review. No supplier was contacted and no cost was posted.");
+    }catch(cause){setError(cause instanceof Error?cause.message:"Multi-line request failed; original key preserved for retry.");}
+    finally{setBusy(false);}
+  }
+
+  async function decideBatch(row:InternalBatch,approved:boolean){
+    if(busy)return;
+    const explanation=(batchReview[row.id]||"").trim();
+    if(explanation.length<10){setError("Provide an independent whole-batch review reason of at least 10 characters.");return;}
+    setBusy(true);setError("");setMessage("");
+    try{
+      await apiPost("/api/maintenance/materials/batches/"+row.id+"/decision",{
+        approved,reason:explanation,
+      });
+      await refresh();
+      setMessage(approved?"Every material line approved together. No supplier or accounting integration activated.":"Every line denied together with immutable audit.");
+    }catch(cause){setError(cause instanceof Error?cause.message:"Whole-batch decision failed.");}
+    finally{setBusy(false);}
+  }
+
+  const patchBatchLine=(index:number,key:keyof BatchLine,value:string)=>
+    setBatchLines(old=>old.map((row,i)=>i===index?{...row,[key]:value}:row));
 
   async function decide(row:Order,approved:boolean) {
     const explanation=(reviews[row.id]||"").trim();
@@ -291,6 +358,85 @@ export default function MaterialOrdersPage() {
         <button type="submit" disabled={busy||!vendorId}
           className="rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50">Submit internal material request</button>
       </form>
+      <section className="space-y-3 rounded-lg border p-4">
+        <h2 className="font-semibold">Request multiple material lines together</h2>
+        <p className="text-sm">Uses the work order and selected supplier above. All lines are one internal atomic request and require one independent Owner/Admin decision; the application does not send a purchase order to a supplier or post any financial transaction.</p>
+        <button type="button" onClick={()=>void findVendors()} className="rounded border px-3 py-2 text-sm">Find eligible supplier for multi-line request</button>
+        <p className="text-sm">Work order #{workOrder||"—"} · Supplier #{vendorId||"choose an eligible vendor above"}</p>
+        <form onSubmit={event=>void requestBatch(event)} className="space-y-3">
+          {batchLines.map((line,index)=><div key={index} className="space-y-2 rounded border p-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-sm">Material line {index+1}</h3>
+              {batchLines.length>2 && <button type="button" className="underline text-sm"
+                onClick={()=>setBatchLines(rows=>rows.filter((_,i)=>i!==index))}>Remove line</button>}
+            </div>
+            <label className="block text-sm">SKU
+              <input aria-label={"Batch SKU "+(index+1)} required minLength={2} maxLength={60}
+                pattern="[A-Za-z0-9][A-Za-z0-9._-]*"
+                value={line.sku} onChange={e=>patchBatchLine(index,"sku",e.target.value)}
+                className="mt-1 block w-full rounded border p-2"/>
+            </label>
+            <label className="block text-sm">Material name
+              <input aria-label={"Batch material name "+(index+1)} required minLength={3} maxLength={255}
+                value={line.item_name} onChange={e=>patchBatchLine(index,"item_name",e.target.value)}
+                className="mt-1 block w-full rounded border p-2"/>
+            </label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block text-sm">Quantity
+                <input aria-label={"Batch quantity "+(index+1)} required type="number" min="1" max="10000"
+                  value={line.quantity} onChange={e=>patchBatchLine(index,"quantity",e.target.value)}
+                  className="mt-1 block w-full rounded border p-2"/>
+              </label>
+              <label className="block text-sm">Estimated unit cost (cents)
+                <input aria-label={"Batch unit cost "+(index+1)} required type="number" min="0" max="100000000"
+                  value={line.unit_cost_cents} onChange={e=>patchBatchLine(index,"unit_cost_cents",e.target.value)}
+                  className="mt-1 block w-full rounded border p-2"/>
+              </label>
+            </div>
+          </div>)}
+          {batchLines.length<20 && <button type="button"
+            className="rounded border px-3 py-2 text-sm"
+            onClick={()=>setBatchLines(lines=>[...lines,{sku:"",item_name:"",quantity:"1",unit_cost_cents:"0"}])}>
+            Add material line
+          </button>}
+          <label className="block text-sm">Reason for the entire requisition
+            <textarea aria-label="Batch material reason" required minLength={10} maxLength={1000}
+              value={batchReason} onChange={e=>setBatchReason(e.target.value)}
+              className="mt-1 block w-full rounded border p-2"/>
+          </label>
+          <button type="submit" disabled={busy||!vendorId||!workOrder}
+            className="rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50">
+            Submit all lines together for independent approval
+          </button>
+        </form>
+      </section>
+      <section className="space-y-3 rounded-lg border p-4">
+        <h2 className="font-semibold">Multi-line requisitions awaiting or after independent review</h2>
+        {batches.length===0 && <p className="text-sm">No multi-line material requests for your currently authorized properties.</p>}
+        {batches.map(row=><article key={row.id} className="space-y-2 rounded border p-3">
+          <h3 className="font-semibold">Internal request #{row.id} · {row.line_count} lines · {row.status}</h3>
+          <p className="text-sm">Work order #{row.work_order_id} · Property #{row.property_id} · Supplier #{row.vendor_id} · Estimated {(row.estimated_total_cents/100).toFixed(2)} USD (not posted)</p>
+          <p className="text-sm">Reason: {row.reason} · Requester #{row.requested_by_id}</p>
+          <ul className="list-disc pl-5 text-sm">{row.lines.map(line=><li key={line.order_id}>
+            Line {line.line_number}: {line.sku} — {line.item_name} · {line.quantity} × {(line.unit_cost_cents/100).toFixed(2)} USD · material source #{line.order_id}
+          </li>)}</ul>
+          {row.reviewed_by_id && <p className="text-sm">Independent review by user #{row.reviewed_by_id}: {row.review_reason}</p>}
+          {row.status==="REQUESTED" && reviewRole && actor!.id!==row.requested_by_id && <div className="space-y-2">
+            <label className="block text-sm">One independent decision for every line
+              <textarea aria-label={"Batch decision reason "+row.id} required minLength={10} maxLength={500}
+                value={batchReview[row.id]||""}
+                className="mt-1 block w-full rounded border p-2"
+                onChange={e=>setBatchReview(old=>({...old,[row.id]:e.target.value}))}/>
+            </label>
+            <div className="flex gap-2">
+              <button type="button" disabled={busy} className="rounded border px-3 py-2 text-sm"
+                onClick={()=>void decideBatch(row,true)}>Approve entire requisition</button>
+              <button type="button" disabled={busy} className="rounded border px-3 py-2 text-sm"
+                onClick={()=>void decideBatch(row,false)}>Deny entire requisition</button>
+            </div>
+          </div>}
+        </article>)}
+      </section>
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Authorized purchasing history</h2>
