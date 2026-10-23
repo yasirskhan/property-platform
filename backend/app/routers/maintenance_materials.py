@@ -13,6 +13,8 @@ from app.models.maintenance_material import (
     MaintenanceMaterialIssue as Issue, MaintenanceMaterialVariance as Variance,
     MaintenanceMaterialVarianceDecision as VarianceDecision,
     MaintenanceMaterialVarianceRestoration as VarianceRestore,
+    MaintenanceMaterialBatch as MaterialBatch,
+    MaintenanceMaterialBatchLine as MaterialBatchLine,
 )
 from app.models.audit_log import AuditLog
 from app.models.property import Property, PropertyAssignment, Unit
@@ -36,6 +38,23 @@ class NewOrder(BaseModel):
     quantity: int = Field(ge=1, le=10000)
     unit_cost_cents: int = Field(ge=0, le=100000000)
     reason: str = Field(min_length=10, max_length=1000)
+
+
+class BatchItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sku: str = Field(min_length=2, max_length=60, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    item_name: str = Field(min_length=3, max_length=255)
+    quantity: int = Field(ge=1, le=10000)
+    unit_cost_cents: int = Field(ge=0, le=100000000)
+
+
+class MaterialBatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    batch_key: str = Field(min_length=16, max_length=64, pattern=r"^[A-Za-z0-9-]+$")
+    work_order_id: int = Field(ge=1)
+    vendor_id: int = Field(ge=1)
+    reason: str = Field(min_length=10, max_length=1000)
+    lines: list[BatchItem] = Field(min_length=2, max_length=20)
 
 
 class Decision(BaseModel):
@@ -378,6 +397,276 @@ def _out(db: Session, row: Order) -> dict:
     }
 
 
+
+def _batch_detail(db: Session, row: MaterialBatch) -> dict:
+    """Validate original immutable multi-line intent and every current per-line approval."""
+    if row.line_count < 2 or row.line_count > 20:
+        raise HTTPException(409, "Malformed internal purchasing batch")
+    sources = db.query(MaterialBatchLine, Order).join(
+        Order, MaterialBatchLine.order_id == Order.id,
+    ).filter(MaterialBatchLine.batch_id == row.id).order_by(
+        MaterialBatchLine.line_number.asc(),
+    ).limit(21).all()
+    if len(sources) != row.line_count:
+        raise HTTPException(409, "Multi-line requisition source count mismatch")
+    items=[]
+    for index, (binding, item) in enumerate(sources, start=1):
+        if (binding.line_number != index or binding.organization_id != row.organization_id
+                or item.organization_id != row.organization_id
+                or item.property_id != row.property_id
+                or item.work_order_id != row.work_order_id
+                or item.vendor_id != row.vendor_id
+                or item.requested_by_id != row.requested_by_id
+                or item.request_key != row.batch_key + "-" + str(index).zfill(2)
+                or item.reason != row.reason
+                or item.status != row.status
+                or item.reviewed_by_id != row.reviewed_by_id
+                or item.decision_reason != row.review_reason):
+            raise HTTPException(409, "Tampered internal multi-line requisition binding")
+        _assert_original_approval_evidence(db,item)
+        items.append({
+            "line_number": index,"order_id":item.id,"sku":item.sku,
+            "item_name":item.item_name,"quantity":item.requested_qty,
+            "unit_cost_cents":item.unit_cost_cents,
+        })
+    estimated=sum(x["quantity"] * x["unit_cost_cents"] for x in items)
+    if estimated != row.estimated_total_cents:
+        raise HTTPException(409, "Multi-line original estimated total has been changed")
+    request_log = db.query(AuditLog).filter(
+        AuditLog.organization_id == row.organization_id,
+        AuditLog.entity_type == "maintenance_material_batch",
+        AuditLog.entity_id == row.id, AuditLog.action == "requested",
+    ).all()
+    review_log = db.query(AuditLog).filter(
+        AuditLog.organization_id == row.organization_id,
+        AuditLog.entity_type == "maintenance_material_batch",
+        AuditLog.entity_id == row.id, AuditLog.action == "reviewed",
+    ).all()
+    if len(request_log) != 1 or len(review_log) != (0 if row.status == "REQUESTED" else 1):
+        raise HTTPException(409, "Multi-line requisition audit incomplete")
+    expected = {
+        "batch_key":row.batch_key,"work_order_id":row.work_order_id,
+        "property_id":row.property_id,"vendor_id":row.vendor_id,
+        "reason":row.reason,"estimated_total_cents":estimated,
+        "lines":items,"external_order_sent":False,"financial_posted":False,
+    }
+    try:
+        request_body=json.loads(request_log[0].new_value or "{}")
+    except (ValueError, TypeError) as ex:
+        raise HTTPException(409, "Unreadable original multi-line audit") from ex
+    if request_log[0].user_id!=row.requested_by_id or any(request_body.get(k)!=v for k,v in expected.items()):
+        raise HTTPException(409, "Multi-line original immutable intent mismatch")
+    if row.status!="REQUESTED":
+        if row.reviewed_by_id is None or row.reviewed_by_id==row.requested_by_id:
+            raise HTTPException(409, "Multi-line independent reviewer not valid")
+        if db.query(User.id).filter(
+            User.id==row.reviewed_by_id,User.organization_id==row.organization_id,
+        ).first() is None:
+            raise HTTPException(409, "Cross-company multi-line reviewer")
+        try:
+            review_body=json.loads(review_log[0].new_value or "{}")
+        except (ValueError, TypeError) as ex:
+            raise HTTPException(409, "Unreadable multi-line decision audit") from ex
+        if (review_log[0].user_id!=row.reviewed_by_id
+                or review_body.get("status")!=row.status
+                or review_body.get("reason")!=row.review_reason
+                or review_body.get("reviewer_id")!=row.reviewed_by_id
+                or review_body.get("financial_posted") is not False):
+            raise HTTPException(409, "Multi-line independent decision audit mismatch")
+    else:
+        if row.reviewed_by_id is not None or row.review_reason is not None:
+            raise HTTPException(409, "Pending multi-line order includes a forged decision")
+    return {
+        "id":row.id,"batch_key":row.batch_key,
+        "organization_id":row.organization_id,"property_id":row.property_id,
+        "work_order_id":row.work_order_id,"vendor_id":row.vendor_id,
+        "requested_by_id":row.requested_by_id,"reviewed_by_id":row.reviewed_by_id,
+        "status":row.status,"reason":row.reason,"review_reason":row.review_reason,
+        "line_count":row.line_count,"estimated_total_cents":estimated,
+        "external_order_sent":False,"gl_posted":False,"tenant_charged":False,
+        "lines":items,
+    }
+
+
+def _batch(db: Session, actor: User, batch_id: int, *, write: bool) -> MaterialBatch:
+    row=db.query(MaterialBatch).filter(
+        MaterialBatch.id==batch_id,MaterialBatch.organization_id==actor.organization_id,
+    ).first()
+    if row is None: raise HTTPException(404, "Internal multi-line requisition not found")
+    wo, prop=_work(db,actor,row.work_order_id,write=write)
+    if prop.id!=row.property_id or wo.property_id!=row.property_id:
+        raise HTTPException(409, "Multi-line requisition property provenance mismatch")
+    if db.query(Vendor.id).filter(
+        Vendor.id==row.vendor_id,Vendor.organization_id==row.organization_id,
+    ).first() is None:
+        raise HTTPException(409, "Multi-line requisition supplier origin mismatch")
+    if write:
+        row=db.query(MaterialBatch).populate_existing().filter(
+            MaterialBatch.id==row.id,
+        ).with_for_update().one()
+    _batch_detail(db,row)
+    return row
+
+
+@router.get("/batches")
+def list_material_batches(work_order_id: int | None=Query(default=None,ge=1),
+                          limit:int=Query(default=50,ge=1,le=100),
+                          db:Session=Depends(get_db),
+                          current_user:User=Depends(get_current_user)):
+    _staff(db,current_user)
+    query=db.query(MaterialBatch).filter(
+        MaterialBatch.organization_id==current_user.organization_id,
+    )
+    if work_order_id is not None:
+        _work(db,current_user,work_order_id,write=False)
+        query=query.filter(MaterialBatch.work_order_id==work_order_id)
+    if current_user.role==UserRole.MANAGER:
+        allowed=db.query(PropertyAssignment.property_id).filter(
+            PropertyAssignment.user_id==current_user.id,
+            PropertyAssignment.role==UserRole.MANAGER,
+            PropertyAssignment.is_active.is_(True),
+            PropertyAssignment.deleted_at.is_(None),
+        )
+        query=query.filter(MaterialBatch.property_id.in_(allowed))
+    return [_batch_detail(db,_batch(db,current_user,row.id,write=False))
+            for row in query.order_by(MaterialBatch.id.desc()).limit(limit).all()]
+
+
+@router.post("/batches",status_code=201)
+def create_material_batch(payload:MaterialBatchRequest,
+                          db:Session=Depends(get_db),
+                          current_user:User=Depends(get_current_user)):
+    wo,prop=_work(db,current_user,payload.work_order_id,write=True)
+    vendor=db.query(Vendor.id).filter(
+        Vendor.id==payload.vendor_id,Vendor.organization_id==current_user.organization_id,
+        Vendor.is_active.is_(True),Vendor.deleted_at.is_(None),
+    ).first()
+    if vendor is None:
+        raise HTTPException(404,"Eligible organization supplier not found")
+    total=sum(item.quantity * item.unit_cost_cents for item in payload.lines)
+    if total>20000000000000:
+        raise HTTPException(422,"Internal multi-line estimated cost exceeds safe limit")
+    existing=db.query(MaterialBatch).filter(
+        MaterialBatch.organization_id==current_user.organization_id,
+        MaterialBatch.batch_key==payload.batch_key,
+    ).first()
+    if existing is not None:
+        data=_batch_detail(db,_batch(db,current_user,existing.id,write=False))
+        expected=[{"line_number":i,"sku":line.sku.upper(),
+                   "item_name":line.item_name.strip(),"quantity":line.quantity,
+                   "unit_cost_cents":line.unit_cost_cents}
+                  for i,line in enumerate(payload.lines,start=1)]
+        found=[{k:v for k,v in row.items() if k!="order_id"} for row in data["lines"]]
+        if (data["work_order_id"]==wo.id and data["vendor_id"]==payload.vendor_id
+                and data["property_id"]==prop.id
+                and data["reason"]==payload.reason.strip()
+                and data["requested_by_id"]==current_user.id and found==expected):
+            return data
+        raise HTTPException(409,"Conflicting multi-line requisition retry")
+    batch=MaterialBatch(
+        organization_id=current_user.organization_id,property_id=prop.id,
+        work_order_id=wo.id,vendor_id=payload.vendor_id,batch_key=payload.batch_key,
+        reason=payload.reason.strip(),line_count=len(payload.lines),
+        estimated_total_cents=total,requested_by_id=current_user.id,status="REQUESTED",
+    )
+    db.add(batch)
+    try:
+        db.flush()
+        snapshot=[]
+        for index,line in enumerate(payload.lines,start=1):
+            row=Order(
+                organization_id=current_user.organization_id,property_id=prop.id,
+                work_order_id=wo.id,vendor_id=payload.vendor_id,
+                request_key=payload.batch_key+"-"+str(index).zfill(2),
+                sku=line.sku.upper(),item_name=line.item_name.strip(),
+                requested_qty=line.quantity,unit_cost_cents=line.unit_cost_cents,
+                reason=batch.reason,status="REQUESTED",requested_by_id=current_user.id,
+            )
+            db.add(row)
+            db.flush()
+            mapping=MaterialBatchLine(organization_id=batch.organization_id,
+                batch_id=batch.id,order_id=row.id,line_number=index)
+            db.add(mapping)
+            append_audit_log(
+                db,organization_id=batch.organization_id,user_id=current_user.id,
+                entity_type="maintenance_material_order",entity_id=row.id,action="requested",
+                new_value={"work_order_id":wo.id,"property_id":prop.id,"vendor_id":row.vendor_id,
+                    "request_key":row.request_key,"sku":row.sku,
+                    "quantity":row.requested_qty,"unit_cost_cents":row.unit_cost_cents,
+                    "reason":row.reason,"external_order_sent":False,
+                    "batch_id":batch.id,"line_number":index},
+            )
+            snapshot.append({"line_number":index,"order_id":row.id,"sku":row.sku,
+                "item_name":row.item_name,"quantity":row.requested_qty,
+                "unit_cost_cents":row.unit_cost_cents})
+        append_audit_log(
+            db,organization_id=batch.organization_id,user_id=current_user.id,
+            entity_type="maintenance_material_batch",entity_id=batch.id,action="requested",
+            new_value={"batch_key":batch.batch_key,"work_order_id":wo.id,
+                "property_id":prop.id,"vendor_id":batch.vendor_id,"reason":batch.reason,
+                "estimated_total_cents":total,"lines":snapshot,
+                "external_order_sent":False,"financial_posted":False},
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409,"Concurrent batch/source key conflict; reload before retry") from exc
+    return _batch_detail(db,batch)
+
+
+@router.post("/batches/{batch_id}/decision")
+def decide_material_batch(batch_id:int,payload:Decision,
+                          db:Session=Depends(get_db),
+                          current_user:User=Depends(get_current_user)):
+    batch=_batch(db,current_user,batch_id,write=True)
+    if current_user.role not in (UserRole.OWNER,UserRole.ADMIN):
+        raise HTTPException(403,"Independent Owner/Admin batch review required")
+    if current_user.id==batch.requested_by_id:
+        raise HTTPException(403,"Multi-line requester cannot self-approve")
+    choice="APPROVED" if payload.approved else "DENIED"
+    reason=payload.reason.strip()
+    if batch.status!="REQUESTED":
+        if batch.status==choice and batch.review_reason==reason and batch.reviewed_by_id==current_user.id:
+            return _batch_detail(db,batch)
+        raise HTTPException(409,"Original whole-batch decision is final")
+    sources=db.query(MaterialBatchLine,Order).join(
+        Order,MaterialBatchLine.order_id==Order.id,
+    ).filter(MaterialBatchLine.batch_id==batch.id).order_by(
+        Order.id.asc(),
+    ).with_for_update(of=Order).all()
+    if len(sources)!=batch.line_count:
+        raise HTTPException(409,"Batch source rows changed during approval")
+    now=datetime.utcnow()
+    for binding,item in sources:
+        if item.status!="REQUESTED":
+            raise HTTPException(409,"Cannot partly approve a multi-line order")
+        item.status=choice
+        item.reviewed_by_id=current_user.id
+        item.reviewed_at=now
+        item.decision_reason=reason
+        append_audit_log(
+            db,organization_id=batch.organization_id,user_id=current_user.id,
+            entity_type="maintenance_material_order",entity_id=item.id,
+            action="reviewed",old_value={"status":"REQUESTED"},
+            new_value={"status":choice,"reason":reason,
+                "reviewer_id":current_user.id,"payables_posted":False,
+                "batch_id":batch.id,"line_number":binding.line_number},
+        )
+    batch.status=choice
+    batch.reviewed_by_id=current_user.id
+    batch.reviewed_at=now
+    batch.review_reason=reason
+    append_audit_log(
+        db,organization_id=batch.organization_id,user_id=current_user.id,
+        entity_type="maintenance_material_batch",entity_id=batch.id,
+        action="reviewed",old_value={"status":"REQUESTED"},
+        new_value={"status":choice,"reason":reason,
+            "reviewer_id":current_user.id,"financial_posted":False},
+    )
+    db.commit()
+    return _batch_detail(db,batch)
+
+
 @router.get("/vendors")
 def candidate_vendors(work_order_id: int = Query(ge=1),
                       db: Session = Depends(get_db),
@@ -476,6 +765,8 @@ def decide_order(order_id: int, payload: Decision,
     row = _purchase(db, current_user, order_id, write=True)
     if current_user.role not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(403, "Owner/Admin independent review required")
+    if db.query(MaterialBatchLine.id).filter(MaterialBatchLine.order_id == row.id).first():
+        raise HTTPException(409, "Multi-line requisition must be reviewed as one atomic request")
     if row.requested_by_id == current_user.id:
         raise HTTPException(403, "Requester cannot independently approve or deny")
     choice = "APPROVED" if payload.approved else "DENIED"
