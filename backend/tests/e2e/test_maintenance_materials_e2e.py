@@ -264,6 +264,11 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
 
             # Submit two lines using the actual staff creation UI, then prove
             # the requester cannot self-approve. The separate owner decides.
+            page.get_by_role("button",name="Find eligible supplier for multi-line request").click()
+            vendor_dropdown = page.get_by_label("Material vendor")
+            vendor_dropdown.select_option(str(supplier_id))
+            pw.expect(vendor_dropdown).to_have_value(str(supplier_id))
+            pw.expect(page.get_by_label("Material work order")).to_have_value(str(work_order_id))
             page.get_by_label("Batch SKU 1").fill("E2E-OWN-A-"+tag.upper())
             page.get_by_label("Batch material name 1").fill("First service duct "+tag)
             page.get_by_label("Batch quantity 1").fill("2")
@@ -274,6 +279,7 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
             page.get_by_label("Batch unit cost 2").fill("200")
             page.get_by_label("Batch material reason").fill(
                 "Two additional parts submitted for independent whole-batch review")
+            pw.expect(page.get_by_role("button",name="Submit all lines together for independent approval")).to_be_enabled()
             page.get_by_role("button",name="Submit all lines together for independent approval").click()
             pw.expect(page.get_by_role("status").filter(
                 has_text="All material lines saved together")).to_be_visible(timeout=15_000)
