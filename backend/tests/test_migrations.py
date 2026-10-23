@@ -98,6 +98,17 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
             "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_issues'"
         )}
         assert {"material_issue_no_update", "material_issue_no_delete"} <= issue_triggers
+        batch_triggers = {item[0] for item in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_batch_lines'"
+        )}
+        assert {"material_batch_line_no_update","material_batch_line_no_delete"} <= batch_triggers
+        conn.execute("""INSERT INTO maintenance_material_batch_lines
+            (organization_id,batch_id,order_id,line_number)
+            VALUES (1,1,1,1)""")
+        with pytest.raises(sqlite3.IntegrityError,match="append-only"):
+            conn.execute("UPDATE maintenance_material_batch_lines SET line_number=2 WHERE id=1")
+        with pytest.raises(sqlite3.IntegrityError,match="append-only"):
+            conn.execute("DELETE FROM maintenance_material_batch_lines WHERE id=1")
         # Verify the fresh path rejects SQL tampering with consumed stock too.
         conn.execute("""INSERT INTO maintenance_material_issues
             (organization_id, material_order_id, target_work_order_id,
@@ -235,4 +246,8 @@ def test_legacy_schema_snapshot_upgrades_to_head(tmp_path: Path) -> None:
                 (table,)
             )}
             assert {table+"_no_update",table+"_no_delete"} <= triggers
+        batch_guard={item[0] for item in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_batch_lines'"
+        )}
+        assert {"material_batch_line_no_update","material_batch_line_no_delete"} <= batch_guard
 

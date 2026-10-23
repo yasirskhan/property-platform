@@ -92,6 +92,11 @@ def test_postgres_fresh_bootstrap_when_ci_database_is_available() -> None:
                 "AND NOT tgisinternal"
             )).scalars())
         assert "material_issue_immutable" in issue_triggers
+        with engine.connect() as conn:
+            batch_triggers=set(conn.execute(text(
+                "SELECT tgname FROM pg_trigger WHERE tgrelid = 'maintenance_material_batch_lines'::regclass AND NOT tgisinternal"
+            )).scalars())
+        assert "material_batch_line_immutable" in batch_triggers
         for table in ("maintenance_material_variances",
                       "maintenance_material_variance_decisions",
                       "maintenance_material_variance_restorations"):
