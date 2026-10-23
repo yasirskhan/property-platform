@@ -1,3 +1,7 @@
+## 2026-10-23 | P5-PROC-06 internal multi-line materials request and independent whole-batch approval. Saved detached: existing purchasing staff page gains editable 2-20-line request, single batch review and per-line immutable source IDs; backend verifies live role/org/property/vendor, estimated total, original audit binding, idempotent retry and all-or-nothing PostgreSQL review. New batch and immutable line tables, Alembic e4a19d7f6c31 (222 tables), regression and browser test. No provider delivery/financial postings. Current parent physical variance run39924753728 pending six-green; successor needs its own exact six CI.
+
+---
+
 ## 2026-10-23 | P5-PROC-06 PHYSICAL DISCREPANCY WORKFLOW — PUBLISHED IMPLEMENTATION, EXACT SHA CI PENDING. Real internally attested physical stock variance request, separate Owner/Admin approval/denial, independent recovered-stock certification, append-only tables/triggers, real organization/property/role scope and original audit verification. Approval alone decrements available units; confirmed recovery restores units, immutable originals retained. Current customer UI, backend unit, database bootstrap/upgrade/real PostgreSQL race and authenticated browser tests included. **No supplier delivery, vendor acknowledgment, financial posting or tenant charge.** Predecessor stock issue and reversal `2b781607` / CI `39891681804`: ALL SIX SUCCESS. This successor must pass all six on its own exact SHA; P5-PROC-06 and Phase 5 remain OPEN.
 
 ---

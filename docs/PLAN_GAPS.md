@@ -1,3 +1,7 @@
+## 2026-10-23 P5-PROC-06 next internal multi-line batch source saved detached. Adds atomic group request and independent whole-batch Owner/Admin review, original audited line provenance, per-line physical receipt/issue/reversal using existing mechanisms, org/property scope, immutable batch mapping, migration e4a19d7f6c31 and UI/tests. Does NOT implement externally placed PO, supplier fulfillment/receipts, GL inventory valuation, payable, settlement, tenant charges or production release. Parent variance 9e1e9e318 run39924753728 was pending all-six CI at preparation. Candidate must pass its OWN six jobs; P5-PROC-06 and all eight Phase5 accepted IDs remain open.
+
+---
+
 ## 2026-10-23 | P5-PROC-06 PHYSICAL DISCREPANCY WORKFLOW — PUBLISHED IMPLEMENTATION, EXACT SHA CI PENDING. Real internally attested physical stock variance request, separate Owner/Admin approval/denial, independent recovered-stock certification, append-only tables/triggers, real organization/property/role scope and original audit verification. Approval alone decrements available units; confirmed recovery restores units, immutable originals retained. Current customer UI, backend unit, database bootstrap/upgrade/real PostgreSQL race and authenticated browser tests included. **No supplier delivery, vendor acknowledgment, financial posting or tenant charge.** Predecessor stock issue and reversal `2b781607` / CI `39891681804`: ALL SIX SUCCESS. This successor must pass all six on its own exact SHA; P5-PROC-06 and Phase 5 remain OPEN.
 
 ---
