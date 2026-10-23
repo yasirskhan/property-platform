@@ -207,3 +207,35 @@ def test_multiline_denial_is_atomic_and_physical_receipt_prohibited():
                     db=db,current_user=manager)
     finally:
         db.close();engine.dispose()
+
+
+def test_live_manager_assignment_revocation_denies_batch_replay_and_read():
+    from app.models.property import PropertyAssignment
+    from app.models.user import UserRole
+    db,engine,actors,properties,orders,vendor,_=setup()
+    try:
+        admin,manager=actors[:2]
+        original=body(orders[1].id,vendor.id,
+                      key="REVOKABLE-BATCH-REQUEST-001")
+        made=m.create_material_batch(original,db=db,current_user=manager)
+        assert made["line_count"]==2
+        grant=db.query(PropertyAssignment).filter_by(
+            property_id=properties[0].id,
+            user_id=manager.id,
+            role=UserRole.MANAGER,
+        ).one()
+        grant.is_active=False
+        db.commit()
+        with pytest.raises(HTTPException) as retry_denied:
+            m.create_material_batch(original,db=db,current_user=manager)
+        assert retry_denied.value.status_code in (403,404)
+        assert m.list_material_batches(work_order_id=None,limit=20,
+            db=db,current_user=manager)==[]
+        with pytest.raises(HTTPException):
+            m.list_material_batches(work_order_id=orders[1].id,limit=20,
+                db=db,current_user=manager)
+        assert m.list_material_batches(work_order_id=None,limit=20,
+            db=db,current_user=admin)[0]["id"]==made["id"]
+        assert db.query(BatchLine).count()==2
+    finally:
+        db.close();engine.dispose()
