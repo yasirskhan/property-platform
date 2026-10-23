@@ -83,3 +83,50 @@ class MaintenanceMaterialIssue(Base):
     reverses_id = Column(Integer, ForeignKey("maintenance_material_issues.id", ondelete="RESTRICT"))
     reason = Column(Text, nullable=False)
     recorded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class MaintenanceMaterialVariance(Base):
+    """Immutable physical shortage/recount request, not a financial write-off."""
+    __tablename__ = "maintenance_material_variances"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "request_key", name="uq_material_variance_request"),
+        CheckConstraint("quantity > 0 AND quantity <= 10000", name="ck_material_variance_qty"),
+    )
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    material_order_id = Column(Integer, ForeignKey("maintenance_material_orders.id", ondelete="RESTRICT"), nullable=False, index=True)
+    request_key = Column(String(80), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    reason = Column(Text, nullable=False)
+    reported_by_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    reported_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class MaintenanceMaterialVarianceDecision(Base):
+    """Separate append-only independent approval/denial of physical shortage."""
+    __tablename__ = "maintenance_material_variance_decisions"
+    __table_args__ = (
+        UniqueConstraint("variance_id", name="uq_material_variance_decision"),
+        CheckConstraint("approved IN (0,1)", name="ck_material_variance_approval"),
+    )
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variance_id = Column(Integer, ForeignKey("maintenance_material_variances.id", ondelete="RESTRICT"), nullable=False)
+    approved = Column(Integer, nullable=False)
+    reason = Column(Text, nullable=False)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    reviewed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class MaintenanceMaterialVarianceRestoration(Base):
+    """Append-only evidence for independently confirmed return of missing units."""
+    __tablename__ = "maintenance_material_variance_restorations"
+    __table_args__ = (
+        UniqueConstraint("variance_id", name="uq_material_variance_restore"),
+    )
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    variance_id = Column(Integer, ForeignKey("maintenance_material_variances.id", ondelete="RESTRICT"), nullable=False)
+    reason = Column(Text, nullable=False)
+    restored_by_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    restored_at = Column(DateTime, nullable=False, default=datetime.utcnow)

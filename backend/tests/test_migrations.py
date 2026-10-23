@@ -10,8 +10,8 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
-EXPECTED_HEAD = "a15b6c7d8e90"
-EXPECTED_MODEL_TABLES = 217
+EXPECTED_HEAD = "d93f5c1a7b20"
+EXPECTED_MODEL_TABLES = 220
 
 
 def _run(command: list[str], database_url: str) -> subprocess.CompletedProcess[str]:
@@ -112,6 +112,30 @@ def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
         assert "maintenance_material_issues" in {
             row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
+        for table in ("maintenance_material_variances",
+                      "maintenance_material_variance_decisions",
+                      "maintenance_material_variance_restorations"):
+            triggers = {item[0] for item in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=?",
+                (table,)
+            )}
+            assert {table+"_no_update", table+"_no_delete"} <= triggers
+        conn.execute("""INSERT INTO maintenance_material_variances
+            (organization_id,material_order_id,request_key,quantity,reason,reported_by_id,reported_at)
+            VALUES (1,1,'BOOTSTRAP-VARIANCE-TEST-001',2,'Original immutable physical count',1,'2026-10-22')""")
+        conn.execute("""INSERT INTO maintenance_material_variance_decisions
+            (organization_id,variance_id,approved,reason,reviewed_by_id,reviewed_at)
+            VALUES (1,1,1,'Independent original approval',2,'2026-10-22')""")
+        conn.execute("""INSERT INTO maintenance_material_variance_restorations
+            (organization_id,variance_id,reason,restored_by_id,restored_at)
+            VALUES (1,1,'Third party physical recovery',3,'2026-10-22')""")
+        for table in ("maintenance_material_variances",
+                      "maintenance_material_variance_decisions",
+                      "maintenance_material_variance_restorations"):
+            with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+                conn.execute("UPDATE "+table+" SET organization_id=2 WHERE id=1")
+            with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+                conn.execute("DELETE FROM "+table+" WHERE id=1")
         # Bootstrap must enforce immutability, not merely stamp migration head.
         # This isolated test row intentionally has no related business records.
         conn.execute("""INSERT INTO maintenance_material_movements
@@ -200,3 +224,15 @@ def test_legacy_schema_snapshot_upgrades_to_head(tmp_path: Path) -> None:
         f"Alembic failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
     )
     assert _version(db_path) == EXPECTED_HEAD
+    # Upgraded historical customers must acquire the identical append-only
+    # physical shortfall protection that brand-new bootstrap installs.
+    with sqlite3.connect(db_path) as conn:
+        for table in ("maintenance_material_variances",
+                      "maintenance_material_variance_decisions",
+                      "maintenance_material_variance_restorations"):
+            triggers = {item[0] for item in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=?",
+                (table,)
+            )}
+            assert {table+"_no_update",table+"_no_delete"} <= triggers
+

@@ -8,8 +8,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
-from app.models.maintenance_material import (MaintenanceMaterialOrder as Order,
-    MaintenanceMaterialMovement as Movement, MaintenanceMaterialIssue as Issue)
+from app.models.maintenance_material import (
+    MaintenanceMaterialOrder as Order, MaintenanceMaterialMovement as Movement,
+    MaintenanceMaterialIssue as Issue, MaintenanceMaterialVariance as Variance,
+    MaintenanceMaterialVarianceDecision as VarianceDecision,
+    MaintenanceMaterialVarianceRestoration as VarianceRestore,
+)
 from app.models.audit_log import AuditLog
 from app.models.property import Property, PropertyAssignment, Unit
 from app.models.user import User, UserRole, Organization
@@ -58,6 +62,13 @@ class IssueStock(BaseModel):
     reference: str = Field(min_length=3, max_length=100)
     quantity: int = Field(ge=1, le=10000)
     notes: str = Field(min_length=10, max_length=1000)
+
+
+class StockVarianceInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_key: str = Field(min_length=16, max_length=80, pattern=r"^[A-Za-z0-9-]+$")
+    quantity: int = Field(ge=1, le=10000)
+    reason: str = Field(min_length=10, max_length=1000)
 
 
 def _staff(db: Session, user: User) -> None:
@@ -181,8 +192,89 @@ def _issues(db: Session, row: Order) -> list[Issue]:
     return items
 
 
+def _variances(db: Session, row: Order) -> list[dict]:
+    """Reconcile immutable physical shortfall requests/decisions/restorations.
+
+    An unapproved discrepancy never silently retires stock. Approved shortage
+    reduces available physical units; a separate independently confirmed
+    restoration reinstates the same units without changing original records.
+    """
+    requests = db.query(Variance).filter(Variance.material_order_id == row.id
+        ).order_by(Variance.id.asc()).limit(201).all()
+    if len(requests)>200:
+        raise HTTPException(409,"Physical discrepancy history limit reached")
+    accepted=0
+    records=[]
+    for request in requests:
+        if request.organization_id != row.organization_id:
+            raise HTTPException(409,"Cross-company physical discrepancy evidence")
+        witness = db.query(User.id).filter(
+            User.id==request.reported_by_id, User.organization_id==row.organization_id).first()
+        decision=db.query(VarianceDecision).filter_by(variance_id=request.id).one_or_none()
+        recovery=db.query(VarianceRestore).filter_by(variance_id=request.id).one_or_none()
+        if witness is None:
+            raise HTTPException(409,"Physical discrepancy witness binding invalid")
+        if decision is not None:
+            reviewer=db.query(User.id).filter(User.id==decision.reviewed_by_id,
+                User.organization_id==row.organization_id).first()
+            if (decision.organization_id!=row.organization_id or reviewer is None
+                    or decision.reviewed_by_id==request.reported_by_id
+                    or decision.approved not in (0,1)):
+                raise HTTPException(409,"Discrepancy independent review binding invalid")
+        if recovery is not None:
+            restorer=db.query(User.id).filter(User.id==recovery.restored_by_id,
+                User.organization_id==row.organization_id).first()
+            if (decision is None or decision.approved != 1
+                    or restorer is None or recovery.organization_id!=row.organization_id
+                    or recovery.restored_by_id in (request.reported_by_id,decision.reviewed_by_id)):
+                raise HTTPException(409,"Discrepancy recovery testimony invalid")
+        history = [
+            ("physical_variance_requested", request.id, request.reported_by_id,
+                {"material_order_id":row.id,"request_key":request.request_key,
+                 "quantity":request.quantity,"reason":request.reason}),
+        ]
+        if decision is not None:
+            history.append(("physical_variance_reviewed",decision.id,decision.reviewed_by_id,
+                {"variance_id":request.id,"approved":bool(decision.approved),
+                 "reason":decision.reason}))
+        if recovery is not None:
+            history.append(("physical_variance_restored",recovery.id,recovery.restored_by_id,
+                {"variance_id":request.id,"quantity":request.quantity,"reason":recovery.reason}))
+        for action,entity_id,actor_id,payload in history:
+            audit=db.query(AuditLog).filter(
+                AuditLog.organization_id==row.organization_id,
+                AuditLog.entity_type=="maintenance_material_variance",
+                AuditLog.entity_id==entity_id,AuditLog.action==action,
+            ).one_or_none()
+            try:
+                actual=json.loads(audit.new_value or "{}") if audit else {}
+            except (TypeError,ValueError) as ex:
+                raise HTTPException(409,"Physical discrepancy audit parse failure") from ex
+            if audit is None or audit.user_id != actor_id or any(actual.get(k)!=v for k,v in payload.items()):
+                raise HTTPException(409,"Physical discrepancy immutable audit mismatch")
+        open_loss=request.quantity if decision is not None and decision.approved==1 and recovery is None else 0
+        accepted+=open_loss
+        records.append({
+            "id":request.id,"request_key":request.request_key,"quantity":request.quantity,
+            "reason":request.reason,"reported_by_id":request.reported_by_id,
+            "status":"RESTORED" if recovery else (
+                "REQUESTED" if decision is None else ("APPROVED" if decision.approved else "DENIED")),
+            "reviewed_by_id":decision.reviewed_by_id if decision else None,
+            "review_reason":decision.reason if decision else None,
+            "restored_by_id":recovery.restored_by_id if recovery else None,
+            "restore_reason":recovery.reason if recovery else None,
+        })
+    if accepted>_net(db,row)-sum(item.delta_qty for item in _issues(db,row)):
+        raise HTTPException(409,"Physical discrepancy exceeds unallocated stock")
+    return records
+
+
+def _loss_qty(db: Session, row: Order) -> int:
+    return sum(item["quantity"] for item in _variances(db,row) if item["status"]=="APPROVED")
+
+
 def _available(db: Session, row: Order) -> int:
-    return _net(db, row) - sum(item.delta_qty for item in _issues(db, row))
+    return _net(db, row) - sum(item.delta_qty for item in _issues(db, row)) - _loss_qty(db,row)
 
 
 def _issue_out(item: Issue) -> dict:
@@ -264,9 +356,13 @@ def _out(db: Session, row: Order) -> dict:
         raise HTTPException(409, "Physical receipt quantity integrity violation")
     issues = _issues(db, row)
     issued = sum(item.delta_qty for item in issues)
+    discrepancies = _variances(db, row)
+    lost = sum(item["quantity"] for item in discrepancies if item["status"]=="APPROVED")
     return {
-        "available_stock": sum(event.delta_qty for event in events) - issued,
+        "available_stock": sum(event.delta_qty for event in events) - issued - lost,
         "net_issued": issued,
+        "net_missing": lost,
+        "stock_variances": discrepancies,
         "material_issues": [_issue_out(item) for item in issues],
         "id": row.id, "organization_id": row.organization_id,
         "property_id": row.property_id, "work_order_id": row.work_order_id,
@@ -474,7 +570,7 @@ def reverse_receipt(order_id: int, movement_id: int, payload: Correction,
         raise HTTPException(409, "Original receipt already reversed by another decision")
     if _net(db, row) - original.delta_qty < sum(
         event.delta_qty for event in _issues(db, row)
-    ):
+    ) + _loss_qty(db,row):
         raise HTTPException(409, "Receipt reversal would consume allocated stock")
     if db.query(Movement.id).filter(Movement.order_id == row.id).count() >= 200:
         raise HTTPException(409, "Manual receiving history limit reached")
@@ -610,6 +706,120 @@ def reverse_material_issue(order_id: int, issue_id: int, payload: Correction,
     return _out(db, row)
 
 
+
+
+@router.post("/orders/{order_id}/variances", status_code=201)
+def report_stock_variance(order_id: int, payload: StockVarianceInput,
+                          db: Session = Depends(get_db),
+                          current_user: User = Depends(get_current_user)):
+    row=_purchase(db,current_user,order_id,write=True)
+    if row.status!="APPROVED":
+        raise HTTPException(409,"Only independently approved physical stock can be counted")
+    existing=db.query(Variance).filter(
+        Variance.organization_id==row.organization_id,Variance.request_key==payload.request_key).first()
+    if existing is not None:
+        if (existing.material_order_id==row.id and existing.quantity==payload.quantity
+                and existing.reason==payload.reason.strip() and existing.reported_by_id==current_user.id):
+            return _out(db,row)
+        raise HTTPException(409,"Conflicting discrepancy request key")
+    if _available(db,row)<payload.quantity:
+        raise HTTPException(409,"Cannot propose a loss greater than currently available stock")
+    if len(_variances(db,row))>=200:
+        raise HTTPException(409,"Physical discrepancy history limit reached")
+    event=Variance(
+        organization_id=row.organization_id,material_order_id=row.id,
+        request_key=payload.request_key,quantity=payload.quantity,
+        reason=payload.reason.strip(),reported_by_id=current_user.id)
+    db.add(event)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409,"Concurrent discrepancy request; reload before retry") from exc
+    append_audit_log(db,organization_id=row.organization_id,user_id=current_user.id,
+        entity_type="maintenance_material_variance",entity_id=event.id,
+        action="physical_variance_requested",
+        new_value={"material_order_id":row.id,"property_id":row.property_id,
+            "request_key":event.request_key,"quantity":event.quantity,"reason":event.reason,
+            "financial_posted":False,"tenant_charged":False})
+    db.commit()
+    return _out(db,row)
+
+
+@router.post("/orders/{order_id}/variances/{variance_id}/decision")
+def review_stock_variance(order_id: int,variance_id:int,payload:Decision,
+                          db: Session=Depends(get_db),
+                          current_user:User=Depends(get_current_user)):
+    row=_purchase(db,current_user,order_id,write=True)
+    if current_user.role not in (UserRole.ADMIN,UserRole.OWNER):
+        raise HTTPException(403,"Independent Owner/Admin stock review required")
+    request=db.query(Variance).filter(Variance.id==variance_id,
+        Variance.material_order_id==row.id,Variance.organization_id==row.organization_id).first()
+    if request is None: raise HTTPException(404,"Physical discrepancy not found")
+    if request.reported_by_id==current_user.id:
+        raise HTTPException(403,"Physical discrepancy witness cannot self-approve")
+    previous=db.query(VarianceDecision).filter_by(variance_id=request.id).first()
+    if previous is not None:
+        if (previous.reviewed_by_id==current_user.id and
+                bool(previous.approved)==payload.approved and previous.reason==payload.reason.strip()):
+            return _out(db,row)
+        raise HTTPException(409,"Original discrepancy already independently reviewed")
+    if payload.approved and _available(db,row)<request.quantity:
+        raise HTTPException(409,"Physical stock consumed since discrepancy report; recount required")
+    event=VarianceDecision(organization_id=row.organization_id,variance_id=request.id,
+        approved=int(payload.approved),reason=payload.reason.strip(),reviewed_by_id=current_user.id)
+    db.add(event)
+    try: db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409,"Concurrent stock decision; reload before retry") from exc
+    append_audit_log(db,organization_id=row.organization_id,user_id=current_user.id,
+        entity_type="maintenance_material_variance",entity_id=event.id,
+        action="physical_variance_reviewed",
+        new_value={"variance_id":request.id,"property_id":row.property_id,
+            "approved":bool(event.approved),"reason":event.reason,
+            "financial_posted":False,"tenant_charged":False})
+    db.commit()
+    return _out(db,row)
+
+
+@router.post("/orders/{order_id}/variances/{variance_id}/restore")
+def restore_stock_variance(order_id:int,variance_id:int,payload:Correction,
+                           db:Session=Depends(get_db),
+                           current_user:User=Depends(get_current_user)):
+    row=_purchase(db,current_user,order_id,write=True)
+    if current_user.role not in (UserRole.ADMIN,UserRole.OWNER):
+        raise HTTPException(403,"Independent Owner/Admin physical recount required")
+    request=db.query(Variance).filter(Variance.id==variance_id,
+        Variance.material_order_id==row.id,Variance.organization_id==row.organization_id).first()
+    if request is None: raise HTTPException(404,"Physical discrepancy not found")
+    decision=db.query(VarianceDecision).filter_by(variance_id=request.id).first()
+    if decision is None or decision.approved!=1:
+        raise HTTPException(409,"Only an independently approved shortage can be restored")
+    if current_user.id in (request.reported_by_id,decision.reviewed_by_id):
+        raise HTTPException(403,"Original witness or reviewer cannot certify recovery")
+    existing=db.query(VarianceRestore).filter_by(variance_id=request.id).first()
+    if existing is not None:
+        if existing.restored_by_id==current_user.id and existing.reason==payload.reason.strip():
+            return _out(db,row)
+        raise HTTPException(409,"Shortage has already been corrected independently")
+    event=VarianceRestore(organization_id=row.organization_id,variance_id=request.id,
+        reason=payload.reason.strip(),restored_by_id=current_user.id)
+    db.add(event)
+    try: db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409,"Concurrent physical recovery; reload before retry") from exc
+    append_audit_log(db,organization_id=row.organization_id,user_id=current_user.id,
+        entity_type="maintenance_material_variance",entity_id=event.id,
+        action="physical_variance_restored",
+        new_value={"variance_id":request.id,"quantity":request.quantity,
+            "property_id":row.property_id,"reason":event.reason,
+            "financial_posted":False,"tenant_charged":False})
+    db.commit()
+    return _out(db,row)
+
+
 @router.get("/stock")
 def stock_at_property(property_id: int = Query(ge=1),
                       db: Session = Depends(get_db),
@@ -671,6 +881,15 @@ def stock_at_property(property_id: int = Query(ge=1),
         if source.sku not in by_sku:
             raise HTTPException(409, "Stock issue has no received source")
         by_sku[source.sku]["quantity"] -= event.delta_qty
+    all_sources=db.query(Order).filter(
+        Order.organization_id==current_user.organization_id,
+        Order.property_id==property_id,Order.status=="APPROVED").all()
+    for source in all_sources:
+        loss=_loss_qty(db,source)
+        if loss:
+            if source.sku not in by_sku:
+                raise HTTPException(409,"Approved shortage has no original receipt")
+            by_sku[source.sku]["quantity"]-=loss
     if any(row["quantity"] < 0 for row in by_sku.values()):
         raise HTTPException(409, "Property stock physical conservation violation")
     return [row for row in sorted(by_sku.values(), key=lambda item: item["sku"])

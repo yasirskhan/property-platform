@@ -16,7 +16,11 @@ type Order = {
 type Stock = {sku:string;item_name:string;quantity:number};
 type Issue = {id:number;material_order_id:number;target_work_order_id:number;
   reference:string;delta_qty:number;issued_by_id:number;reverses_id:number|null;reason:string};
-type StockOrder = Order & {available_stock:number;net_issued:number;material_issues:Issue[]};
+type StockVariance = {id:number;request_key:string;quantity:number;reason:string;
+  reported_by_id:number;status:"REQUESTED"|"APPROVED"|"DENIED"|"RESTORED";
+  reviewed_by_id:number|null;review_reason:string|null;restored_by_id:number|null;restore_reason:string|null};
+type StockOrder = Order & {available_stock:number;net_issued:number;net_missing:number;
+  material_issues:Issue[];stock_variances:StockVariance[]};
 
 export default function MaterialOrdersPage() {
   const [actor,setActor] = useState<Actor|null>(null);
@@ -33,6 +37,8 @@ export default function MaterialOrdersPage() {
   const [reviews,setReviews] = useState<Record<number,string>>({});
   const [receipts,setReceipts] = useState<Record<number,{reference:string;quantity:string;notes:string}>>({});
   const [allocations,setAllocations] = useState<Record<number,{reference:string;quantity:string;notes:string;target:string}>>({});
+  const [variances,setVariances] = useState<Record<number,{quantity:string;reason:string}>>({});
+  const varianceKeys=useRef<Record<number,string>>({});
   const [stock,setStock] = useState<{property:number;rows:Stock[]}|null>(null);
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
@@ -132,6 +138,55 @@ export default function MaterialOrdersPage() {
     finally{setBusy(false);}
   }
 
+  async function proposeVariance(event:FormEvent<HTMLFormElement>,row:StockOrder) {
+    event.preventDefault();
+    if(busy)return;
+    const draft=variances[row.id];
+    if(!draft)return;
+    if(!varianceKeys.current[row.id])varianceKeys.current[row.id]=crypto.randomUUID();
+    setBusy(true);setError("");setMessage("");
+    try {
+      await apiPost("/api/maintenance/materials/orders/"+row.id+"/variances",{
+        request_key:varianceKeys.current[row.id],quantity:Number(draft.quantity),
+        reason:draft.reason.trim(),
+      });
+      delete varianceKeys.current[row.id];
+      await refresh();setStock(null);
+      setMessage("Stock discrepancy submitted for separate Owner/Admin approval. Physical totals have not changed.");
+    }catch(cause){setError(cause instanceof Error?cause.message:"Discrepancy request failed. Original request key retained for safe retry.");}
+    finally{setBusy(false);}
+  }
+
+  async function decideVariance(row:StockOrder,item:StockVariance,approved:boolean){
+    const reason=window.prompt("Independent discrepancy review reason (at least 10 characters):");
+    if(reason===null)return;
+    if(reason.trim().length<10){setError("Review reason must be at least 10 characters.");return;}
+    setBusy(true);setError("");setMessage("");
+    try {
+      await apiPost("/api/maintenance/materials/orders/"+row.id+"/variances/"+item.id+"/decision",{
+        approved,reason:reason.trim(),
+      });
+      await refresh();setStock(null);
+      setMessage(approved?"Stock discrepancy approved and deducted from physical available stock. No financial entry was posted.":"Discrepancy denied without inventory change.");
+    }catch(cause){setError(cause instanceof Error?cause.message:"Discrepancy decision failed");}
+    finally{setBusy(false);}
+  }
+
+  async function recoverVariance(row:StockOrder,item:StockVariance){
+    const reason=window.prompt("Describe the physical recount or recovered material (at least 10 characters):");
+    if(reason===null)return;
+    if(reason.trim().length<10){setError("Physical recount reason must be at least 10 characters.");return;}
+    setBusy(true);setError("");setMessage("");
+    try {
+      await apiPost("/api/maintenance/materials/orders/"+row.id+"/variances/"+item.id+"/restore",{
+        reason:reason.trim(),
+      });
+      await refresh();setStock(null);
+      setMessage("Separate independent restoration recorded. Original shortage testimony is unchanged. No financial entry posted.");
+    }catch(cause){setError(cause instanceof Error?cause.message:"Recount recovery failed");}
+    finally{setBusy(false);}
+  }
+
   async function reverseStockIssue(row:StockOrder, issue:Issue) {
     const reason=window.prompt("Independent stock issue reversal reason (at least 10 characters):");
     if(reason===null)return;
@@ -172,6 +227,11 @@ export default function MaterialOrdersPage() {
   }
 
   const reviewRole = actor && ["ADMIN","OWNER"].includes(String(actor.role).toUpperCase());
+  const varianceField=(id:number,field:"quantity"|"reason",value:string)=>
+    setVariances(old=>{
+      const previous=old[id]??{quantity:"1",reason:""};
+      return {...old,[id]:{...previous,[field]:value}};
+    });
   const allocationField=(id:number,field:"reference"|"quantity"|"notes"|"target",value:string)=>
     setAllocations(old=>{
       const previous=old[id] ?? {reference:"",quantity:"1",notes:"",target:""};
@@ -240,7 +300,7 @@ export default function MaterialOrdersPage() {
         {orders.length===0 && <p>No material requests available for your current properties.</p>}
         {orders.map(row=><article key={row.id} className="space-y-3 rounded-lg border p-4">
           <h3 className="font-semibold">Purchase #{row.id}: {row.item_name} ({row.sku})</h3>
-          <p className="text-sm">Status: {row.status} · Requested {row.requested_qty} · Net received {row.net_received} · Issued to work orders {row.net_issued} · Available from this request {row.available_stock} · Unit cost {(row.unit_cost_cents/100).toFixed(2)} USD</p>
+          <p className="text-sm">Status: {row.status} · Requested {row.requested_qty} · Net received {row.net_received} · Issued to work orders {row.net_issued} · Approved missing {row.net_missing} · Available from this request {row.available_stock} · Unit cost {(row.unit_cost_cents/100).toFixed(2)} USD</p>
           <p className="text-sm">Vendor #{row.vendor_id} · Property #{row.property_id} · Requested by user #{row.requested_by_id}</p>
           <p className="text-sm">Reason: {row.reason}</p>
           <Link className="text-sm text-blue-800 underline" href={"/dashboard/maintenance/work-orders/"+row.work_order_id}>
@@ -305,6 +365,42 @@ export default function MaterialOrdersPage() {
             <button type="submit" disabled={busy}
               className="rounded border px-3 py-2 text-sm disabled:opacity-50">Record physical material usage</button>
           </form>}
+          {row.status==="APPROVED" && row.available_stock>0 && <form
+            onSubmit={event=>void proposeVariance(event,row)}
+            className="space-y-2 rounded border p-3">
+            <h4 className="font-semibold text-sm">Report missing physical stock for independent review</h4>
+            <p className="text-xs">A report does not change stock. Only a different Owner/Admin can approve it. Physical shortage approval does not post any cost, charge or GL transaction.</p>
+            <label className="block text-sm">Missing units reported
+              <input aria-label={"Stock discrepancy quantity "+row.id} type="number" required min="1" max={row.available_stock}
+                className="mt-1 block w-full rounded border p-2" value={variances[row.id]?.quantity||"1"}
+                onChange={event=>varianceField(row.id,"quantity",event.target.value)}/>
+            </label>
+            <label className="block text-sm">Witnessed physical count and reason
+              <textarea aria-label={"Stock discrepancy reason "+row.id} required minLength={10} maxLength={1000}
+                className="mt-1 block w-full rounded border p-2" value={variances[row.id]?.reason||""}
+                onChange={event=>varianceField(row.id,"reason",event.target.value)}/>
+            </label>
+            <button type="submit" disabled={busy} className="rounded border px-3 py-2 text-sm">Submit discrepancy for independent approval</button>
+          </form>}
+          {row.stock_variances.length>0 && <div className="space-y-2 rounded border p-3 text-sm">
+            <h4 className="font-semibold">Physical stock discrepancy and restoration history</h4>
+            {row.stock_variances.map(item=><div className="space-y-1" key={item.id}>
+              <p>Report #{item.id} · {item.status} · {item.quantity} units · witness user #{item.reported_by_id} · {item.reason}</p>
+              {item.reviewed_by_id && <p>Review by user #{item.reviewed_by_id}: {item.review_reason}</p>}
+              {item.restored_by_id && <p>Restored by user #{item.restored_by_id}: {item.restore_reason}</p>}
+              {item.status==="REQUESTED" && reviewRole && actor!.id!==item.reported_by_id &&
+                <div className="flex gap-2">
+                  <button type="button" disabled={busy} className="underline"
+                    onClick={()=>void decideVariance(row,item,true)}>Approve counted shortage</button>
+                  <button type="button" disabled={busy} className="underline"
+                    onClick={()=>void decideVariance(row,item,false)}>Deny discrepancy</button>
+                </div>}
+              {item.status==="APPROVED" && reviewRole && actor!.id!==item.reported_by_id &&
+                actor!.id!==item.reviewed_by_id &&
+                <button type="button" disabled={busy} className="underline"
+                  onClick={()=>void recoverVariance(row,item)}>Independently certify physical stock recovery</button>}
+            </div>)}
+          </div>}
           {row.material_issues.length>0 && <div className="text-sm space-y-1">
             <h4 className="font-semibold">Immutable work-order material usage</h4>
             {row.material_issues.map(issue=><p key={issue.id}>

@@ -47,7 +47,7 @@ from app.models.fraud import FraudCase, FraudSignal  # noqa: F401
 from app.models.organization_feature_setting import OrganizationFeatureSetting  # noqa: F401
 from app.models.property import Property, Unit, PropertyAssignment  # noqa: F401
 from app.models.lease import Lease, RentInvoice, Payment  # noqa: F401
-from app.models.maintenance_material import MaintenanceMaterialOrder, MaintenanceMaterialMovement, MaintenanceMaterialIssue  # noqa: F401
+from app.models.maintenance_material import (MaintenanceMaterialOrder, MaintenanceMaterialMovement, MaintenanceMaterialIssue, MaintenanceMaterialVariance, MaintenanceMaterialVarianceDecision, MaintenanceMaterialVarianceRestoration)  # noqa: F401
 from app.models.work_order import WorkOrder, WorkOrderUpdate, WorkOrderTimeEntry  # noqa: F401
 from app.models.maintenance_dispatch import MaintenanceDispatchGroup, MaintenanceDispatchProperty, MaintenanceDispatchRule  # noqa: F401
 from app.models.maintenance_dispatch_review import MaintenanceDispatchReview  # noqa: F401

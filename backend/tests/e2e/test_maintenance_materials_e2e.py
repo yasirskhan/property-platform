@@ -19,7 +19,9 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
     from app.models.user import User, UserRole
     from app.models.work_order import WorkOrder, WorkOrderStatus
     from app.models.vendor import Vendor
-    from app.models.maintenance_material import MaintenanceMaterialMovement, MaintenanceMaterialIssue
+    from app.models.maintenance_material import (MaintenanceMaterialMovement,
+        MaintenanceMaterialIssue, MaintenanceMaterialVariance,
+        MaintenanceMaterialVarianceDecision, MaintenanceMaterialVarianceRestoration)
     from app.routers import maintenance_materials as m
 
     tag = uuid4().hex[:10]
@@ -117,9 +119,6 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
                 "Inspected three delivered filter sets in person")
             card.get_by_role("button", name="Record received stock").click()
             pw.expect(card).to_contain_text("Net received 3", timeout=15_000)
-            # Wait for the complete post-receipt list refresh before using the
-            # same card. A physical-stock summary request can finish first; it
-            # does not prove that the allocated-stock form has been rendered.
             pw.expect(card).to_contain_text("Available from this request 3", timeout=15_000)
             issue_button = card.get_by_role("button", name="Record physical material usage")
             pw.expect(issue_button).to_be_visible(timeout=15_000)
@@ -180,6 +179,48 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
             card = page.locator("article").filter(has_text="Maintenance filter set " + tag).first
             pw.expect(card).to_contain_text("Net received 3", timeout=15_000)
             pw.expect(card).to_contain_text("reverses #"+str(receipt_id))
+
+            # A manager reports one physically missing, otherwise unallocated
+            # unit. The independent logged-in admin must review it in the UI.
+            db = SessionLocal()
+            try:
+                manager = db.query(User).filter(User.id == manager_id).one()
+                proposed = m.report_stock_variance(purchase_id,
+                    m.StockVarianceInput(request_key="E2E-VARIANCE-"+tag.upper(),
+                        quantity=1,
+                        reason="Manager personally counted one missing physical filter"),
+                    db=db, current_user=manager)
+                variance_id = proposed["stock_variances"][0]["id"]
+                admin = db.query(User).filter(User.email == EMAIL).one()
+                owner = User(
+                    organization_id=admin.organization_id, role=UserRole.OWNER,
+                    first_name="Independent",last_name="Restorer",
+                    email="stock-restorer-"+tag+"@example.com",
+                    hashed_password="nonlogin",is_active=True)
+                db.add(owner)
+                db.commit()
+                owner_id = owner.id
+            finally:
+                db.close()
+            page.get_by_role("button", name="Refresh purchase history").click()
+            pw.expect(card).to_contain_text("Report #"+str(variance_id)+" · REQUESTED", timeout=15_000)
+            page.once("dialog", lambda dialog: dialog.accept(
+                "Administrator reviewed independent count of missing unit"))
+            card.get_by_role("button", name="Approve counted shortage").click()
+            pw.expect(card).to_contain_text("Approved missing 1", timeout=15_000)
+            pw.expect(card).to_contain_text("Available from this request 0")
+            db = SessionLocal()
+            try:
+                owner = db.query(User).filter(User.id == owner_id).one()
+                complete = m.restore_stock_variance(purchase_id,variance_id,
+                    m.Correction(reason="Independent owner located original missing filter"),
+                    db=db,current_user=owner)
+                assert complete["net_missing"] == 0
+            finally:
+                db.close()
+            page.get_by_role("button", name="Refresh purchase history").click()
+            pw.expect(card).to_contain_text("Report #"+str(variance_id)+" · RESTORED", timeout=15_000)
+            pw.expect(card).to_contain_text("Available from this request 1")
         finally:
             browser.close()
 
@@ -190,6 +231,9 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
         used = db.query(MaintenanceMaterialIssue).filter_by(material_order_id=purchase_id).all()
         assert len(used) == 3 and sum(item.delta_qty for item in used) == 2
         assert sum(item.reverses_id is not None for item in used) == 1
+        assert db.query(MaintenanceMaterialVariance).filter_by(material_order_id=purchase_id).count() == 1
+        assert db.query(MaintenanceMaterialVarianceDecision).count() >= 1
+        assert db.query(MaintenanceMaterialVarianceRestoration).count() >= 1
         assert sum(item.reverses_id is not None for item in events) == 1
         assert db.query(AuditLog).filter_by(
             entity_type="maintenance_material_movement", action="physical_receipt_reversed",

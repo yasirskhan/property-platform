@@ -49,6 +49,19 @@ def _install_fresh_material_guards() -> None:
                 BEFORE UPDATE OR DELETE ON maintenance_material_movements
                 FOR EACH ROW EXECUTE FUNCTION prevent_material_movement_mutation()
             """)
+            for table in ("maintenance_material_variances", "maintenance_material_variance_decisions", "maintenance_material_variance_restorations"):
+                conn.exec_driver_sql(f"""
+                    CREATE FUNCTION prevent_{table}_mutation()
+                    RETURNS trigger AS $stock_variance_guard$
+                    BEGIN
+                        RAISE EXCEPTION '{table} is append-only';
+                    END;
+                    $stock_variance_guard$ LANGUAGE plpgsql
+                """)
+                conn.exec_driver_sql(f"""
+                    CREATE TRIGGER {table}_immutable BEFORE UPDATE OR DELETE ON {table}
+                    FOR EACH ROW EXECUTE FUNCTION prevent_{table}_mutation()
+                """)
             conn.exec_driver_sql("""
                 CREATE FUNCTION prevent_material_issue_mutation()
                 RETURNS trigger AS $stock_issue_guard$
@@ -91,6 +104,13 @@ def _install_fresh_material_guards() -> None:
                     SELECT RAISE(ABORT,'maintenance_material_issues is append-only');
                 END
             """)
+            for table in ("maintenance_material_variances", "maintenance_material_variance_decisions", "maintenance_material_variance_restorations"):
+                for action in ("update", "delete"):
+                    conn.exec_driver_sql(f"""
+                        CREATE TRIGGER {table}_no_{action}
+                        BEFORE {action.upper()} ON {table}
+                        BEGIN SELECT RAISE(ABORT, '{table} is append-only'); END
+                    """)
         else:
             raise RuntimeError("Unsupported database for immutable stock evidence")
 

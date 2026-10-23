@@ -215,5 +215,51 @@ def test_independent_postgres_issues_and_reversals_preserve_physical_stock():
             assert blocked.value.status_code in (403, 404)
             db.rollback()
             assert db.query(Issue).filter_by(material_order_id=source_id).count() == 2
+
+        # New shortage approvals and new physical issues must contend for the
+        # same original source-order lock, regardless of which request wins.
+        with Session(engine) as db:
+            actor = db.get(User, ids["other"])
+            proposed = m.report_stock_variance(source_id, m.StockVarianceInput(
+                request_key="RACE-PENDING-VARIANCE-" + tag.upper(),
+                quantity=2,
+                reason="Two filters physically absent after separate work order repair",
+            ), db=db, current_user=actor)
+            variance_id = proposed["stock_variances"][0]["id"]
+
+        approval_barrier = Barrier(2)
+        def approval_race(mode: str):
+            with Session(engine) as db:
+                actor = db.get(User, ids["owner"] if mode=="review" else ids["admin"])
+                approval_barrier.wait(timeout=15)
+                try:
+                    if mode=="review":
+                        result = m.review_stock_variance(source_id, variance_id,
+                            m.Decision(approved=True,
+                                reason="Independent owner verified the reported stock count"),
+                            db=db,current_user=actor)
+                    else:
+                        result = m.issue_materials(source_id,m.IssueStock(
+                            target_work_order_id=ids["work"],
+                            reference="RACE-AFTER-PENDING-VARIANCE",
+                            quantity=2,
+                            notes="Two remaining parts installed before independent recount",
+                        ),db=db,current_user=actor)
+                    return ("success",result["available_stock"])
+                except HTTPException as ex:
+                    db.rollback()
+                    return ("denied",ex.status_code)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a=pool.submit(approval_race,"review")
+            b=pool.submit(approval_race,"issue")
+            final=[a.result(timeout=40),b.result(timeout=40)]
+        assert sorted(final)==[("denied",409),("success",1)]
+        with Session(engine) as db:
+            final_row = next(item for item in m.list_orders(
+                work_order_id=ids["work"],limit=50,db=db,
+                current_user=db.get(User,ids["admin"])
+            ) if item["id"]==source_id)
+            assert final_row["available_stock"]==1
+            assert (final_row["net_missing"],final_row["net_issued"]) in ((2,0),(0,2))
     finally:
         engine.dispose()
