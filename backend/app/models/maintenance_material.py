@@ -2,7 +2,7 @@
 No vendor dispatch, payment, GL posting or tenant liability is implied.
 """
 from datetime import datetime
-from sqlalchemy import (Column, Integer, String, Text, DateTime, ForeignKey,
+from sqlalchemy import (Column, Integer, BigInteger, String, Text, DateTime, ForeignKey,
                         CheckConstraint, UniqueConstraint)
 from app.core.database import Base
 
@@ -130,3 +130,44 @@ class MaintenanceMaterialVarianceRestoration(Base):
     reason = Column(Text, nullable=False)
     restored_by_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     restored_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+class MaintenanceMaterialBatch(Base):
+    """Atomic 2–20 line internal requisition, not an external purchase order."""
+    __tablename__ = "maintenance_material_batches"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "batch_key", name="uq_material_batch_org_key"),
+        CheckConstraint("line_count BETWEEN 2 AND 20", name="ck_material_batch_line_count"),
+        CheckConstraint("estimated_total_cents >= 0 AND estimated_total_cents <= 20000000000000",
+                        name="ck_material_batch_total"),
+        CheckConstraint("status IN ('REQUESTED','APPROVED','DENIED')", name="ck_material_batch_status"),
+    )
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="RESTRICT"), nullable=False)
+    work_order_id = Column(Integer, ForeignKey("work_orders.id", ondelete="RESTRICT"), nullable=False)
+    vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="RESTRICT"), nullable=False)
+    batch_key = Column(String(64), nullable=False)
+    reason = Column(Text, nullable=False)
+    line_count = Column(Integer, nullable=False)
+    estimated_total_cents = Column(BigInteger, nullable=False)
+    requested_by_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    requested_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    status = Column(String(16), nullable=False, default="REQUESTED")
+    reviewed_by_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"))
+    reviewed_at = Column(DateTime)
+    review_reason = Column(Text)
+
+
+class MaintenanceMaterialBatchLine(Base):
+    """Append-only mapping to existing audited per-line material source orders."""
+    __tablename__ = "maintenance_material_batch_lines"
+    __table_args__ = (
+        UniqueConstraint("batch_id", "line_number", name="uq_material_batch_line_number"),
+        UniqueConstraint("order_id", name="uq_material_batch_source_order"),
+        CheckConstraint("line_number BETWEEN 1 AND 20", name="ck_material_batch_line_number"),
+    )
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False)
+    batch_id = Column(Integer, ForeignKey("maintenance_material_batches.id", ondelete="RESTRICT"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("maintenance_material_orders.id", ondelete="RESTRICT"), nullable=False)
+    line_number = Column(Integer, nullable=False)

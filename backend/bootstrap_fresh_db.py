@@ -63,6 +63,17 @@ def _install_fresh_material_guards() -> None:
                     FOR EACH ROW EXECUTE FUNCTION prevent_{table}_mutation()
                 """)
             conn.exec_driver_sql("""
+                CREATE FUNCTION prevent_material_batch_line_mutation()
+                RETURNS trigger AS $material_batch_guard$
+                BEGIN RAISE EXCEPTION 'maintenance_material_batch_lines is append-only'; END;
+                $material_batch_guard$ LANGUAGE plpgsql
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER material_batch_line_immutable
+                BEFORE UPDATE OR DELETE ON maintenance_material_batch_lines
+                FOR EACH ROW EXECUTE FUNCTION prevent_material_batch_line_mutation()
+            """)
+            conn.exec_driver_sql("""
                 CREATE FUNCTION prevent_material_issue_mutation()
                 RETURNS trigger AS $stock_issue_guard$
                 BEGIN
@@ -111,6 +122,16 @@ def _install_fresh_material_guards() -> None:
                         BEFORE {action.upper()} ON {table}
                         BEGIN SELECT RAISE(ABORT, '{table} is append-only'); END
                     """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER material_batch_line_no_update
+                BEFORE UPDATE ON maintenance_material_batch_lines
+                BEGIN SELECT RAISE(ABORT,'maintenance_material_batch_lines is append-only'); END
+            """)
+            conn.exec_driver_sql("""
+                CREATE TRIGGER material_batch_line_no_delete
+                BEFORE DELETE ON maintenance_material_batch_lines
+                BEGIN SELECT RAISE(ABORT,'maintenance_material_batch_lines is append-only'); END
+            """)
         else:
             raise RuntimeError("Unsupported database for immutable stock evidence")
 
