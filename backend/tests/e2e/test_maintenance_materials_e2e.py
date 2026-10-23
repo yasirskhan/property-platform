@@ -21,7 +21,8 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
     from app.models.vendor import Vendor
     from app.models.maintenance_material import (MaintenanceMaterialMovement,
         MaintenanceMaterialIssue, MaintenanceMaterialVariance,
-        MaintenanceMaterialVarianceDecision, MaintenanceMaterialVarianceRestoration)
+        MaintenanceMaterialVarianceDecision, MaintenanceMaterialVarianceRestoration,
+        MaintenanceMaterialBatch)
     from app.routers import maintenance_materials as m
 
     tag = uuid4().hex[:10]
@@ -260,6 +261,51 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
                     assert receipt["net_received"]==line["quantity"]
             finally:
                 db.close()
+
+            # Submit two lines using the actual staff creation UI, then prove
+            # the requester cannot self-approve. The separate owner decides.
+            page.get_by_label("Batch SKU 1").fill("E2E-OWN-A-"+tag.upper())
+            page.get_by_label("Batch material name 1").fill("First service duct "+tag)
+            page.get_by_label("Batch quantity 1").fill("2")
+            page.get_by_label("Batch unit cost 1").fill("100")
+            page.get_by_label("Batch SKU 2").fill("E2E-OWN-B-"+tag.upper())
+            page.get_by_label("Batch material name 2").fill("Second service duct "+tag)
+            page.get_by_label("Batch quantity 2").fill("1")
+            page.get_by_label("Batch unit cost 2").fill("200")
+            page.get_by_label("Batch material reason").fill(
+                "Two additional parts submitted for independent whole-batch review")
+            page.get_by_role("button",name="Submit all lines together for independent approval").click()
+            pw.expect(page.get_by_role("status").filter(
+                has_text="All material lines saved together")).to_be_visible(timeout=15_000)
+            db=SessionLocal()
+            try:
+                admin=db.query(User).filter(User.email==EMAIL).one()
+                own_batch=db.query(MaintenanceMaterialBatch).filter(
+                    MaintenanceMaterialBatch.organization_id==admin.organization_id,
+                    MaintenanceMaterialBatch.requested_by_id==admin.id,
+                    MaintenanceMaterialBatch.reason==
+                        "Two additional parts submitted for independent whole-batch review",
+                ).order_by(MaintenanceMaterialBatch.id.desc()).first()
+                assert own_batch is not None and own_batch.status=="REQUESTED"
+                own_id=own_batch.id
+            finally:
+                db.close()
+            own_card=page.locator("article").filter(
+                has_text="Internal request #"+str(own_id)).first
+            pw.expect(own_card).to_contain_text("REQUESTED",timeout=15_000)
+            pw.expect(own_card.get_by_role("button",name="Approve entire requisition")
+                ).to_have_count(0)
+            db=SessionLocal()
+            try:
+                independent_owner=db.query(User).filter(User.id==owner_id).one()
+                reviewed=m.decide_material_batch(own_id,m.Decision(
+                    approved=True,reason="Owner independently approved both requisition lines",
+                ),db=db,current_user=independent_owner)
+                assert reviewed["status"]=="APPROVED"
+            finally:
+                db.close()
+            page.get_by_role("button",name="Refresh purchase history").click()
+            pw.expect(own_card).to_contain_text("APPROVED",timeout=15_000)
         finally:
             browser.close()
 
