@@ -163,9 +163,8 @@ def test_multiline_foreign_property_and_corrupted_provenance_fail_closed():
         made=m.create_material_batch(request,db=db,current_user=manager)
         assert m.list_material_batches(work_order_id=None,limit=20,
                     db=db,current_user=admin)[0]["id"]==made["id"]
-        with pytest.raises(HTTPException):
-            m.list_material_batches(work_order_id=None,limit=20,
-                    db=db,current_user=foreign)
+        assert m.list_material_batches(work_order_id=None,limit=20,
+                    db=db,current_user=foreign)==[]
         # Mutate the estimated total in ORM state: business reader must validate
         # immutable original audit rather than trusting mutable header bytes.
         header=db.get(Batch,made["id"])
@@ -177,14 +176,14 @@ def test_multiline_foreign_property_and_corrupted_provenance_fail_closed():
         assert tampered.value.status_code==409
         db.rollback()
         binding=db.query(BatchLine).first()
-        original_order=binding.order_id
-        binding.order_id=orders[2].id
+        original_number=binding.line_number
+        binding.line_number=5
         db.flush()
         with pytest.raises(HTTPException):
             m.list_material_batches(work_order_id=None,limit=20,
                 db=db,current_user=admin)
         db.rollback()
-        assert db.query(BatchLine).first().order_id==original_order
+        assert db.query(BatchLine).first().line_number==original_number
     finally:
         db.close();engine.dispose()
 
