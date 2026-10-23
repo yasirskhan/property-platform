@@ -261,5 +261,63 @@ def test_independent_postgres_issues_and_reversals_preserve_physical_stock():
             ) if item["id"]==source_id)
             assert final_row["available_stock"]==1
             assert (final_row["net_missing"],final_row["net_issued"]) in ((2,0),(0,2))
+
+        # Real PostgreSQL connections simultaneously review one indivisible
+        # two-line purchasing batch. Only one review may commit, never a
+        # half-approved source, even when both reviewers are Owner/Admin.
+        with Session(engine) as db:
+            manager=db.get(User,ids["other"])
+            packet=m.create_material_batch(m.MaterialBatchRequest(
+                batch_key="CONCURRENT-TWO-LINES-"+tag.upper(),
+                work_order_id=ids["work"],vendor_id=ids["vendor"],
+                reason="Two separate replacement material lines for same repair",
+                lines=[
+                    m.BatchItem(sku="RACE-BATCH-A",
+                        item_name="Concurrently reviewed first filter",
+                        quantity=1,unit_cost_cents=300),
+                    m.BatchItem(sku="RACE-BATCH-B",
+                        item_name="Concurrently reviewed second bracket",
+                        quantity=2,unit_cost_cents=200),
+                ],
+            ),db=db,current_user=manager)
+            packet_id=packet["id"]
+        decision_barrier=Barrier(2)
+        def review_batch(actor_id:int,reason:str):
+            with Session(engine) as db:
+                reviewer=db.get(User,actor_id)
+                decision_barrier.wait(timeout=15)
+                try:
+                    result=m.decide_material_batch(packet_id,m.Decision(
+                        approved=True,reason=reason,
+                    ),db=db,current_user=reviewer)
+                    return ("approved",result["line_count"])
+                except HTTPException as ex:
+                    db.rollback()
+                    return ("denied",ex.status_code)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a=pool.submit(review_batch,ids["admin"],
+                "Administrator independently approves all original requisition lines")
+            b=pool.submit(review_batch,ids["owner"],
+                "Owner separately verified the original complete requisition")
+            reviews=[a.result(timeout=40),b.result(timeout=40)]
+        assert sorted(reviews)==[("approved",2),("denied",409)]
+        with Session(engine) as db:
+            current=m.list_material_batches(work_order_id=ids["work"],limit=50,
+                db=db,current_user=db.get(User,ids["owner"]))
+            chosen=next(item for item in current if item["id"]==packet_id)
+            assert chosen["status"]=="APPROVED"
+            assert chosen["line_count"]==2
+            assert all(db.get(m.Order,item["order_id"]).status=="APPROVED"
+                       for item in chosen["lines"])
+            assert db.query(AuditLog).filter_by(
+                organization_id=ids["org"],
+                entity_type="maintenance_material_batch",
+                entity_id=packet_id,action="reviewed",
+            ).count()==1
+            assert db.query(AuditLog).filter_by(
+                organization_id=ids["org"],
+                entity_type="maintenance_material_order",
+                action="reviewed",
+            ).count()==3
     finally:
         engine.dispose()
