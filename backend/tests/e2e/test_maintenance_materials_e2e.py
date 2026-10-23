@@ -117,13 +117,21 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
                 "Inspected three delivered filter sets in person")
             card.get_by_role("button", name="Record received stock").click()
             pw.expect(card).to_contain_text("Net received 3", timeout=15_000)
-            card.get_by_role("button", name="View physical property stock").click()
-            pw.expect(card).to_contain_text("3 units", timeout=15_000)
+            # Wait for the complete post-receipt list refresh before using the
+            # same card. A physical-stock summary request can finish first; it
+            # does not prove that the allocated-stock form has been rendered.
+            pw.expect(card).to_contain_text("Available from this request 3", timeout=15_000)
+            issue_button = card.get_by_role("button", name="Record physical material usage")
+            pw.expect(issue_button).to_be_visible(timeout=15_000)
+            issue_qty = card.get_by_label("Material issue quantity "+str(purchase_id))
+            pw.expect(issue_qty).to_be_visible(timeout=15_000)
+            issue_qty.fill("2")
             card.get_by_label("Material issue work order "+str(purchase_id)).fill(str(work_order_id))
             card.get_by_label("Material issue reference "+str(purchase_id)).fill("E2E-ISSUE-"+tag)
-            card.get_by_label("Material issue quantity "+str(purchase_id)).fill("2")
             card.get_by_label("Material issue notes "+str(purchase_id)).fill(
                 "Installed two verified filter parts for this work order")
+            card.get_by_role("button", name="View physical property stock").click()
+            pw.expect(card).to_contain_text("3 units", timeout=15_000)
             card.get_by_role("button", name="Record physical material usage").click()
             pw.expect(card).to_contain_text("Available from this request 1", timeout=15_000)
             pw.expect(card).to_contain_text("Issued to work orders 2")
