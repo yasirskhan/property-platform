@@ -293,7 +293,9 @@ def test_corrupt_earlier_preventive_original_blocks_execution_in_staff_browser()
             pw.expect(card.get_by_role("alert")).to_contain_text(
                 "staff takeover cannot repair evidence", timeout=15_000)
             card.get_by_role("button", name="Generate due work order").click()
-            pw.expect(page.get_by_role("alert")).to_be_visible(timeout=15_000)
+            # The page has both a card-local integrity alert and a global
+            # server rejection. Select the latter explicitly.
+            pw.expect(page.locator("main > p[role='alert']")).to_be_visible(timeout=15_000)
         finally:
             browser.close()
 
