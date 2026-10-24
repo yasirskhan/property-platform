@@ -19,6 +19,14 @@ Read root `AGENTS.md`, this ENTIRE concise handoff, `docs/SESSION_CONTROL.md`, `
 - P5-PM-05 append-only per-occurrence batch receipts: each committed operator-reviewed recovery work order links to the first original order and reason, existing per-order provenance validated; scoped authenticated receipt API, customer UI and backend/browser tests. Saved source ancestor `43f08b4e5a84f79ea6ba9bf387773917623a3402` with this documentation successor.
 - Next executable: first establish parent all-six green; if red repair underlying logs. Then publish successor with live expected_sha, force=false, verify its own six jobs and continue remaining authorized Phase5 work. Pending operator/security/restore acceptance must not be invented.
 
+## Inspectable saved independent successors (UNPUBLISHED, UNVERIFIED)
+- Parent published `02fdd0b171daae45320a5a1dafb7c8d67baa6369`, Actions `40060920637`; confirm all six jobs green BEFORE publishing any successor.
+- `3f2a1f88574bb4a6b539aaea99f39fc5174c8abd`: original per-work-order recovery receipts, immutable root binding, scoped API/UI, backend + browser tests.
+- `58469195b1328653f26fb9405057508d9c1687ba`: inspection device-local cross-tab queue recheck before independent sealing, authenticated browser two-tab evidence.
+- `68b01ad8d6540f9178af115c390bb9db49aa3758`: fail-closed orphan/foreign original creation-audit detection, bounded bidirectional reconciliation and negative tests.
+- `74df78c92925de562ef6762d9053400a00fbb3ed`: forbid recovery receipt claiming operator from another organization. This detached chain is inspectable, not test-certified.
+- On predecessor CI red, repair actual logs first; on predecessor all green, recheck branch HEAD and writer, promote only expected-SHA fast-forward without force, then verify successor's own six hosted jobs. Continue remaining Phase5, all production switches OFF.
+
 ## Open P5 scope
 - P5-AUTO-01 autonomous dispatch execution OFF.
 - P5-DLV-02 provider contracts, consent, credentials, real channel receipts BLOCKED EXTERNAL.
