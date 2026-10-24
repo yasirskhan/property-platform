@@ -236,6 +236,19 @@ export default function StaffInspectionDetailPage() {
     if (!record || reviewSaving || review || localPhotos.length > 0 || reviewNotes.trim().length < 10) return;
     setReviewSaving(true); setReviewError(""); setReviewMessage("");
     try {
+      // A second tab can queue private photos after this page originally loaded.
+      // Recheck IndexedDB at the actual sealing boundary, not just stale UI state.
+      if (!actor) throw new Error("Staff account scope must be verified before review.");
+      const queued = await pendingPhotos(actor.id, actor.organization_id, record.id);
+      setLocalPhotos(queued);
+      if (queued.length > 0)
+        throw new Error("Unsent device-local evidence was found. Sync or discard every draft before sealing this inspection.");
+      const tokenBefore = getToken();
+      if (!tokenBefore) throw new Error("Authentication must be verified before review.");
+      const current = await apiGet("/auth/me") as {id:number;organization_id:number};
+      if (current.id !== actor.id || current.organization_id !== actor.organization_id ||
+          getToken() !== tokenBefore)
+        throw new Error("Account changed during review preflight. Reopen this inspection.");
       const result: Review = await apiPost(`/api/unit-inspections/${record.id}/review`, {
         decision: reviewDecision, notes: reviewNotes.trim(),
       });
