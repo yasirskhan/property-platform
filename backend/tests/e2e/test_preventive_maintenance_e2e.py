@@ -177,6 +177,10 @@ def test_operator_recovers_three_backlogged_occurrences_in_browser():
             pw.expect(page.get_by_role("status").filter(
                 has_text="3 audited tenantless work orders created"
             )).to_be_visible(timeout=15_000)
+            card.get_by_role("button", name="Recovery receipts").click()
+            receipt_panel=card.get_by_label("Verified committed recovery receipts")
+            pw.expect(receipt_panel.get_by_role("link", name=re.compile(r"Work order #[0-9]+"))).to_have_count(3,timeout=15_000)
+            pw.expect(receipt_panel).to_contain_text("Operator reviewed original occurrence evidence")
             card.get_by_role("button", name="Occurrence history").click()
             pw.expect(card.get_by_role("link", name=re.compile(r"Work order #[0-9]+"))).to_have_count(3, timeout=15_000)
             card.get_by_role("button", name="Recover due backlog (up to 12)").click()

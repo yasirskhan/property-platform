@@ -176,6 +176,25 @@ def catch_up(schedule_id: int, payload: ReviewedCatchUp,
 
 
 
+class RecoveryWorkOrderOut(BaseModel):
+    work_order_id: int
+    due_date: date
+
+
+class RecoveryReceiptOut(BaseModel):
+    root_work_order_id: int
+    reason: str
+    operator_user_id: int | None
+    created_work_orders: list[RecoveryWorkOrderOut]
+
+
+@router.get("/schedules/{schedule_id}/recovery-receipts",
+            response_model=list[RecoveryReceiptOut])
+def get_recovery_receipts(schedule_id: int, db: Session = Depends(get_db),
+                          current_user: User = Depends(get_current_user)):
+    return service.recovery_receipts(db, current_user, schedule_id)
+
+
 class ReconciliationOut(BaseModel):
     schedule_id: int
     verified_occurrences: int

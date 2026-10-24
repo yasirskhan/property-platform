@@ -20,6 +20,10 @@ type Reconciliation = {
   read_only:true;work_orders_created:0;automatic_dispatch:false;financial_posted:false;
 };
 type DuePreview = { schedule_id: number; active: boolean; as_of: string; due_dates: string[]; has_more: boolean };
+type RecoveryReceipt = {
+  root_work_order_id:number;reason:string;operator_user_id:number|null;
+  created_work_orders:{work_order_id:number;due_date:string}[];
+};
 
 export default function PreventiveMaintenancePage() {
   const [units, setUnits] = useState<UnitChoice[]>([]);
@@ -55,6 +59,10 @@ export default function PreventiveMaintenancePage() {
   const [recoveryId, setRecoveryId] = useState<number|null>(null);
   const [recoveryReason, setRecoveryReason] = useState("");
   const [recoveryCursor, setRecoveryCursor] = useState("");
+  const [receiptSchedule, setReceiptSchedule] = useState<number|null>(null);
+  const [recoveryReceipts, setRecoveryReceipts] = useState<RecoveryReceipt[]>([]);
+  const [receiptsError, setReceiptsError] = useState("");
+  const [receiptsBusy, setReceiptsBusy] = useState(false);
   const [preview, setPreview] = useState<DuePreview | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [previewErrorId, setPreviewErrorId] = useState<number | null>(null);
@@ -268,6 +276,24 @@ export default function PreventiveMaintenancePage() {
     } finally { setBusyId(null); }
   }
 
+  async function showRecoveryReceipts(id:number) {
+    setReceiptSchedule(id);setReceiptsBusy(true);setReceiptsError("");
+    setRecoveryReceipts([]);
+    try {
+      const result = await apiGet(
+        `/api/maintenance/preventive/schedules/${id}/recovery-receipts`,
+      ) as RecoveryReceipt[];
+      if (!Array.isArray(result) || result.some((entry)=>
+        !Number.isSafeInteger(entry.root_work_order_id) ||
+        !Array.isArray(entry.created_work_orders) ||
+        entry.created_work_orders.some((work)=>!Number.isSafeInteger(work.work_order_id))))
+        throw new Error("Invalid recovery evidence response.");
+      setRecoveryReceipts(result);
+    } catch (cause) {
+      setReceiptsError(cause instanceof Error?cause.message:"Recovery receipts unavailable.");
+    } finally {setReceiptsBusy(false);}
+  }
+
   async function catchUp(event: FormEvent<HTMLFormElement>, row: Schedule) {
     event.preventDefault();
     if (recoveryId !== row.id || recoveryReason.trim().length < 10 || !recoveryCursor) {
@@ -298,6 +324,7 @@ export default function PreventiveMaintenancePage() {
         ? `${result.created_work_order_ids.length} audited tenantless work orders created. ${result.remaining_due?"More backlog remains; review before repeating.":"No remaining due backlog."}`
         : "No further due work orders created. Existing occurrences remain unchanged.");
       if(historyId===row.id)await showHistory(row.id);
+      if(result.created_work_order_ids.length) await showRecoveryReceipts(row.id);
     } catch (cause) {
       // A later occurrence may fail AFTER earlier work orders committed.
       // Never retain a reviewed cursor after any uncertain write result.
@@ -313,6 +340,7 @@ export default function PreventiveMaintenancePage() {
         if (current.id === row.id)
           setSchedules(old=>old.map(item=>item.id===row.id?current:item));
         await showHistory(row.id);
+        await showRecoveryReceipts(row.id);
       } catch {
         // The primary error remains visible. We never guess a recovered cursor.
         setHistoryError("Could not refresh committed recovery evidence. Reload before retrying.");
@@ -627,7 +655,28 @@ export default function PreventiveMaintenancePage() {
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Occurrence history
           </button>
+          <button type="button" disabled={busyId !== null || receiptsBusy}
+            onClick={() => void showRecoveryReceipts(row.id)}
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+            {receiptsBusy && receiptSchedule===row.id?"Loading recovery receipts…":"Recovery receipts"}
+          </button>
         </div>
+        {receiptSchedule===row.id&&<section aria-label="Verified committed recovery receipts"
+          className="space-y-2 rounded border p-3 text-sm">
+          <h4 className="font-semibold">Committed recovery receipts</h4>
+          {receiptsError&&<p role="alert">Recovery receipts not verified: {receiptsError}</p>}
+          {!receiptsError&&recoveryReceipts.length===0&&<p>No reviewed recovery batches recorded.</p>}
+          {recoveryReceipts.map(batch=><div key={batch.root_work_order_id} className="space-y-1">
+            <p>Recovery root work order #{batch.root_work_order_id};
+              operator #{batch.operator_user_id}; reason: {batch.reason}</p>
+            <ul>{batch.created_work_orders.map(item=><li key={item.work_order_id}>
+              <Link href={`/dashboard/maintenance/work-orders/${item.work_order_id}`}
+                className="text-blue-800 underline">Work order #{item.work_order_id}</Link>
+              {" · Original due "}{item.due_date}
+            </li>)}</ul>
+          </div>)}
+          <p>No provider delivery, automatic dispatch or financial posting is certified.</p>
+        </section>}
         {recoveryId===row.id&&<form onSubmit={(event)=>void catchUp(event,row)}
           className="space-y-2 rounded border bg-slate-50 p-3">
           <h4 className="font-semibold text-sm">Reviewed backlog recovery</h4>

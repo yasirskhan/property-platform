@@ -398,7 +398,8 @@ def preview_due(db: Session, actor: User, schedule_id: int, *,
 
 def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date,
                  expected_next_due_date: date | None = None,
-                 recovery_reason: str | None = None):
+                 recovery_reason: str | None = None,
+                 recovery_root_work_order_id: int | None = None):
     """Generate ONE due occurrence under row lock; retries return the same order."""
     row = _schedule(db, actor, schedule_id)
     if as_of > date.today():
@@ -454,12 +455,24 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date,
         new_value={"status":"submitted","request_origin":"staff","requested_by_user_id":actor.id,
                    "preventive_schedule_id":row.id,"occurrence_date":due.isoformat()})
     if recovery_reason is not None:
+        # Each successful recovery occurrence has its OWN committed audit.
+        # The root ID unambiguously binds later commits in the same manual
+        # batch, including batches interrupted by a later failed transaction.
+        first = recovery_root_work_order_id is None
         append_audit_log(db, entity_type="preventive_maintenance_schedule",
             entity_id=row.id, organization_id=actor.organization_id, user_id=actor.id,
-            action="operator_recovery_initiated",
+            action="operator_recovery_initiated" if first else "operator_recovery_continued",
             old_value={"next_due_date": due.isoformat()},
-            new_value={"reason": recovery_reason, "first_work_order_id": wo.id,
-                       "as_of": as_of.isoformat()})
+            new_value={
+                "reason": recovery_reason if first else None,
+                "first_work_order_id": wo.id if first else recovery_root_work_order_id,
+                "root_work_order_id": wo.id if first else recovery_root_work_order_id,
+                "work_order_id": wo.id,
+                "due_date": due.isoformat(),
+                "as_of": as_of.isoformat(),
+                "external_delivery_confirmed": False,
+                "financial_posted": False,
+            })
     db.commit()
     db.refresh(wo)
     return wo, True
@@ -493,7 +506,8 @@ def catch_up_due(db: Session, actor: User, schedule_id: int, *,
         order, created = generate_due(
             db, actor, schedule_id, as_of=as_of,
             expected_next_due_date=expected_next_due_date if attempt == 0 else None,
-            recovery_reason=recovery_reason if attempt == 0 else None,
+            recovery_reason=recovery_reason,
+            recovery_root_work_order_id=ids[0] if ids else None,
         )
         if not created:
             break
@@ -510,6 +524,72 @@ def catch_up_due(db: Session, actor: User, schedule_id: int, *,
             and (current.end_date is None or current.next_due_date <= current.end_date)
         ),
     }
+
+
+
+
+def recovery_receipts(db: Session, actor: User, schedule_id: int) -> list[dict]:
+    """Verified, scoped operator receipts for each committed recovery work order.
+
+    Original linked occurrence evidence is independently reconciled, not
+    derived from paginated history or untrusted audit JSON. Historical manual
+    generations that did not have operator-reviewed recovery are not included.
+    """
+    schedule = read_schedule(db, actor, schedule_id)
+    reconcile_occurrences(db, actor, schedule_id)
+    records = db.query(AuditLog).filter(
+        AuditLog.organization_id == schedule.organization_id,
+        AuditLog.entity_type == "preventive_maintenance_schedule",
+        AuditLog.entity_id == schedule.id,
+        AuditLog.action.in_(("operator_recovery_initiated", "operator_recovery_continued")),
+    ).order_by(AuditLog.id.asc()).limit(501).all()
+    if len(records) > 500:
+        raise HTTPException(status_code=409, detail="Recovery evidence exceeds review bound")
+    by_root: dict[int, dict] = {}
+    seen_orders: set[int] = set()
+    for record in records:
+        try:
+            data = json.loads(record.new_value or "null")
+        except (TypeError, ValueError):
+            data = None
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=409, detail="Recovery original audit is unreadable")
+        work_order_id = data.get("work_order_id", data.get("first_work_order_id"))
+        root_id = data.get("root_work_order_id", data.get("first_work_order_id"))
+        if (not isinstance(root_id, int) or root_id < 1
+                or not isinstance(work_order_id, int) or work_order_id < 1
+                or work_order_id in seen_orders
+                or data.get("first_work_order_id") != root_id
+                or data.get("financial_posted", False) is not False
+                or data.get("external_delivery_confirmed", False) is not False):
+            raise HTTPException(status_code=409, detail="Recovery original audit integrity violation")
+        occurrence = db.query(Occurrence).filter(
+            Occurrence.schedule_id == schedule.id,
+            Occurrence.organization_id == schedule.organization_id,
+            Occurrence.work_order_id == work_order_id,
+        ).one_or_none()
+        if (occurrence is None or data.get("due_date", occurrence.due_date.isoformat()) != occurrence.due_date.isoformat()):
+            raise HTTPException(status_code=409, detail="Recovery occurrence provenance mismatch")
+        if record.action == "operator_recovery_initiated":
+            if root_id != work_order_id or root_id in by_root:
+                raise HTTPException(status_code=409, detail="Recovery root audit integrity violation")
+            reason = data.get("reason")
+            if not isinstance(reason, str) or not 10 <= len(reason.strip()) <= 500:
+                raise HTTPException(status_code=409, detail="Recovery explanation is missing")
+            by_root[root_id] = {
+                "root_work_order_id": root_id,
+                "reason": reason,
+                "operator_user_id": record.user_id,
+                "created_work_orders": [],
+            }
+        elif root_id not in by_root or by_root[root_id]["operator_user_id"] != record.user_id:
+            raise HTTPException(status_code=409, detail="Recovery continuation is unbound")
+        seen_orders.add(work_order_id)
+        by_root[root_id]["created_work_orders"].append({
+            "work_order_id": work_order_id,
+            "due_date": occurrence.due_date,
+        })
+    return list(reversed(list(by_root.values())))
 
 
 
