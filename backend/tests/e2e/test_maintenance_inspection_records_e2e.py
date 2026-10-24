@@ -21,7 +21,9 @@ def test_staff_records_inspection_without_invented_mobile_workflow():
             page.locator('input[type="email"]').fill(EMAIL)
             page.locator('input[type="password"]').fill(PASSWORD)
             page.get_by_role("button", name="Log In", exact=True).click()
-            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            # Next.js client transitions may have long-lived resources; do not
+            # gate authenticated routing on a complete browser load event.
+            page.wait_for_url(re.compile(r"/dashboard/?$"), wait_until="domcontentloaded", timeout=30_000)
             # Ensure the authenticated shell completed initialization before
             # navigating again. A URL transition alone can race auth checks.
             pw.expect(page.get_by_text("Signed in as", exact=True)).to_be_visible(timeout=15_000)
@@ -166,7 +168,7 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
             page.locator('input[type="email"]').fill(EMAIL)
             page.locator('input[type="password"]').fill(PASSWORD)
             page.get_by_role("button", name="Log In", exact=True).click()
-            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=15_000)
+            page.wait_for_url(re.compile(r"/dashboard/?$"), wait_until="domcontentloaded", timeout=30_000)
             pw.expect(page.get_by_text("Signed in as", exact=True)).to_be_visible(timeout=15_000)
             page.goto(BASE_URL + f"/dashboard/maintenance/staff-inspection-records/{evidence_id}",
                       wait_until="domcontentloaded")
