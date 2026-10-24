@@ -14,6 +14,11 @@ Read root `AGENTS.md`, this ENTIRE concise handoff, `docs/SESSION_CONTROL.md`, `
 - Operator can recover at most 12 overdue occurrences, with earlier commits durable after later failure. No external provider sends, tenant charges, entry authority, automatic dispatch or financial release.
 - Current **UNVERIFIED** successor: staged PostgreSQL two-session reviewed-recovery race, audit-store rollback/retry, partial-batch failure/retry, and a usable staff UI that discards stale recovery confirmation and reloads durable evidence. Source candidate `ae910892fc191d07939fe06082745c0b7d32c4e9` (plus this accuracy correction) requires its OWN complete six-job exact-SHA CI. On red, read actual failing job logs and correct cause first. If green, continue real worker/operator restore and next dependency-safe Phase 5 implementation. This is NOT Phase 5 acceptance.
 
+## Next independent candidate, NOT PUBLISHED OR VERIFIED
+- Parent `02fdd0b171daae45320a5a1dafb7c8d67baa6369` / Actions `40060920637`: source CI outcome must be rechecked before candidate publication.
+- P5-PM-05 append-only per-occurrence batch receipts: each committed operator-reviewed recovery work order links to the first original order and reason, existing per-order provenance validated; scoped authenticated receipt API, customer UI and backend/browser tests. Saved source ancestor `43f08b4e5a84f79ea6ba9bf387773917623a3402` with this documentation successor.
+- Next executable: first establish parent all-six green; if red repair underlying logs. Then publish successor with live expected_sha, force=false, verify its own six jobs and continue remaining authorized Phase5 work. Pending operator/security/restore acceptance must not be invented.
+
 ## Open P5 scope
 - P5-AUTO-01 autonomous dispatch execution OFF.
 - P5-DLV-02 provider contracts, consent, credentials, real channel receipts BLOCKED EXTERNAL.
