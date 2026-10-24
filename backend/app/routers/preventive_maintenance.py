@@ -167,6 +167,27 @@ def catch_up(schedule_id: int,
     )
 
 
+
+class ReconciliationOut(BaseModel):
+    schedule_id: int
+    verified_occurrences: int
+    latest_due_date: date | None
+    latest_work_order_id: int | None
+    next_due_date: date
+    integrity_status: str
+    read_only: bool
+    work_orders_created: int
+    automatic_dispatch: bool
+    financial_posted: bool
+
+
+@router.get("/schedules/{schedule_id}/reconciliation", response_model=ReconciliationOut)
+def reconcile_history(schedule_id: int, db: Session = Depends(get_db),
+                      current_user: User = Depends(get_current_user)):
+    return service.reconcile_occurrences(db, current_user, schedule_id)
+
+
+
 class OccurrenceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
