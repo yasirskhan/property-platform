@@ -68,6 +68,12 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             pw.expect(page.get_by_role("status").filter(
                 has_text="generated without a tenant or automatic charge"
             )).to_be_visible(timeout=15_000)
+            card.get_by_role("button", name="Reconcile original occurrence evidence").click()
+            certificate=card.get_by_role(
+                "status",name="Verified preventive original occurrence reconciliation")
+            pw.expect(certificate).to_contain_text(
+                "Verified 1 original occurrences",timeout=15_000)
+            pw.expect(certificate).to_contain_text("Read-only check; no work order, dispatch or finance action")
             card.get_by_role("button", name="Occurrence history").click()
             pw.expect(card.get_by_role("link", name=re.compile(r"Work order #[0-9]+"))).to_be_visible(timeout=15_000)
             card.get_by_role("button", name="Generate due work order").click()
