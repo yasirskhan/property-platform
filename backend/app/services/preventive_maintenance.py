@@ -486,6 +486,77 @@ def catch_up_due(db: Session, actor: User, schedule_id: int, *,
     }
 
 
+
+def reconcile_occurrences(db: Session, actor: User, schedule_id: int) -> dict:
+    """Read-only, bounded all-record integrity review for recovery operators.
+
+    The regular paginated history deliberately omits unsafe cross-scope joins.
+    Recovery must instead inspect *all* original occurrence rows and refuse to
+    claim clean history when any row has lost its source-work-order link, its
+    organization/property/tenantless scope, or its immutable creation proof.
+    Never return an unvalidated foreign or forged work-order ID.
+    """
+    schedule = read_schedule(db, actor, schedule_id)
+    candidates = db.query(Occurrence).filter(
+        Occurrence.schedule_id == schedule.id,
+    ).order_by(Occurrence.due_date.asc(), Occurrence.id.asc()).limit(501).all()
+    if len(candidates) > 500:
+        raise HTTPException(status_code=409, detail="Occurrence reconciliation exceeds 500 rows; operator review required")
+    previous_due = None
+    latest_id = None
+    for occurrence in candidates:
+        if (occurrence.organization_id != schedule.organization_id
+                or occurrence.due_date > date.today()
+                or (previous_due is not None and occurrence.due_date <= previous_due)):
+            raise HTTPException(status_code=409, detail="Schedule occurrence provenance integrity violation")
+        work_order = db.query(WorkOrder).filter(
+            WorkOrder.id == occurrence.work_order_id,
+            WorkOrder.property_id == schedule.property_id,
+            WorkOrder.unit_id == schedule.unit_id,
+        ).first()
+        if (work_order is None or work_order.tenant_id is not None
+                or work_order.request_origin != "staff"
+                or work_order.permission_to_enter is not False):
+            raise HTTPException(status_code=409, detail="Schedule original work-order link is invalid")
+        _assert_occurrence_audit_binding(db, schedule, occurrence, work_order)
+        events = db.query(AuditLog).filter(
+            AuditLog.organization_id == schedule.organization_id,
+            AuditLog.entity_type == "preventive_maintenance_occurrence",
+            AuditLog.entity_id == schedule.id,
+            AuditLog.action == "generated",
+        ).all()
+        matches = 0
+        for event in events:
+            try:
+                value = json.loads(event.new_value or "null")
+            except (ValueError, TypeError):
+                continue
+            if isinstance(value, dict) and (
+                value.get("schedule_id") == schedule.id
+                and value.get("due_date") == occurrence.due_date.isoformat()
+                and value.get("work_order_id") == work_order.id
+            ):
+                matches += 1
+        if matches != 1:
+            raise HTTPException(status_code=409, detail="Occurrence independent creation audit is missing or duplicated")
+        previous_due = occurrence.due_date
+        latest_id = work_order.id
+    if previous_due is not None and schedule.next_due_date <= previous_due:
+        raise HTTPException(status_code=409, detail="Schedule next due cursor conflicts with historical occurrences")
+    return {
+        "schedule_id": schedule.id,
+        "verified_occurrences": len(candidates),
+        "latest_due_date": previous_due,
+        "latest_work_order_id": latest_id,
+        "next_due_date": schedule.next_due_date,
+        "integrity_status": "VERIFIED",
+        "read_only": True,
+        "work_orders_created": 0,
+        "automatic_dispatch": False,
+        "financial_posted": False,
+    }
+
+
 def list_occurrences(db: Session, actor: User, schedule_id: int,
                      *, limit: int = 100, offset: int = 0):
     """Authorized durable evidence for every generated occurrence."""
