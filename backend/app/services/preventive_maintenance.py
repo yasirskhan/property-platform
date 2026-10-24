@@ -608,6 +608,37 @@ def reconcile_occurrences(db: Session, actor: User, schedule_id: int) -> dict:
     ).order_by(Occurrence.due_date.asc(), Occurrence.id.asc()).limit(501).all()
     if len(candidates) > 500:
         raise HTTPException(status_code=409, detail="Occurrence reconciliation exceeds 500 rows; operator review required")
+    # Audit is append-only whereas a corrupt occurrence pointer or missing
+    # occurrence row may disappear from ordinary filtered history. Check BOTH
+    # directions, including orphan creation audits, before certifying recovery.
+    # Fetch outside the organization filter to detect foreign-organization
+    # audit records forged against this globally unique schedule ID.
+    generation_audits = db.query(AuditLog).filter(
+        AuditLog.entity_type == "preventive_maintenance_occurrence",
+        AuditLog.entity_id == schedule.id,
+        AuditLog.action == "generated",
+    ).order_by(AuditLog.id.asc()).limit(501).all()
+    if len(generation_audits) > 500 or len(generation_audits) != len(candidates):
+        raise HTTPException(status_code=409, detail="Original occurrence/audit count mismatch")
+    original_proofs = set()
+    for audit in generation_audits:
+        if audit.organization_id != schedule.organization_id:
+            raise HTTPException(status_code=409, detail="Original occurrence audit scope is invalid")
+        try:
+            data = json.loads(audit.new_value or "null")
+        except (ValueError, TypeError):
+            data = None
+        if (not isinstance(data, dict)
+                or type(data.get("schedule_id")) is not int
+                or data["schedule_id"] != schedule.id
+                or type(data.get("work_order_id")) is not int
+                or data["work_order_id"] < 1
+                or not isinstance(data.get("due_date"), str)):
+            raise HTTPException(status_code=409, detail="Original generation proof is malformed")
+        original_proofs.add((data["due_date"], data["work_order_id"]))
+    if len(original_proofs) != len(generation_audits):
+        raise HTTPException(status_code=409, detail="Duplicate original generation proofs")
+
     previous_due = None
     latest_id = None
     for occurrence in candidates:
@@ -625,26 +656,8 @@ def reconcile_occurrences(db: Session, actor: User, schedule_id: int) -> dict:
                 or work_order.permission_to_enter is not False):
             raise HTTPException(status_code=409, detail="Schedule original work-order link is invalid")
         _assert_occurrence_audit_binding(db, schedule, occurrence, work_order)
-        events = db.query(AuditLog).filter(
-            AuditLog.organization_id == schedule.organization_id,
-            AuditLog.entity_type == "preventive_maintenance_occurrence",
-            AuditLog.entity_id == schedule.id,
-            AuditLog.action == "generated",
-        ).all()
-        matches = 0
-        for event in events:
-            try:
-                value = json.loads(event.new_value or "null")
-            except (ValueError, TypeError):
-                continue
-            if isinstance(value, dict) and (
-                value.get("schedule_id") == schedule.id
-                and value.get("due_date") == occurrence.due_date.isoformat()
-                and value.get("work_order_id") == work_order.id
-            ):
-                matches += 1
-        if matches != 1:
-            raise HTTPException(status_code=409, detail="Occurrence independent creation audit is missing or duplicated")
+        if (occurrence.due_date.isoformat(), work_order.id) not in original_proofs:
+            raise HTTPException(status_code=409, detail="Original occurrence creation proof mismatch")
         previous_due = occurrence.due_date
         latest_id = work_order.id
     if previous_due is not None and schedule.next_due_date <= previous_due:

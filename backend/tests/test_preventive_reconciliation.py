@@ -192,3 +192,57 @@ def test_reviewed_recovery_rejects_hidden_foreign_original():
         assert db.query(AuditLog).filter_by(action="operator_recovery_initiated").count() == 0
     finally:
         db.close(); engine.dispose()
+
+
+def test_recovery_reconciliation_detects_orphan_append_only_original_audit():
+    """A lost occurrence must not be hidden simply because history has fewer rows."""
+    from app.services.audit import append_audit_log
+    db, engine, actors, _, units = seeded()
+    try:
+        admin = actors[0]
+        schedule = _make_schedule(db, admin, units[0].id, days_ago=0)
+        work, created = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert created
+        assert pm.reconcile_occurrences(db, admin, schedule.id)["verified_occurrences"] == 1
+        append_audit_log(
+            db, entity_type="preventive_maintenance_occurrence",
+            entity_id=schedule.id, organization_id=admin.organization_id,
+            user_id=admin.id, action="generated",
+            new_value={"schedule_id": schedule.id,
+                       "due_date": (date.today() - timedelta(days=1)).isoformat(),
+                       "work_order_id": work.id},
+        )
+        db.flush()
+        with pytest.raises(HTTPException) as bad:
+            pm.reconcile_occurrences(db, admin, schedule.id)
+        assert bad.value.status_code == 409
+        db.rollback()
+        assert pm.reconcile_occurrences(db, admin, schedule.id)["verified_occurrences"] == 1
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_recovery_reconciliation_rejects_foreign_org_creation_proof():
+    """Do not certify cross-organization audit provenance for a local schedule."""
+    from app.services.audit import append_audit_log
+    db, engine, actors, _, units = seeded()
+    try:
+        admin, _, _, outsider = actors
+        schedule = _make_schedule(db, admin, units[0].id, days_ago=0)
+        work, created = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert created
+        append_audit_log(
+            db, entity_type="preventive_maintenance_occurrence",
+            entity_id=schedule.id, organization_id=outsider.organization_id,
+            user_id=outsider.id, action="generated",
+            new_value={"schedule_id": schedule.id,
+                       "due_date": date.today().isoformat(),
+                       "work_order_id": work.id},
+        )
+        db.flush()
+        with pytest.raises(HTTPException) as bad:
+            pm.reconcile_occurrences(db, admin, schedule.id)
+        assert bad.value.status_code == 409
+    finally:
+        db.rollback()
+        db.close(); engine.dispose()
