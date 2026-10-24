@@ -10,12 +10,19 @@ from test_preventive_maintenance import seeded
 
 
 def _make_schedule(db, admin, unit_id, *, days_ago=1):
-    return pm.create_schedule(
+    # Production deliberately disallows creating schedules in the past.
+    # Create a valid schedule, then simulate historical delayed worker runs
+    # by moving the persisted cursor, as the existing PM backlog tests do.
+    row = pm.create_schedule(
         db, admin, unit_id=unit_id,
         title="Daily recovery audit check",
         description="Review original scheduled repair evidence without changes",
-        interval_days=1, next_due_date=date.today()-timedelta(days=days_ago),
+        interval_days=1, next_due_date=date.today(),
     )
+    if days_ago:
+        row.next_due_date = date.today()-timedelta(days=days_ago)
+        db.commit()
+    return row
 
 
 def test_full_reconciliation_of_original_orders_is_read_only_and_bounded():
