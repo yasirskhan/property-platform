@@ -135,6 +135,11 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
             card.get_by_role("button", name="Record physical material usage").click()
             pw.expect(card).to_contain_text("Available from this request 1", timeout=15_000)
             pw.expect(card).to_contain_text("Issued to work orders 2")
+            page.get_by_role("button",name="Preview unposted material cost").click()
+            estimate=page.get_by_role("region",name="Verified unposted material cost preview")
+            pw.expect(estimate).to_contain_text("Total unposted estimate: 38.00 USD",timeout=15_000)
+            pw.expect(estimate).to_contain_text("GL: not posted")
+            pw.expect(estimate).to_contain_text("Tenant: not charged")
             card.get_by_role("button", name="View physical property stock").click()
             pw.expect(card).to_contain_text("1 units", timeout=15_000)
             # Posting no money remains an invariant of material use.
@@ -170,6 +175,9 @@ def test_materials_approval_receipt_and_independent_stock_correction_in_browser(
             manager_record.get_by_role("button", name="Reverse material usage").click()
             pw.expect(card).to_contain_text("Issued to work orders 2", timeout=15_000)
             pw.expect(card).to_contain_text("reverses usage #"+str(manager_issue_id))
+            page.get_by_role("button",name="Preview unposted material cost").click()
+            pw.expect(page.get_by_role("region",name="Verified unposted material cost preview")
+                ).to_contain_text("Total unposted estimate: 38.00 USD",timeout=15_000)
             page.once("dialog", lambda dialog: dialog.accept(
                 "Correction after independent physical recount"))
             correction = card.locator("p").filter(has_text="E2E-SECOND-"+tag)
