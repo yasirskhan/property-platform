@@ -1111,6 +1111,67 @@ def restore_stock_variance(order_id:int,variance_id:int,payload:Correction,
     return _out(db,row)
 
 
+@router.get("/cost-preview")
+def preview_work_order_material_cost(
+    work_order_id: int = Query(ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bounded, verified historical cost of *used* parts; never a bill.
+
+    Calculates the original internal unit estimate of physically issued
+    materials from their exact immutable source orders. A price is NOT an
+    invoice, an authorized accounting cost, a payable, or a tenant liability.
+    Every source issue/audit is validated on read, including reversals.
+    """
+    wo, prop = _work(db, current_user, work_order_id, write=False)
+    source_ids = [
+        source_id for (source_id,) in db.query(Issue.material_order_id).filter(
+            Issue.target_work_order_id == wo.id,
+        ).distinct().order_by(Issue.material_order_id.asc()).limit(101).all()
+    ]
+    if len(source_ids) > 100:
+        raise HTTPException(409, "Material cost preview source limit reached")
+    entries = []
+    for source_id in source_ids:
+        source = _purchase(db, current_user, source_id, write=False)
+        if (source.organization_id != current_user.organization_id
+                or source.property_id != prop.id or source.status != "APPROVED"):
+            raise HTTPException(409, "Material cost source is no longer valid")
+        # _out checks original request/reviewer and all physical issue,
+        # independent reversal, receipt, discrepancy and audit evidence.
+        verified = _out(db, source)
+        quantity = sum(
+            issue["delta_qty"] for issue in verified["material_issues"]
+            if issue["target_work_order_id"] == wo.id
+        )
+        if quantity < 0 or quantity > verified["net_issued"]:
+            raise HTTPException(409, "Unreconciled material usage for work order")
+        if not quantity:
+            continue
+        entries.append({
+            "source_order_id": source.id,
+            "sku": source.sku,
+            "item_name": source.item_name,
+            "net_used_qty": quantity,
+            "estimated_unit_cost_cents": source.unit_cost_cents,
+            "unposted_cost_cents": quantity * source.unit_cost_cents,
+        })
+    return {
+        "work_order_id": wo.id,
+        "property_id": prop.id,
+        "currency": "USD",
+        "preview_only": True,
+        "gl_posted": False,
+        "tenant_charged": False,
+        "supplier_invoiced": False,
+        "source_lines": entries,
+        "total_unposted_cost_cents": sum(
+            item["unposted_cost_cents"] for item in entries
+        ),
+    }
+
+
 @router.get("/stock")
 def stock_at_property(property_id: int = Query(ge=1),
                       db: Session = Depends(get_db),
