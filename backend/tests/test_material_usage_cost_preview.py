@@ -108,11 +108,16 @@ def test_cost_preview_is_scoped_nonfinancial_and_rejects_tampered_issue_evidence
             entity_type="maintenance_material_issue",
             action="stock_issued_to_work_order",
         ).first()
+        # Simulate a corrupted audit record strictly inside this ORM session:
+        # a real UPDATE would (correctly) be rejected by the DB's immutable
+        # audit trigger before the reader could inspect the changed payload.
+        # Suppress autoflush so the read path sees the forged in-memory value
+        # without ever attempting to write or weakening the append-only guard.
         event.new_value='{"unposted_cost_cents":999999999}'
-        db.flush()
-        with pytest.raises(HTTPException) as corrupt:
-            m.preview_work_order_material_cost(
-                work_order_id=orders[1].id,db=db,current_user=admin)
+        with db.no_autoflush:
+            with pytest.raises(HTTPException) as corrupt:
+                m.preview_work_order_material_cost(
+                    work_order_id=orders[1].id,db=db,current_user=admin)
         assert corrupt.value.status_code==409
         db.rollback()
         assert m.preview_work_order_material_cost(
