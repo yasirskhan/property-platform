@@ -52,6 +52,9 @@ export default function PreventiveMaintenancePage() {
   const [reconcileError, setReconcileError] = useState("");
   const [reconcileErrorId, setReconcileErrorId] = useState<number|null>(null);
   const [reconcileBusyId, setReconcileBusyId] = useState<number|null>(null);
+  const [recoveryId, setRecoveryId] = useState<number|null>(null);
+  const [recoveryReason, setRecoveryReason] = useState("");
+  const [recoveryCursor, setRecoveryCursor] = useState("");
   const [preview, setPreview] = useState<DuePreview | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [previewErrorId, setPreviewErrorId] = useState<number | null>(null);
@@ -265,14 +268,17 @@ export default function PreventiveMaintenancePage() {
     } finally { setBusyId(null); }
   }
 
-  async function catchUp(row: Schedule) {
-    if (!window.confirm(
-      "Generate up to 12 overdue tenantless work orders for this schedule? Each creates an audited maintenance occurrence, without dispatching staff, entry rights, or charges."
-    )) return;
+  async function catchUp(event: FormEvent<HTMLFormElement>, row: Schedule) {
+    event.preventDefault();
+    if (recoveryId !== row.id || recoveryReason.trim().length < 10 || !recoveryCursor) {
+      setError("Review original occurrence evidence and provide a recovery reason.");
+      return;
+    }
     setBusyId(row.id); setError(""); setNotice("");
     try {
       const result = await apiPost(
         `/api/maintenance/preventive/schedules/${row.id}/catch-up?limit=12`,
+        { expected_next_due_date: recoveryCursor, reason: recoveryReason.trim() },
       ) as CatchUp;
       if (result.schedule_id !== row.id || !Array.isArray(result.created_work_order_ids) ||
           result.created_work_order_ids.length > 12 ||
@@ -286,6 +292,8 @@ export default function PreventiveMaintenancePage() {
       setBatchHealth(old=>{const next={...old};delete next[row.id];return next;});
       setShowBlockedOnly(false);
       setPreview(prior=>prior?.schedule_id===row.id?null:prior);
+      setReconciliation(null);
+      setRecoveryId(null); setRecoveryReason(""); setRecoveryCursor("");
       setNotice(result.created_work_order_ids.length
         ? `${result.created_work_order_ids.length} audited tenantless work orders created. ${result.remaining_due?"More backlog remains; review before repeating.":"No remaining due backlog."}`
         : "No further due work orders created. Existing occurrences remain unchanged.");
@@ -375,6 +383,27 @@ export default function PreventiveMaintenancePage() {
       setPreviewErrorId(id);
       setPreviewError(cause instanceof Error ? cause.message : "Due preview unavailable.");
     } finally { setPreviewLoadingId(null); }
+  }
+
+  async function openRecovery(row: Schedule) {
+    setBusyId(row.id); setError(""); setRecoveryId(null);
+    try {
+      const evidence = await apiGet(
+        `/api/maintenance/preventive/schedules/${row.id}/reconciliation`,
+      ) as Reconciliation;
+      if (evidence.schedule_id !== row.id || evidence.integrity_status !== "VERIFIED" ||
+          evidence.read_only !== true || evidence.financial_posted !== false ||
+          evidence.automatic_dispatch !== false || !evidence.next_due_date) {
+        throw new Error("Original occurrence evidence could not be verified.");
+      }
+      setReconciliation(evidence);
+      setRecoveryCursor(evidence.next_due_date);
+      setRecoveryReason("");
+      setRecoveryId(row.id);
+    } catch (cause) {
+      setError((cause instanceof Error ? cause.message : "Original history is not verified.") +
+        " No work orders were requested. Review the discrepancy before retrying.");
+    } finally { setBusyId(null); }
   }
 
   async function reviewOccurrenceIntegrity(id: number) {
@@ -549,7 +578,7 @@ export default function PreventiveMaintenancePage() {
             Generate due work order
           </button>
           <button type="button" disabled={busyId !== null || !row.active}
-            onClick={() => void catchUp(row)}
+            onClick={() => void openRecovery(row)}
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Recover due backlog (up to 12)
           </button>
@@ -583,6 +612,27 @@ export default function PreventiveMaintenancePage() {
             Occurrence history
           </button>
         </div>
+        {recoveryId===row.id&&<form onSubmit={(event)=>void catchUp(event,row)}
+          className="space-y-2 rounded border bg-slate-50 p-3">
+          <h4 className="font-semibold text-sm">Reviewed backlog recovery</h4>
+          <p className="text-sm">Original occurrences verified. Expected next due: {recoveryCursor}.
+            Server rechecks complete original history and this cursor under lock.
+            Up to 12 tenantless work orders may be created. No dispatch, entry permission or charges.
+          </p>
+          <label className="block text-sm">Recovery reason
+            <textarea required minLength={10} maxLength={500}
+              aria-label={`Recovery reason ${row.id}`} value={recoveryReason}
+              onChange={(event)=>setRecoveryReason(event.target.value)}
+              className="mt-1 w-full rounded-lg border p-2" />
+          </label>
+          <button type="submit" disabled={busyId!==null||recoveryReason.trim().length<10}
+            className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50">
+            Confirm reviewed recovery
+          </button>
+          <button type="button" disabled={busyId!==null}
+            onClick={()=>{setRecoveryId(null);setRecoveryReason("");setRecoveryCursor("");}}
+            className="ml-2 rounded-lg border px-3 py-2 text-sm">Cancel recovery</button>
+        </form>}
         {reconciliation?.schedule_id===row.id&&<div role="status"
           aria-label="Verified preventive original occurrence reconciliation"
           className="rounded border p-3 text-sm">

@@ -80,8 +80,12 @@ def test_staff_creates_preventive_schedule_and_one_tenantless_due_work_order():
             pw.expect(page.get_by_role("status").filter(
                 has_text="Due occurrence already exists"
             )).to_be_visible(timeout=15_000)
-            page.once("dialog", lambda dialog: dialog.accept())
             card.get_by_role("button", name="Recover due backlog (up to 12)").click()
+            pw.expect(card.get_by_text("Reviewed backlog recovery")).to_be_visible(timeout=15_000)
+            card.get_by_label(re.compile(r"Recovery reason")).fill(
+                "Operator reviewed original occurrence evidence before catch-up"
+            )
+            card.get_by_role("button", name="Confirm reviewed recovery").click()
             pw.expect(page.get_by_role("status").filter(
                 has_text="No further due work orders created"
             )).to_be_visible(timeout=15_000)
@@ -123,6 +127,7 @@ def test_operator_recovers_three_backlogged_occurrences_in_browser():
     from app.models.user import User
     from app.models.preventive_maintenance import PreventiveMaintenanceOccurrence
     from app.models.work_order import WorkOrder
+    from app.models.audit_log import AuditLog
     from app.services import preventive_maintenance as pm
 
     title = "E2E backlog recovery " + uuid4().hex[:10]
@@ -163,15 +168,23 @@ def test_operator_recovers_three_backlogged_occurrences_in_browser():
             pw.expect(card).to_be_visible(timeout=15_000)
             card.get_by_role("button", name="Preview due backlog").click()
             pw.expect(card.get_by_role("heading", name="Due backlog preview — no work orders created")).to_be_visible(timeout=15_000)
-            page.once("dialog", lambda dialog: dialog.accept())
             card.get_by_role("button", name="Recover due backlog (up to 12)").click()
+            pw.expect(card.get_by_text("Reviewed backlog recovery")).to_be_visible(timeout=15_000)
+            card.get_by_label(re.compile(r"Recovery reason")).fill(
+                "Operator reviewed original occurrence evidence before catch-up"
+            )
+            card.get_by_role("button", name="Confirm reviewed recovery").click()
             pw.expect(page.get_by_role("status").filter(
                 has_text="3 audited tenantless work orders created"
             )).to_be_visible(timeout=15_000)
             card.get_by_role("button", name="Occurrence history").click()
             pw.expect(card.get_by_role("link", name=re.compile(r"Work order #[0-9]+"))).to_have_count(3, timeout=15_000)
-            page.once("dialog", lambda dialog: dialog.accept())
             card.get_by_role("button", name="Recover due backlog (up to 12)").click()
+            pw.expect(card.get_by_text("Reviewed backlog recovery")).to_be_visible(timeout=15_000)
+            card.get_by_label(re.compile(r"Recovery reason")).fill(
+                "Operator reviewed original occurrence evidence before catch-up"
+            )
+            card.get_by_role("button", name="Confirm reviewed recovery").click()
             pw.expect(page.get_by_role("status").filter(
                 has_text="No further due work orders created"
             )).to_be_visible(timeout=15_000)
@@ -196,5 +209,9 @@ def test_operator_recovers_three_backlogged_occurrences_in_browser():
         assert len(orders) == 3
         assert all(item.tenant_id is None and item.permission_to_enter is False
                    and item.total_cost is None for item in orders)
+        reviews = db.query(AuditLog).filter_by(
+            entity_type="preventive_maintenance_schedule",
+            entity_id=schedule_id, action="operator_recovery_initiated").all()
+        assert len(reviews) == 1
     finally:
         db.close()

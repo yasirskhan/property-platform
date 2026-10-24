@@ -128,3 +128,67 @@ def test_reconciliation_flags_recovery_cursor_rewind_without_creating_order():
         assert db.query(WorkOrder).count()==1
     finally:
         db.close();engine.dispose()
+
+
+def test_reviewed_recovery_requires_fresh_cursor_and_audits_original_order():
+    db, engine, actors, _, units = seeded()
+    try:
+        admin, manager, tenant, outsider = actors
+        schedule = _make_schedule(db, admin, units[0].id, days_ago=2)
+        expected = schedule.next_due_date
+        reason = "Operator reviewed original evidence and overdue maintenance"
+        for rejected in (tenant, outsider):
+            with pytest.raises(HTTPException):
+                pm.catch_up_due(db, rejected, schedule.id, as_of=date.today(),
+                    expected_next_due_date=expected, recovery_reason=reason)
+        with pytest.raises(HTTPException) as invalid:
+            pm.catch_up_due(db, manager, schedule.id, as_of=date.today(),
+                expected_next_due_date=expected, recovery_reason="short")
+        assert invalid.value.status_code == 422
+        with pytest.raises(HTTPException) as stale:
+            pm.catch_up_due(db, manager, schedule.id, as_of=date.today(),
+                expected_next_due_date=expected + timedelta(days=1), recovery_reason=reason)
+        assert stale.value.status_code == 409
+        assert db.query(WorkOrder).count() == 0
+        result = pm.catch_up_due(db, manager, schedule.id, as_of=date.today(),
+            expected_next_due_date=expected, recovery_reason=reason)
+        assert len(result["created_work_order_ids"]) == 3
+        audits = db.query(AuditLog).filter_by(entity_type="preventive_maintenance_schedule",
+            entity_id=schedule.id, action="operator_recovery_initiated").all()
+        assert len(audits) == 1
+        evidence = __import__("json").loads(audits[0].new_value)
+        assert evidence["reason"] == reason
+        assert evidence["first_work_order_id"] == result["created_work_order_ids"][0]
+        assert pm.reconcile_occurrences(db, admin, schedule.id)["verified_occurrences"] == 3
+        with pytest.raises(HTTPException) as replay:
+            pm.catch_up_due(db, manager, schedule.id, as_of=date.today(),
+                expected_next_due_date=expected, recovery_reason=reason)
+        assert replay.value.status_code == 409
+        db.refresh(schedule)
+        empty = pm.catch_up_due(db, admin, schedule.id, as_of=date.today(),
+            expected_next_due_date=schedule.next_due_date, recovery_reason=reason)
+        assert empty["created_work_order_ids"] == []
+        assert db.query(AuditLog).filter_by(action="operator_recovery_initiated").count() == 1
+        assert db.query(WorkOrder).count() == 3
+    finally:
+        db.close(); engine.dispose()
+
+
+def test_reviewed_recovery_rejects_hidden_foreign_original():
+    db, engine, actors, _, units = seeded()
+    try:
+        admin, _, _, outsider = actors
+        schedule = _make_schedule(db, admin, units[0].id)
+        order, _ = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        occurrence = db.query(Occurrence).filter_by(work_order_id=order.id).one()
+        occurrence.organization_id = outsider.organization_id
+        db.commit()
+        with pytest.raises(HTTPException) as bad:
+            pm.catch_up_due(db, admin, schedule.id, as_of=date.today(),
+                expected_next_due_date=schedule.next_due_date,
+                recovery_reason="Refuse incomplete original independent evidence")
+        assert bad.value.status_code == 409
+        assert db.query(WorkOrder).count() == 1
+        assert db.query(AuditLog).filter_by(action="operator_recovery_initiated").count() == 0
+    finally:
+        db.close(); engine.dispose()

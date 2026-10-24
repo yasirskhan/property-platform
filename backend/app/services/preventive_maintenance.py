@@ -396,7 +396,9 @@ def preview_due(db: Session, actor: User, schedule_id: int, *,
     }
 
 
-def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
+def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date,
+                 expected_next_due_date: date | None = None,
+                 recovery_reason: str | None = None):
     """Generate ONE due occurrence under row lock; retries return the same order."""
     row = _schedule(db, actor, schedule_id)
     if as_of > date.today():
@@ -408,6 +410,11 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
     if not row.active:
         raise HTTPException(status_code=409, detail="Schedule is paused")
     _scope(db, actor, row.unit_id)  # Revalidate under the lock before any write.
+    if expected_next_due_date is not None and row.next_due_date != expected_next_due_date:
+        raise HTTPException(status_code=409, detail="Schedule changed; review current recovery evidence again")
+    if recovery_reason is not None:
+        # Full original provenance is verified while the schedule row stays locked.
+        reconcile_occurrences(db, actor, schedule_id)
     if row.end_date is not None and row.next_due_date > row.end_date:
         previous = _last_valid_occurrence(db, row, as_of)
         if previous is not None:
@@ -446,13 +453,22 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date):
         organization_id=actor.organization_id, user_id=actor.id, action="status_transition",
         new_value={"status":"submitted","request_origin":"staff","requested_by_user_id":actor.id,
                    "preventive_schedule_id":row.id,"occurrence_date":due.isoformat()})
+    if recovery_reason is not None:
+        append_audit_log(db, entity_type="preventive_maintenance_schedule",
+            entity_id=row.id, organization_id=actor.organization_id, user_id=actor.id,
+            action="operator_recovery_initiated",
+            old_value={"next_due_date": due.isoformat()},
+            new_value={"reason": recovery_reason, "first_work_order_id": wo.id,
+                       "as_of": as_of.isoformat()})
     db.commit()
     db.refresh(wo)
     return wo, True
 
 
 def catch_up_due(db: Session, actor: User, schedule_id: int, *,
-                 as_of: date, limit: int = 12) -> dict:
+                 as_of: date, limit: int = 12,
+                 expected_next_due_date: date | None = None,
+                 recovery_reason: str | None = None) -> dict:
     """Explicit operator recovery of a bounded backlog, using the proven single-
     occurrence lock/audit/authorization transaction for EACH generated order.
 
@@ -463,12 +479,22 @@ def catch_up_due(db: Session, actor: User, schedule_id: int, *,
         raise HTTPException(status_code=422, detail="Catch-up limit must be 1 to 12")
     if as_of > date.today():
         raise HTTPException(status_code=422, detail="Cannot generate future occurrences")
+    if (expected_next_due_date is None) != (recovery_reason is None):
+        raise HTTPException(status_code=422, detail="Recovery evidence and reason must be provided together")
+    if recovery_reason is not None:
+        recovery_reason = recovery_reason.strip()
+        if not 10 <= len(recovery_reason) <= 500:
+            raise HTTPException(status_code=422, detail="Provide a 10-500 character recovery reason")
     schedule = read_schedule(db, actor, schedule_id)
     if not schedule.active:
         raise HTTPException(status_code=409, detail="Schedule is paused")
     ids: list[int] = []
-    for _ in range(limit):
-        order, created = generate_due(db, actor, schedule_id, as_of=as_of)
+    for attempt in range(limit):
+        order, created = generate_due(
+            db, actor, schedule_id, as_of=as_of,
+            expected_next_due_date=expected_next_due_date if attempt == 0 else None,
+            recovery_reason=recovery_reason if attempt == 0 else None,
+        )
         if not created:
             break
         # generate_due always creates tenantless, nonfinancial staff orders.

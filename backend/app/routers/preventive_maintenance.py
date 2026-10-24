@@ -149,6 +149,12 @@ def generate(schedule_id: int, as_of: Annotated[date | None, Query()] = None,
     return GeneratedOut(work_order_id=wo.id, newly_created=fresh, tenant_id=wo.tenant_id)
 
 
+class ReviewedCatchUp(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_next_due_date: date
+    reason: str = Field(min_length=10, max_length=500)
+
+
 class CatchUpOut(BaseModel):
     schedule_id: int
     as_of: date
@@ -157,13 +163,15 @@ class CatchUpOut(BaseModel):
 
 
 @router.post("/schedules/{schedule_id}/catch-up", response_model=CatchUpOut)
-def catch_up(schedule_id: int,
+def catch_up(schedule_id: int, payload: ReviewedCatchUp,
              limit: Annotated[int, Query(ge=1, le=12)] = 12,
              as_of: Annotated[date | None, Query()] = None,
              db: Session = Depends(get_db),
              current_user: User = Depends(get_current_user)):
     return service.catch_up_due(
         db, current_user, schedule_id, as_of=as_of or date.today(), limit=limit,
+        expected_next_due_date=payload.expected_next_due_date,
+        recovery_reason=payload.reason,
     )
 
 
