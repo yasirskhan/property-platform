@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 
 import pytest
+from fastapi import HTTPException
 from app.models.audit_log import AuditLog
 from app.models.preventive_maintenance import PreventiveMaintenanceOccurrence as Occurrence
 from app.models.work_order import WorkOrder
