@@ -10,9 +10,9 @@ Read root `AGENTS.md`, this ENTIRE concise handoff, `docs/SESSION_CONTROL.md`, `
 - `671b821a` / `40018778408` all six SUCCESS for approved multline internal procurement; prior `56817203` / `39927949907` E2E failure remains historically failed and was repaired.
 
 ## Current code, test and CI
-- `8970d68e9350f69eccaa34620e111705d1a64d54`: published new P5-PM-05 reviewed recovery UI, required expected cursor/reason API, schedule-lock original-history validation, atomic reason + first tenantless work-order audit; unit and authenticated browser tests. GitHub run `40058174471` started; final six-job outcome NOT KNOWN when this candidate was staged. Read live Actions before declaring success; fix failed logs before advancing.
+- `8970d68e9350f69eccaa34620e111705d1a64d54`: published new P5-PM-05 reviewed recovery UI, required expected cursor/reason API, schedule-lock original-history validation, atomic reason + first tenantless work-order audit; unit and authenticated browser tests. GitHub run `40058174471` **ALL SIX SUCCESS** (backend, frontend, platform-admin, security, e2e, staging-config) at this exact SHA. Historical earlier failed/cancelled runs retain their recorded state.
 - Operator can recover at most 12 overdue occurrences, with earlier commits durable after later failure. No external provider sends, tenant charges, entry authority, automatic dispatch or financial release.
-- Next: verify six exact-source CI jobs. Then add PostgreSQL two-session reviewed-recovery concurrency, injected audit failure/retry, restore/operator acceptance and next genuinely unimplemented Phase 5 work. Update registers with exact final evidence; do not mistake this batch for accepted Phase 5.
+- Current **UNVERIFIED** successor: staged PostgreSQL two-session reviewed-recovery race, audit-store rollback/retry, partial-batch failure/retry, and a usable staff UI that discards stale recovery confirmation and reloads durable evidence. Source candidate `ae910892fc191d07939fe06082745c0b7d32c4e9` (plus this accuracy correction) requires its OWN complete six-job exact-SHA CI. On red, read actual failing job logs and correct cause first. If green, continue real worker/operator restore and next dependency-safe Phase 5 implementation. This is NOT Phase 5 acceptance.
 
 ## Open P5 scope
 - P5-AUTO-01 autonomous dispatch execution OFF.
