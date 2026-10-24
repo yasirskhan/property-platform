@@ -708,13 +708,17 @@ export default function PreventiveMaintenancePage() {
         {reconcileErrorId===row.id&&reconcileError&&<p role="alert" className="text-sm text-red-700">
           Reconciliation not verified: {reconcileError}. Do not rely on filtered history for recovery.
         </p>}
+        {batchHealth[row.id]?.block_reason === "ORIGINAL_EVIDENCE_INTEGRITY_FAILURE" &&
+          <p role="alert" className="text-sm text-red-700">Original preventive evidence integrity failed. Generation is blocked until authorized data recovery; staff takeover cannot repair evidence.</p>}
         {batchHealth[row.id] && <p className="text-sm" aria-label={`Batch execution health ${row.id}`}>
           Execution health: {batchHealth[row.id].status}{batchHealth[row.id].due ? " · Due now" : ""}{batchHealth[row.id].status === "blocked" && batchHealth[row.id].block_reason ? ` · ${batchHealth[row.id].block_reason?.replaceAll("_", " ").toLowerCase()}` : ""}
         </p>}
         {executionStatus?.schedule_id === row.id && <p className="text-sm" role="status">
           Execution: {executionStatus.status} · Staff #{executionStatus.executor_user_id}
           {executionStatus.due ? " · Due now" : ""}
-          {executionStatus.status === "blocked" ? " · Ask authorized staff to assume execution." : ""}
+          {executionStatus.status === "blocked" ? (executionStatus.block_reason === "ORIGINAL_EVIDENCE_INTEGRITY_FAILURE"
+            ? " · Original occurrence or audit evidence failed verification. Do not generate or transfer; investigate stored history and restore evidence first."
+            : " · Ask authorized staff to assume execution.") : ""}
         </p>}
         {executionErrorId === row.id && executionError &&
           <p role="alert" className="text-sm text-red-700">{executionError}</p>}

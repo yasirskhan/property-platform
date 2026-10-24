@@ -218,3 +218,90 @@ def test_operator_recovers_three_backlogged_occurrences_in_browser():
         assert len(reviews) == 1
     finally:
         db.close()
+
+
+def test_corrupt_earlier_preventive_original_blocks_execution_in_staff_browser():
+    """A historical foreign original must be visible as a block, never silently skipped."""
+    from uuid import uuid4
+    from app.core.database import SessionLocal
+    from app.models.property import Property, Unit
+    from app.models.user import User, Organization
+    from app.models.preventive_maintenance import PreventiveMaintenanceOccurrence
+    from app.models.work_order import WorkOrder
+    from app.services import preventive_maintenance as pm
+
+    title = "E2E integrity blocked " + uuid4().hex[:10]
+    db = SessionLocal()
+    try:
+        admin = db.query(User).filter(User.email == EMAIL).one()
+        unit = db.query(Unit).join(Property, Property.id == Unit.property_id).filter(
+            Property.organization_id == admin.organization_id,
+            Unit.unit_number == "E2E-1", Property.is_active.is_(True),
+        ).first()
+        assert unit is not None
+        # E2E seed may intentionally contain only one organization.
+        # Create an actual distinct tenant for the cross-organization
+        # integrity attack rather than depending on incidental fixtures.
+        foreign = Organization(
+            name="E2E Foreign Maintenance Audit",
+            slug="e2e-foreign-maintenance-" + uuid4().hex,
+        )
+        db.add(foreign)
+        db.flush()
+        schedule = pm.create_schedule(
+            db, admin, unit_id=unit.id, title=title,
+            description="Audit all historical maintenance originals before generating more",
+            interval_days=1, next_due_date=date.today(),
+        )
+        schedule.next_due_date = date.today() - timedelta(days=2)
+        db.commit()
+        original, created = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert created
+        _, created = pm.generate_due(db, admin, schedule.id, as_of=date.today())
+        assert created
+        earlier = db.query(PreventiveMaintenanceOccurrence).filter_by(
+            work_order_id=original.id).one()
+        earlier.organization_id = foreign.id
+        db.commit()
+        work_orders_before = db.query(WorkOrder).filter(
+            WorkOrder.id.in_([entry.work_order_id for entry in
+                db.query(PreventiveMaintenanceOccurrence).filter_by(
+                    schedule_id=schedule.id).all()])).count()
+    finally:
+        db.close()
+
+    with pw.sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        try:
+            page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
+            page.locator('input[type="email"]').fill(EMAIL)
+            page.locator('input[type="password"]').fill(PASSWORD)
+            page.get_by_role("button", name="Log In", exact=True).click()
+            page.wait_for_url(re.compile(r"/dashboard/?$"), timeout=30_000,
+                              wait_until="domcontentloaded")
+            pw.expect(page.get_by_text("Signed in as", exact=True)).to_be_visible(timeout=15_000)
+            page.goto(BASE_URL + "/dashboard/maintenance/preventive",
+                      wait_until="domcontentloaded")
+            page.get_by_label("Search preventive schedules").fill(title)
+            page.get_by_role("button", name="Search schedules").click()
+            card = page.locator("article").filter(has_text=title).first
+            pw.expect(card).to_be_visible(timeout=15_000)
+            card.get_by_role("button", name="Check execution status").click()
+            pw.expect(card.get_by_text(re.compile("Original occurrence or audit evidence failed verification"))).to_be_visible(timeout=15_000)
+            page.get_by_role("button", name="Check all loaded schedule health").click()
+            pw.expect(card.get_by_role("alert")).to_contain_text(
+                "staff takeover cannot repair evidence", timeout=15_000)
+            card.get_by_role("button", name="Generate due work order").click()
+            pw.expect(page.get_by_role("alert")).to_be_visible(timeout=15_000)
+        finally:
+            browser.close()
+
+    db = SessionLocal()
+    try:
+        assert db.query(WorkOrder).filter(
+            WorkOrder.id.in_([entry.work_order_id for entry in
+                db.query(PreventiveMaintenanceOccurrence).filter_by(
+                    schedule_id=schedule.id).all()])).count() == work_orders_before
+    finally:
+        db.close()

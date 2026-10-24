@@ -242,7 +242,18 @@ def execution_status(db: Session, actor: User, schedule_id: int) -> dict:
                 reason = ("OPERATOR_INACTIVE" if not executor.is_active or executor.deleted_at is not None
                           else "OPERATOR_OR_PROPERTY_INELIGIBLE")
             else:
-                state = "ready"
+                # A healthy executor must not certify a schedule whose older
+                # original occurrences or append-only proofs are missing or
+                # foreign. The same review is enforced by the write path.
+                try:
+                    reconcile_occurrences(db, executor, row.id)
+                except HTTPException as exc:
+                    if exc.status_code != 409:
+                        raise
+                    state = "blocked"
+                    reason = "ORIGINAL_EVIDENCE_INTEGRITY_FAILURE"
+                else:
+                    state = "ready"
     return {
         "schedule_id": row.id,
         "executor_user_id": executor_id,
@@ -413,9 +424,12 @@ def generate_due(db: Session, actor: User, schedule_id: int, *, as_of: date,
     _scope(db, actor, row.unit_id)  # Revalidate under the lock before any write.
     if expected_next_due_date is not None and row.next_due_date != expected_next_due_date:
         raise HTTPException(status_code=409, detail="Schedule changed; review current recovery evidence again")
-    if recovery_reason is not None:
-        # Full original provenance is verified while the schedule row stays locked.
-        reconcile_occurrences(db, actor, schedule_id)
+    # The normal daily worker and manual Generate MUST apply the same full,
+    # read-only provenance gate as reviewed backlog recovery. Checking only the
+    # latest occurrence permits an earlier missing/foreign original to remain
+    # hidden while new tenantless work orders continue to be created. A history
+    # beyond the bounded 500-row review fails closed for operator remediation.
+    reconcile_occurrences(db, actor, schedule_id)
     if row.end_date is not None and row.next_due_date > row.end_date:
         previous = _last_valid_occurrence(db, row, as_of)
         if previous is not None:

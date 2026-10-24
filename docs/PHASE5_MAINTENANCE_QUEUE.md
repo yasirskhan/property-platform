@@ -1,3 +1,9 @@
+## 2026-10-24 | Previously detached source VERIFIED; P5-PM-05 worker integrity gate requires own CI
+- Branch `8d00c6623c09eb3674953faacd56cdef9433218c` / Actions `40071893735`: backend/frontend/platform-admin/security/e2e/staging-config ALL SUCCESS. Previous detached PM recovery receipts, foreign/orphan audit checks and inspection same-account cross-tab drafts are already ancestors and published. Original Playwright red `150af7a`/`40062693766`, first failed repair `330d615`/`40070095207`, final green `8d00c66`/`40071893735`.
+- New candidate: P5-PM-05 manual AND worker generation fails closed on historical missing/corrupt/orphan original proof, not just latest occurrence. Live role-scoped execution-health inbox blocks affected schedules, with staff UI explanation and authenticated browser+unit tests. Its OWN six CI jobs are required. Beyond-500 original histories deliberately need operator reconciliation; no production release or operator signoff implied. Phase 5 remains OPEN.
+
+---
+
 ## 2026-10-24 | Latest predecessor VERIFIED; next acceptance candidate requires own CI
 - `02fdd0b171daae45320a5a1dafb7c8d67baa6369` / Actions `40060920637`: **ALL SIX SUCCESS**, including real PostgreSQL concurrent reviewed recovery, audit-failure rollback, retained partial work, and UI reset/retry. Historical failures remain failed.
 - A separate unpublished successor prepared after this verified SHA includes new P5-PM-05 per-original-work-order immutable recovery receipts, foreign actor and orphan audit fail-closed checks, and P5-INSP-04 same-device multi-tab offline draft preflight prior to independent review. It needs its own six exact-SHA jobs and actual operator/security/restore acceptance. P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-INSP-04, P5-PM-05, P5-PROC-06, P5-FIN-07, P5-ACC-08 remain OPEN. Production dispatch/provider/finance release OFF.
