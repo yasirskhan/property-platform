@@ -299,8 +299,24 @@ export default function PreventiveMaintenancePage() {
         : "No further due work orders created. Existing occurrences remain unchanged.");
       if(historyId===row.id)await showHistory(row.id);
     } catch (cause) {
+      // A later occurrence may fail AFTER earlier work orders committed.
+      // Never retain a reviewed cursor after any uncertain write result.
+      setRecoveryId(null); setRecoveryReason(""); setRecoveryCursor("");
+      setReconciliation(null);
+      setPreview(null);
       setError((cause instanceof Error?cause.message:"Recovery failed.") +
-        " Check occurrence history before retrying: earlier successful orders remain recorded.");
+        " Partial work may have been committed. Current history is refreshed below. Review original evidence again before retrying.");
+      try {
+        const current = await apiGet(
+          `/api/maintenance/preventive/schedules/${row.id}`,
+        ) as Schedule;
+        if (current.id === row.id)
+          setSchedules(old=>old.map(item=>item.id===row.id?current:item));
+        await showHistory(row.id);
+      } catch {
+        // The primary error remains visible. We never guess a recovered cursor.
+        setHistoryError("Could not refresh committed recovery evidence. Reload before retrying.");
+      }
     } finally {setBusyId(null);}
   }
 
