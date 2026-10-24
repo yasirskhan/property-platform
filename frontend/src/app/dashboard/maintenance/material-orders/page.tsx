@@ -24,6 +24,13 @@ type InternalBatch = {
   lines:{line_number:number;order_id:number;sku:string;item_name:string;
     quantity:number;unit_cost_cents:number}[];
 };
+type MaterialCostPreview = {
+  work_order_id:number;property_id:number;currency:"USD";preview_only:true;
+  gl_posted:false;tenant_charged:false;supplier_invoiced:false;
+  total_unposted_cost_cents:number;
+  source_lines:{source_order_id:number;sku:string;item_name:string;
+    net_used_qty:number;estimated_unit_cost_cents:number;unposted_cost_cents:number}[];
+};
 type Issue = {id:number;material_order_id:number;target_work_order_id:number;
   reference:string;delta_qty:number;issued_by_id:number;reverses_id:number|null;reason:string};
 type StockVariance = {id:number;request_key:string;quantity:number;reason:string;
@@ -52,6 +59,8 @@ export default function MaterialOrdersPage() {
   const [stock,setStock] = useState<{property:number;rows:Stock[]}|null>(null);
   const [batches,setBatches] = useState<InternalBatch[]>([]);
   const [batchReason,setBatchReason] = useState("");
+  const [costPreview,setCostPreview] = useState<MaterialCostPreview|null>(null);
+  const [costPreviewBusy,setCostPreviewBusy] = useState(false);
   const [batchReview,setBatchReview] = useState<Record<number,string>>({});
   const [batchLines,setBatchLines] = useState<BatchLine[]>([
     {sku:"",item_name:"",quantity:"1",unit_cost_cents:"0"},
@@ -87,6 +96,26 @@ export default function MaterialOrdersPage() {
     if(!actor)return;
     refresh().catch(cause=>setError(cause instanceof Error?cause.message:"Purchase orders unavailable"));
   },[actor]);
+
+  async function previewUnpostedCost(){
+    const id=Number(workOrder);
+    if(!Number.isSafeInteger(id)||id<1){
+      setCostPreview(null);setError("Enter a valid authorized work-order number for the preview");return;
+    }
+    setCostPreviewBusy(true);setCostPreview(null);setError("");
+    try{
+      const result=await apiGet(
+        "/api/maintenance/materials/cost-preview?work_order_id="+id
+      ) as MaterialCostPreview;
+      if(result.work_order_id!==id||result.preview_only!==true||
+        result.gl_posted!==false||result.tenant_charged!==false||
+        result.supplier_invoiced!==false||!Array.isArray(result.source_lines))
+        throw new Error("Material preview provenance or financial-safety response is invalid");
+      setCostPreview(result);
+    }catch(cause){
+      setError(cause instanceof Error?cause.message:"Unposted material cost preview unavailable");
+    }finally{setCostPreviewBusy(false);}
+  }
 
   async function findVendors() {
     setError("");setVendors([]);setVendorId("");
@@ -321,7 +350,7 @@ export default function MaterialOrdersPage() {
         <h2 className="font-semibold">Request material for a work order</h2>
         <label className="block text-sm">Work order number
           <input aria-label="Material work order" className="mt-1 block w-full rounded border p-2"
-            type="number" min="1" required value={workOrder} onChange={event=>setWorkOrder(event.target.value)}/>
+            type="number" min="1" required value={workOrder} onChange={event=>{setWorkOrder(event.target.value);setCostPreview(null);}}/>
         </label>
         <button type="button" onClick={()=>void findVendors()} className="rounded border px-3 py-2 text-sm">Find eligible company vendors</button>
         <label className="block text-sm">Supplier company
@@ -358,6 +387,26 @@ export default function MaterialOrdersPage() {
         <button type="submit" disabled={busy||!vendorId}
           className="rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50">Submit internal material request</button>
       </form>
+      <section className="space-y-3 rounded-lg border p-4">
+        <h2 className="font-semibold">Work-order material usage value — unposted preview</h2>
+        <p className="text-sm">Shows only the original internal estimated unit costs of parts already physically used on this authorized work order, including audited corrections. It is not an invoice, approved expense, accounting entry or tenant charge.</p>
+        <button type="button" disabled={costPreviewBusy||!workOrder}
+          className="rounded border px-3 py-2 text-sm disabled:opacity-50"
+          onClick={()=>void previewUnpostedCost()}>
+          Preview unposted material cost
+        </button>
+        {costPreview&&<div role="region" aria-label="Verified unposted material cost preview" className="space-y-2 text-sm">
+          <p>Work order #{costPreview.work_order_id} · Property #{costPreview.property_id}</p>
+          {costPreview.source_lines.length===0&&<p>No audited physical material usage for this work order.</p>}
+          <ul className="list-disc pl-5">
+            {costPreview.source_lines.map(line=><li key={line.source_order_id}>
+              {line.sku} · {line.item_name} · source #{line.source_order_id}: {line.net_used_qty} physically used × {(line.estimated_unit_cost_cents/100).toFixed(2)} USD = {(line.unposted_cost_cents/100).toFixed(2)} USD (not posted)
+            </li>)}
+          </ul>
+          <p className="font-semibold">Total unposted estimate: {(costPreview.total_unposted_cost_cents/100).toFixed(2)} USD</p>
+          <p>Supplier invoice: not verified · GL: not posted · Tenant: not charged</p>
+        </div>}
+      </section>
       <section className="space-y-3 rounded-lg border p-4">
         <h2 className="font-semibold">Request multiple material lines together</h2>
         <p className="text-sm">Uses the work order and selected supplier above. All lines are one internal atomic request and require one independent Owner/Admin decision; the application does not send a purchase order to a supplier or post any financial transaction.</p>
