@@ -1,3 +1,10 @@
+## 2026-10-24 | Reviewed preventive backlog recovery | P5-PM-05 | EXACT CI REQUIRED
+- Verified predecessor `eb0f9b43f2d5e0d5736b4250f9d8c0752b2f1cb7`, run `40050843752`: backend, frontend, platform-admin, security, e2e, staging-config ALL SUCCESS. Earlier original-occurrence reconciliation prepared-only references are superseded by verified source.
+- New published implementation `8970d68e9350f69eccaa34620e111705d1a64d54`; run `40058174471` requires all six final job outcomes. Its operator flow verifies original occurrence history again under lock, denies a stale expected cursor, requires a reason, persists independent reason audit with the first original due work order, and provides a reviewed confirmation UI. Negative auth/foreign/stale/replay and authenticated browser tests are in source. This is NOT independently approved financial authorization.
+- P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-INSP-04, P5-PM-05, P5-PROC-06, P5-FIN-07, P5-ACC-08 remain OPEN. No operator restore/security signoff, supplier delivery, tenant liability, messaging, autonomous dispatch or financial posting is claimed. All production switches OFF. Phase 6 Messaging remains gated by actual Phase 5 acceptance.
+
+---
+
 ## 2026-10-23 | P5-PROC-06 multi-line internal requisition DETACHED: 2-20 material lines submitted atomically per exact work-order/property/vendor; distinct Owner/Admin whole-batch review, real line-specific physical receiving only after approval, append-only mapping/audit, fresh+legacy migration revision e4a19d7f6c31 (222 tables), authorized UI and negative/rollback/PostgreSQL concurrency/E2E tests. Parent physical variance 9e1e9e318 / run39924753728 must pass all six before branch promotion; this candidate not tested yet. No supplier contact, GL, payment, tenant liability or production activation.
 
 ---

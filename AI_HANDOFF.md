@@ -1,23 +1,27 @@
-# Property Platform | ACTIVE Phase 5 implementation
-Observation: 2026-10-24 UTC. ONLY `yasirskhan/property-platform`, branch `chatgpt/checkpoint-005-safety`; no second writer, Work, new branch, main/Zargul changes, force push or production activation.
+# Property Platform | Phase 5 OPEN
+Observation: 2026-10-24 UTC. ONLY `yasirskhan/property-platform` / `chatgpt/checkpoint-005-safety`. Normal Chat, one writer, no Work, new branches, main, Zargul, force push or production activation.
 
-## Before writes
-Read root `AGENTS.md`, entire this handoff, `docs/SESSION_CONTROL.md`, `docs/PROJECT_MASTER.md`, `docs/PHASE5_ACCEPTANCE_AND_ISSUES.md`, `docs/PHASE5_MAINTENANCE_QUEUE.md`, `docs/FEATURE_REGISTRY.md`, `docs/PLAN_GAPS.md` and relevant actual source/tests. Recheck live HEAD, latest branch Actions and every job on exact SHA. Previous root handoff archived verbatim at `docs/AI_HANDOFF_ARCHIVE_2026-10-24_before_pm_reconciliation.md`; retain earlier archives.
+## Required startup
+Read root `AGENTS.md`, this ENTIRE concise handoff, `docs/SESSION_CONTROL.md`, `docs/PROJECT_MASTER.md`, `docs/PHASE5_ACCEPTANCE_AND_ISSUES.md`, `docs/PHASE5_MAINTENANCE_QUEUE.md`, `docs/FEATURE_REGISTRY.md`, `docs/PLAN_GAPS.md`, and actual source/tests. Verify live head, run and six jobs. Previous root handoff archived verbatim in `docs/AI_HANDOFF_ARCHIVE_2026-10-24_before_reviewed_recovery.md`. This conversation URL is UNKNOWN to GitHub integration; do not invent it.
 
-## Exact CI evidence
-- P5-INSP-04 private photo evidence `f192562d5` / run `39722811542`: six success; mobile/device-loss/operator signoff OPEN.
-- P5-PM-05 operator due catch-up `2d709e9e` / run `39774116416`: six success; unattended dispatch OFF.
-- P5-PROC-06 material physical receiving `c3dd281ad` / run `39853694091`: six success (earlier source runs were red).
-- Physical issue/independent reversal `3817abd1` / run `39865980062`: E2E failed, repaired by `2b78160704cc3fd261542e923693b1004f9f9847` / run `39891681804`: six success.
-- Approved stock variance/restoration `9e1e9e318bdc6db9e9069bd961d7c7faaebf6c26` / run `39924753728`: six success.
-- Atomic multi-line internal purchasing `56817203b` / run `39927949907`: E2E failed; repaired `671b821ae61b6c22004f8afc72a84ab013410e17` / run `40018778408`: six success.
-- Unposted material physical-usage cost preview `b75abee7` / run `40046131465`: backend test audit immutability violation and transitive Zod 4.6.5 high-severity advisory; repaired in `dde4b91a4639535b34f1d49d537abf6068b25f2b` / run `40048458692`: **all six required GitHub Actions jobs SUCCESS** (backend, frontend, platform-admin, security, e2e, staging-config). Do not rewrite history: old failed runs remain failed.
+## Exact verified predecessor
+- `eb0f9b43f2d5e0d5736b4250f9d8c0752b2f1cb7` / GitHub run `40050843752`: all six SUCCESS, including P5-PM-05 original occurrence review backend/UI/browser.
+- `dde4b91a` / `40048458692` all six SUCCESS for P5-PROC-06 nonposted material usage-cost evidence. Earlier `b75abee7` / `40046131465` failed backend/security, later fixed without weakening audit or advisory controls.
+- `671b821a` / `40018778408` all six SUCCESS for approved multline internal procurement; prior `56817203` / `39927949907` E2E failure remains historically failed and was repaired.
 
-## Current independent successor P5-PM-05 occurrence source reconciliation
-Code candidate adds authenticated read-only `GET /api/maintenance/preventive/schedules/{id}/reconciliation` with complete bounded up-to-500 original occurrence provenance examination including rows hidden from the ordinary filtered history. Rejects cross-organization repoint, foreign property/other unit, missing or forged independent immutable generation audits, missing original signed work-order transition, edited cursor and non-tenantless/entry-authorized work orders. Does not disclose suspect foreign IDs. Fails closed on >500 records instead of silently certifying incomplete history. Staff schedule UI has `Reconcile original occurrence evidence`, positive read-only summary and explicit error. Five backend negative/positive tests plus authenticated browser flow. No work order, actor takeover, notice, dispatch, entry, provider contact, financial posting or tenant charge.
-- Prepared independently on **verified source** `dde4b91a`/run `40048458692`. No local test run was claimed. Publication and exact-SHA six-job verification are mandatory; prior code predecessor SIX GREEN does not make this candidate green.
-- Next: check one writer + live SHA, expected_sha nonforce promotion; evaluate all six jobs, fix red immediately. On success update this handoff/registers with exact run evidence and continue genuine P5-PM-05 recovery/concurrency/operator acceptance or next approved Phase5 work.
+## Current code, test and CI
+- `8970d68e9350f69eccaa34620e111705d1a64d54`: published new P5-PM-05 reviewed recovery UI, required expected cursor/reason API, schedule-lock original-history validation, atomic reason + first tenantless work-order audit; unit and authenticated browser tests. GitHub run `40058174471` started; final six-job outcome NOT KNOWN when this candidate was staged. Read live Actions before declaring success; fix failed logs before advancing.
+- Operator can recover at most 12 overdue occurrences, with earlier commits durable after later failure. No external provider sends, tenant charges, entry authority, automatic dispatch or financial release.
+- Next: verify six exact-source CI jobs. Then add PostgreSQL two-session reviewed-recovery concurrency, injected audit failure/retry, restore/operator acceptance and next genuinely unimplemented Phase 5 work. Update registers with exact final evidence; do not mistake this batch for accepted Phase 5.
 
-## OPEN approved Phase 5 / external boundaries
-P5-AUTO-01 autonomous dispatch OFF; P5-DLV-02 real provider consent/contracts/credentials/callback receipts BLOCKED EXTERNAL; P5-ESC-03 actual timed independent backups OPEN; P5-INSP-04 mobile/device-loss/operator signoff OPEN; P5-PM-05 worker concurrency/restore/operator acceptance OPEN; P5-PROC-06 actual full external supplier PO, receipt, GL valuation/operator signoff OPEN; P5-FIN-07 finance ledger/payment/settlement reversed under independent authority BLOCKED EXTERNAL; P5-ACC-08 security/restore/operator cross-module acceptance OPEN. Phase6 Messaging gated by accepted Phase5.
-Production release controls OFF. Never manufacture external fulfillment, operator acceptance or financial effects. Chat URL not obtainable through GitHub integration => UNKNOWN.
+## Open P5 scope
+- P5-AUTO-01 autonomous dispatch execution OFF.
+- P5-DLV-02 provider contracts, consent, credentials, real channel receipts BLOCKED EXTERNAL.
+- P5-ESC-03 actual timed vetted backup escalation OPEN.
+- P5-INSP-04 device-loss/mobile/operator approval OPEN; manual local evidence isn't claimed encrypted.
+- P5-PM-05 worker concurrency, restore, operator acceptance OPEN.
+- P5-PROC-06 external supplier PO/real receipts/GL valuation/operator signoff OPEN.
+- P5-FIN-07 independent financial posting/reversals/settlement BLOCKED EXTERNAL.
+- P5-ACC-08 cross-module security, E2E, restore, operator approval OPEN.
+
+Keep unattended dispatch, provider and finance production switches OFF. No fabricated deliveries, finances or acceptance. Next approved phase after FULL accepted Phase 5: Phase 6 Messaging, followed by remaining approved roadmap on this branch.
