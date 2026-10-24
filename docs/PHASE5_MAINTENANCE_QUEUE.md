@@ -1,3 +1,9 @@
+## 2026-10-24 | Latest predecessor VERIFIED; next acceptance candidate requires own CI
+- `02fdd0b171daae45320a5a1dafb7c8d67baa6369` / Actions `40060920637`: **ALL SIX SUCCESS**, including real PostgreSQL concurrent reviewed recovery, audit-failure rollback, retained partial work, and UI reset/retry. Historical failures remain failed.
+- A separate unpublished successor prepared after this verified SHA includes new P5-PM-05 per-original-work-order immutable recovery receipts, foreign actor and orphan audit fail-closed checks, and P5-INSP-04 same-device multi-tab offline draft preflight prior to independent review. It needs its own six exact-SHA jobs and actual operator/security/restore acceptance. P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-INSP-04, P5-PM-05, P5-PROC-06, P5-FIN-07, P5-ACC-08 remain OPEN. Production dispatch/provider/finance release OFF.
+
+---
+
 ## 2026-10-24 P5-PM-05 | Bidirectional immutable original occurrence verification | DETACHED, CI REQUIRED
 
 Complete original recovery audit now verifies every append-only generation event against a matching persisted occurrence and vice versa, including orphan/foreign-organization audit entries invisible to filtered history. The single bounded audit scan rejects mismatched counts, duplicate original proofs and malformed evidence. No rows are created or repaired by reconciliation; safety-sensitive recovered work orders remain staff-authorized, tenantless and uncharged. Backend regressions cover extra original evidence and wrong-organization event. This independent candidate requires predecessor exact six-job CI before publication and its own hosted verification. Phase 5 remains OPEN.

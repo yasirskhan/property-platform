@@ -1,40 +1,27 @@
-# Property Platform | Phase 5 OPEN
-Observation: 2026-10-24 UTC. ONLY `yasirskhan/property-platform` / `chatgpt/checkpoint-005-safety`. Normal Chat, one writer, no Work, new branches, main, Zargul, force push or production activation.
+# Property Platform | Phase 5 OPEN, next exact-CI certification
+Observation: 2026-10-24 UTC. ONLY repository `yasirskhan/property-platform`, branch `chatgpt/checkpoint-005-safety`. Normal Chat, one authorized writer, no Work/main/other branches/Zargul/force push/production activation.
 
-## Required startup
-Read root `AGENTS.md`, this ENTIRE concise handoff, `docs/SESSION_CONTROL.md`, `docs/PROJECT_MASTER.md`, `docs/PHASE5_ACCEPTANCE_AND_ISSUES.md`, `docs/PHASE5_MAINTENANCE_QUEUE.md`, `docs/FEATURE_REGISTRY.md`, `docs/PLAN_GAPS.md`, and actual source/tests. Verify live head, run and six jobs. Previous root handoff archived verbatim in `docs/AI_HANDOFF_ARCHIVE_2026-10-24_before_reviewed_recovery.md`. This conversation URL is UNKNOWN to GitHub integration; do not invent it.
+## Startup
+Verify LIVE branch HEAD and latest branch-filtered GitHub run with backend/frontend/platform-admin/security/e2e/staging-config jobs individually. Read root `AGENTS.md`, this ENTIRE current handoff, `docs/SESSION_CONTROL.md`, `docs/PROJECT_MASTER.md`, `docs/PHASE5_ACCEPTANCE_AND_ISSUES.md`, `docs/PHASE5_MAINTENANCE_QUEUE.md`, `docs/FEATURE_REGISTRY.md`, `docs/PLAN_GAPS.md`, and actual relevant code/tests. Previous handoff archived verbatim at `docs/AI_HANDOFF_ARCHIVE_2026-10-24_before_receipt_certification.md`; retain all earlier archives. Current chat URL UNKNOWN to GitHub tool.
 
-## Exact verified predecessor
-- `eb0f9b43f2d5e0d5736b4250f9d8c0752b2f1cb7` / GitHub run `40050843752`: all six SUCCESS, including P5-PM-05 original occurrence review backend/UI/browser.
-- `dde4b91a` / `40048458692` all six SUCCESS for P5-PROC-06 nonposted material usage-cost evidence. Earlier `b75abee7` / `40046131465` failed backend/security, later fixed without weakening audit or advisory controls.
-- `671b821a` / `40018778408` all six SUCCESS for approved multline internal procurement; prior `56817203` / `39927949907` E2E failure remains historically failed and was repaired.
+## Verified exact-source CI checkpoints
+- `8970d68e9350f69eccaa34620e111705d1a64d54` / run `40058174471`: ALL SIX SUCCESS, reviewed P5-PM-05 backlog recovery implementation, expected cursor/reason/audit and UI.
+- `02fdd0b171daae45320a5a1dafb7c8d67baa6369` / run `40060920637`: **ALL SIX SUCCESS** (backend, frontend, platform-admin, security, e2e, staging-config). Two-connection real PostgreSQL recovery race, audit-storage rollback, partial failure and safe UI retry.
+- Earlier `dde4b91a` / `40048458692`: SIX SUCCESS, P5-PROC-06 non-posted usage cost preview. Older `b75abee7` / `40046131465` backend/security RED was fixed; historic red remains failed.
+- Earlier `671b821a` / `40018778408`: SIX SUCCESS, multi-line internal purchase approvals; old `56817203` / `39927949907` E2E RED corrected. No supplier invoice, payment or GL effect verified.
 
-## Current code, test and CI
-- `8970d68e9350f69eccaa34620e111705d1a64d54`: published new P5-PM-05 reviewed recovery UI, required expected cursor/reason API, schedule-lock original-history validation, atomic reason + first tenantless work-order audit; unit and authenticated browser tests. GitHub run `40058174471` **ALL SIX SUCCESS** (backend, frontend, platform-admin, security, e2e, staging-config) at this exact SHA. Historical earlier failed/cancelled runs retain their recorded state.
-- Operator can recover at most 12 overdue occurrences, with earlier commits durable after later failure. No external provider sends, tenant charges, entry authority, automatic dispatch or financial release.
-- Current **UNVERIFIED** successor: staged PostgreSQL two-session reviewed-recovery race, audit-store rollback/retry, partial-batch failure/retry, and a usable staff UI that discards stale recovery confirmation and reloads durable evidence. Source candidate `ae910892fc191d07939fe06082745c0b7d32c4e9` (plus this accuracy correction) requires its OWN complete six-job exact-SHA CI. On red, read actual failing job logs and correct cause first. If green, continue real worker/operator restore and next dependency-safe Phase 5 implementation. This is NOT Phase 5 acceptance.
+## Current substantive successor; NOT YET CI VERIFIED
+Saved, inspectable detached chain descending from verified `02fdd0b1`:
+- `3f2a1f88574bb4a6b539aaea99f39fc5174c8abd`: per-committed-work-order immutable reviewed recovery receipt, group root/reason, authenticated scope-verified read/UI and unit/browser regressions.
+- `58469195b1328653f26fb9405057508d9c1687ba`: same-device second-tab queued private inspection photo preflight before independent seal; explicit sync then seal browser regression; no cross-device or encrypted-local claim.
+- `68b01ad8d6540f9178af115c390bb9db49aa3758`: P5-PM-05 bidirectional original occurrence vs append-only creation audit, detects orphan/foreign and malformed evidence rather than certify hidden loss.
+- `74df78c92925de562ef6762d9053400a00fbb3ed`: validate historic recovery author belongs to exact organization.
+- `23ef6a12e9e2075a2f0da12babef3ef292f121b4`: preserve archived handoff and candidate evidence, followed by this documentation correction. This successor must pass its OWN full six-job exact-SHA hosted verification. Do not call it VERIFIED merely because its source parent passed.
 
-## Next independent candidate, NOT PUBLISHED OR VERIFIED
-- Parent `02fdd0b171daae45320a5a1dafb7c8d67baa6369` / Actions `40060920637`: source CI outcome must be rechecked before candidate publication.
-- P5-PM-05 append-only per-occurrence batch receipts: each committed operator-reviewed recovery work order links to the first original order and reason, existing per-order provenance validated; scoped authenticated receipt API, customer UI and backend/browser tests. Saved source ancestor `43f08b4e5a84f79ea6ba9bf387773917623a3402` with this documentation successor.
-- Next executable: first establish parent all-six green; if red repair underlying logs. Then publish successor with live expected_sha, force=false, verify its own six jobs and continue remaining authorized Phase5 work. Pending operator/security/restore acceptance must not be invented.
+## NEXT EXECUTABLE
+Recheck current exact branch HEAD and single writer. Promote this prepared successor by expected_sha with force=false only if current HEAD is verified `02fdd0b171daae45320a5a1dafb7c8d67baa6369` and no concurrent source changes. Obtain full hosted CI on its exact new SHA. If any job red, fetch actual failure logs, fix and establish red run -> repair SHA -> green exact run, preserving tests/auth/audit/migration/finances. While CI runs, prepare next independent approved workflow without publishing onto red. Continue P5-PM-05 restore/operator readiness and dependency-safe P5-INSP-04/P5-PROC-06/AUTO/ESC/FIN/ACC in actual code.
 
-## Inspectable saved independent successors (UNPUBLISHED, UNVERIFIED)
-- Parent published `02fdd0b171daae45320a5a1dafb7c8d67baa6369`, Actions `40060920637`; confirm all six jobs green BEFORE publishing any successor.
-- `3f2a1f88574bb4a6b539aaea99f39fc5174c8abd`: original per-work-order recovery receipts, immutable root binding, scoped API/UI, backend + browser tests.
-- `58469195b1328653f26fb9405057508d9c1687ba`: inspection device-local cross-tab queue recheck before independent sealing, authenticated browser two-tab evidence.
-- `68b01ad8d6540f9178af115c390bb9db49aa3758`: fail-closed orphan/foreign original creation-audit detection, bounded bidirectional reconciliation and negative tests.
-- `74df78c92925de562ef6762d9053400a00fbb3ed`: forbid recovery receipt claiming operator from another organization. This detached chain is inspectable, not test-certified.
-- On predecessor CI red, repair actual logs first; on predecessor all green, recheck branch HEAD and writer, promote only expected-SHA fast-forward without force, then verify successor's own six hosted jobs. Continue remaining Phase5, all production switches OFF.
+## Remaining approved phase requirements, OPEN
+P5-AUTO-01 autonomous dispatch executor OFF; P5-DLV-02 real consent/provider contracts/credentials/delivery receipts BLOCKED EXTERNAL; P5-ESC-03 timed vetted backup delivery OPEN; P5-INSP-04 device-loss/mobile/operator acceptance OPEN; P5-PM-05 restore/worker/operator acceptance OPEN; P5-PROC-06 real supplier PO/confirmations and valuation/operator signoff OPEN; P5-FIN-07 independent authorized GL/payment/settlement and reversal BLOCKED EXTERNAL; P5-ACC-08 full security/E2E/restore/operator acceptance OPEN.
 
-## Open P5 scope
-- P5-AUTO-01 autonomous dispatch execution OFF.
-- P5-DLV-02 provider contracts, consent, credentials, real channel receipts BLOCKED EXTERNAL.
-- P5-ESC-03 actual timed vetted backup escalation OPEN.
-- P5-INSP-04 device-loss/mobile/operator approval OPEN; manual local evidence isn't claimed encrypted.
-- P5-PM-05 worker concurrency, restore, operator acceptance OPEN.
-- P5-PROC-06 external supplier PO/real receipts/GL valuation/operator signoff OPEN.
-- P5-FIN-07 independent financial posting/reversals/settlement BLOCKED EXTERNAL.
-- P5-ACC-08 cross-module security, E2E, restore, operator approval OPEN.
-
-Keep unattended dispatch, provider and finance production switches OFF. No fabricated deliveries, finances or acceptance. Next approved phase after FULL accepted Phase 5: Phase 6 Messaging, followed by remaining approved roadmap on this branch.
+No fabricated supplier deliveries, receipts, production payments or signoff. Keep unattended dispatch/provider/financial release switches OFF. Phase 6 Messaging follows ONLY actual Phase 5 acceptance, then the rest of approved roadmap on the same branch.
