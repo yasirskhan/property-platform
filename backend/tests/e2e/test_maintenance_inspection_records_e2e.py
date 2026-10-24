@@ -159,7 +159,8 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
 
     with pw.sync_playwright() as playwright:
         browser = playwright.chromium.launch()
-        page = browser.new_page()
+        context = browser.new_context()
+        page = context.new_page()
         try:
             page.goto(BASE_URL + "/login", wait_until="domcontentloaded")
             page.locator('input[type="email"]').fill(EMAIL)
@@ -205,7 +206,7 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
             pw.expect(page.get_by_text("1 unsent photos on this device")).to_have_count(0)
             # Another same-account tab queues a new private draft AFTER the
             # reviewer's first tab last examined device-local evidence.
-            other_tab = page.context.new_page()
+            other_tab = context.new_page()
             other_tab.goto(BASE_URL + f"/dashboard/maintenance/staff-inspection-records/{evidence_id}",
                            wait_until="domcontentloaded")
             pw.expect(other_tab.get_by_role("heading", name="Independent inspection review")).to_be_visible(timeout=15_000)
@@ -249,4 +250,5 @@ def test_independent_inspection_review_is_saved_through_authenticated_browser():
             finally:
                 db.close()
         finally:
+            context.close()
             browser.close()
