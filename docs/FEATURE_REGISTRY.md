@@ -1,236 +1,1103 @@
+## 2026-10-24 | P5-PM-05 full-history worker integrity: genuine E2E locator failure and repair | SIX CI REQUIRED
+- Commit `25ac92088ee143b0743b1c7d96971d1fb889b436`, run `40087600243`: backend (1652 passed / 38 deselected), security, frontend, platform-admin, staging-config SUCCESS; E2E **37 passed, one FAILED**. Exact failure: test `test_corrupt_earlier_preventive_original_blocks_execution_in_staff_browser` used broad `get_by_role("alert")`, matching evidence alert AND Next.js route announcer. The full-history fail-closed worker/service gate itself passed backend/PostgreSQL checks.
+- A narrow E2E repair selects the page-level server alert specifically. Do NOT call that repair VERIFIED until its own six hosted jobs succeed. No weaker security/audit checks and no production flags were introduced. P5-INSP-04 offline integrity successor saved separately and not yet published.
+
+---
+
+## 2026-10-24 | Previously detached source VERIFIED; P5-PM-05 worker integrity gate requires own CI
+- Branch `8d00c6623c09eb3674953faacd56cdef9433218c` / Actions `40071893735`: backend/frontend/platform-admin/security/e2e/staging-config ALL SUCCESS. Previous detached PM recovery receipts, foreign/orphan audit checks and inspection same-account cross-tab drafts are already ancestors and published. Original Playwright red `150af7a`/`40062693766`, first failed repair `330d615`/`40070095207`, final green `8d00c66`/`40071893735`.
+- New candidate: P5-PM-05 manual AND worker generation fails closed on historical missing/corrupt/orphan original proof, not just latest occurrence. Live role-scoped execution-health inbox blocks affected schedules, with staff UI explanation and authenticated browser+unit tests. Its OWN six CI jobs are required. Beyond-500 original histories deliberately need operator reconciliation; no production release or operator signoff implied. Phase 5 remains OPEN.
+
+---
+
+## 2026-10-24 | Latest predecessor VERIFIED; next acceptance candidate requires own CI
+- `02fdd0b171daae45320a5a1dafb7c8d67baa6369` / Actions `40060920637`: **ALL SIX SUCCESS**, including real PostgreSQL concurrent reviewed recovery, audit-failure rollback, retained partial work, and UI reset/retry. Historical failures remain failed.
+- A separate unpublished successor prepared after this verified SHA includes new P5-PM-05 per-original-work-order immutable recovery receipts, foreign actor and orphan audit fail-closed checks, and P5-INSP-04 same-device multi-tab offline draft preflight prior to independent review. It needs its own six exact-SHA jobs and actual operator/security/restore acceptance. P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-INSP-04, P5-PM-05, P5-PROC-06, P5-FIN-07, P5-ACC-08 remain OPEN. Production dispatch/provider/finance release OFF.
+
+---
+
+## 2026-10-24 P5-PM-05 | Every committed reviewed recovery occurrence has a scoped receipt | PREPARED, CI REQUIRED
+
+The preceding P5-PM-05 recovery SHA `02fdd0b171daae45320a5a1dafb7c8d67baa6369` started GitHub Actions run `40060920637`; require its six individually SUCCESS before promoting this successor. The new successor adds a distinct immutable audit for EACH successfully committed recovered due work order, linking it to the first root work order and operator's original recovery reason. Each write commits atomically with existing original occurrence/work order proofs; partial failure cannot mark failed occurrences committed. Staff can inspect scoped original-provenance-verified recovery receipts with exact work-order links, without leaking mismatched, forged or foreign IDs. Backend and authenticated browser regressions cover full receipt chain, authorization, tampering and partial-run behavior. Historic records created before per-occurrence receipts cannot be retrospectively claimed to have a full batch manifest. No financial posting, automatic dispatch, external delivery or tenant entry right. All eight P5 requirement IDs remain OPEN pending full external and operator acceptance.
+
+---
+
+## 2026-10-24 | Reviewed preventive backlog recovery | P5-PM-05 | EXACT CI REQUIRED
+- Verified predecessor `eb0f9b43f2d5e0d5736b4250f9d8c0752b2f1cb7`, run `40050843752`: backend, frontend, platform-admin, security, e2e, staging-config ALL SUCCESS. Earlier original-occurrence reconciliation prepared-only references are superseded by verified source.
+- New published implementation `8970d68e9350f69eccaa34620e111705d1a64d54`; run `40058174471` requires all six final job outcomes. Its operator flow verifies original occurrence history again under lock, denies a stale expected cursor, requires a reason, persists independent reason audit with the first original due work order, and provides a reviewed confirmation UI. Negative auth/foreign/stale/replay and authenticated browser tests are in source. This is NOT independently approved financial authorization.
+- P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-INSP-04, P5-PM-05, P5-PROC-06, P5-FIN-07, P5-ACC-08 remain OPEN. No operator restore/security signoff, supplier delivery, tenant liability, messaging, autonomous dispatch or financial posting is claimed. All production switches OFF. Phase 6 Messaging remains gated by actual Phase 5 acceptance.
+
+---
+
+## 2026-10-24 Phase 5 reconciliation: exact verified green source + new P5-PM-05 candidate
+- Verified GREEN: prior P5-PROC-06 read-only unposted usage-cost preview `dde4b91a4639535b34f1d49d537abf6068b25f2b` / Actions `40048458692`, **all six required jobs SUCCESS**. Prior preview `b75abee7` / run `40046131465` failed backend (immutable audit update in new regression) and security (transitive vulnerable Zod 4.6.5); correction preserved triggers and patched both app lockfiles to 4.6.6 without advisory exemptions. Historical red remains red.
+- New P5-PM-05 original preventive occurrence recovery audit **CODE PREPARED, OWN CI REQUIRED**: a scoped, read-only full-history reconciliation of up to 500 occurrence rows INCLUDING orphan/cross-organization/cross-property invalid rows hidden from normal paginated history, independent signed original generation proof + work order identity, tenantless/entry/financial safeguards, cursor integrity. Authenticated staff UI and five backend+browser tests. 500+ fails closed; this is not scheduler disaster-restore certification, production worker release, or human/operator signoff. No new work orders/dispatch/money.
+- Phase 5 remains OPEN, all eight outstanding requirement IDs preserved. Do not advance Phase 6 or enable production/external providers.
+
+---
+## Current evidence | 2026-10-23 | P5-PROC-06 nonposting material usage cost visibility
+- Multi-line internal purchasing and independent batch approval VERIFIED at `671b821ae` / run `40018778408` all SIX SUCCESS. Earlier `56817203b` / run `39927949907` failed E2E and was repaired through actual supplier re-selection in browser.
+- New source-validated GET `/api/maintenance/materials/cost-preview?work_order_id=...` and `/dashboard/maintenance/material-orders` staff UI: **read-only estimated physical-use value**, per original approved source and per target work order, checked against real signed issue/reversal/receipt and immutable audit, clear no GL/no tenant liability. Authenticated UI/regressions prepared (including revoked manager, cross-property/org, audit tamper). Pending exact-SHA SIX hosted CI, not yet accepted. Never mistake this for an accounting post, invoice, inventory GL ledger, payable or provider receipt.
+- Full P5-PROC-06 and Phase 5 remain OPEN; production and external provider/financial execution OFF.
+
+---
+## 2026-10-23 | P5-PROC-06 internal multi-line materials request and independent whole-batch approval. Saved detached: existing purchasing staff page gains editable 2-20-line request, single batch review and per-line immutable source IDs; backend verifies live role/org/property/vendor, estimated total, original audit binding, idempotent retry and all-or-nothing PostgreSQL review. New batch and immutable line tables, Alembic e4a19d7f6c31 (222 tables), regression and browser test. No provider delivery/financial postings. Current parent physical variance run39924753728 pending six-green; successor needs its own exact six CI.
+
+---
+
+## 2026-10-23 | P5-PROC-06 PHYSICAL DISCREPANCY WORKFLOW — PUBLISHED IMPLEMENTATION, EXACT SHA CI PENDING. Real internally attested physical stock variance request, separate Owner/Admin approval/denial, independent recovered-stock certification, append-only tables/triggers, real organization/property/role scope and original audit verification. Approval alone decrements available units; confirmed recovery restores units, immutable originals retained. Current customer UI, backend unit, database bootstrap/upgrade/real PostgreSQL race and authenticated browser tests included. **No supplier delivery, vendor acknowledgment, financial posting or tenant charge.** Predecessor stock issue and reversal `2b781607` / CI `39891681804`: ALL SIX SUCCESS. This successor must pass all six on its own exact SHA; P5-PROC-06 and Phase 5 remain OPEN.
+
+---
+
+## 2026-10-22 | P5-PROC-06 physical discrepancy independently approved recount and restoration — SAVED DETACHED, NOT VERIFIED: New immutable proposal/decision/restoration PostgreSQL+SQLite ledger, separate witness and independent reviewers, approved-only stock shrinkage, independent recovery, per-order source locking and reserved-stock conservation; staff review/recovery UI and backend/E2E/migration tests. No GL/payables/tenant charge/supplier confirmation. Parent source 3817abd1/run39865980062 pending exact six-job hosted CI. Do not promote this successor before its predecessor is green; audit/restore/operator acceptance of this candidate also pending.
+
+---
+
+## 2026-10-22 | P5-PROC-06 material issue/use stock conservation candidate
+- Published purchasing receipt base 1c0fb5996 CI run39778085927 FAILED backend bootstrap parity; repairs 9e02224c backend red, 54c4163a E2E red, 2bd98911 run39852464256 security FAILED; f33e3a12 patches Next.js 16.4.2 and React 19.2.9, run39853320347 security FAILED for platform-admin; c3dd281a patches both apps, run39853694091 pending six-green.
+- Unpublished DETACHED successor adds material issue/reversal route, source-order lock, same-property work-order binding, independent correction, immutable SQL/ORM stock evidence, authorized staff browser UI, failure/replay/security tests including actual two-session PostgreSQL issue/reversal races, revoked manager and same-SKU multi-source accounting. Physical usage is NOT supplier proof or GL posting; operator and final financial acceptance OPEN.
+- The previous P5-INSP-04 f192562d5/run39722811542 and P5-PM-05 2d709e9e/run39774116416 each achieved all-six hosted SUCCESS. Earlier stale sections below are historical snapshots, not current CI state.
+
+---
+
+## 2026-10-22 | Exact hosted Phase 5 maintenance verification
+- P5-INSP-04 original SHA-256/organization/inspection-bound offline photo acknowledgment f192562d5/run39722811542 ALL SIX SUCCESS; offline/mobile/operator acceptance still OPEN.
+- P5-PM-05 bounded operator backlog recovery 2d709e9e/run39774116416 ALL SIX SUCCESS; final P5-PM acceptance still OPEN.
+- P5-PROC-06 initial approval/physical stock workflow is a separate candidate requiring hosted CI and external supplier/finance acceptance. Do not mark full P5-PROC-06 complete.
+
+## 2026-10-22 | P5-PROC-06 internal purchasing/physical receipt candidate
+
+| Surface | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| /dashboard/maintenance/material-orders | capability | — | core | yes | MAINTENANCE.WORK_ORDERS; independently reviewed by Owner/Admin | no | 🔧 DETACHED, CI REQUIRED | Internal material request→independent approval→partial physical staff receipt→immutable audited reversal. Per-org idempotent request and bounded history; real customer UI and browser/regression tests. Supplier confirmation, warehouse consumption, payment, GL and tenant charges NOT implemented. P5-PROC-06 remains OPEN |
+
+## 2026-10-22 | P5-INSP-04 and P5-PM-05 continuing verification
+- P5-INSP-04 device-local photo drafts, private photo integrity and sealed review manifest exist on source 60880747 (six-green 39715164052). SHA-256 + exact organization/inspection upload acknowledgment, scoped local deletion and atomic 20-draft cap are published in f192562d, run 39722811542 pending all-six verification. No encrypted local storage or final offline/mobile acceptance claim.
+- P5-PM-05 authorized 1-12 occurrence operator catch-up is saved as inspectable DETACHED successor of f192562d (latest candidate below), with full API/UI, per-occurrence audit, tenantless no-charge guarantees, rollback/retry behavior and backend/browser regression. Do not call it published or green until expected-SHA promotion and exact six-job CI.
+- P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-PROC-06, P5-FIN-07, P5-ACC-08 and full P5-INSP-04/P5-PM-05 remain OPEN. Production dispatch/provider/finance switches OFF.
+
+---
+
+## 2026-10-21 | P5-INSP-04 offline photo draft/sync candidate
+Saved DETACHED UI+IndexedDB module and authenticated browser reconnect test; not verified or accepted. Existing immutable photo manifest source is published, latest repair still requires all-six CI. External/operator signoff unresolved.
+
+## 2026-10-21 | Frozen inspection photo evidence review manifest — CURRENT EXACT CI REQUIRED
+
+Source 7daf7132/run39703229920 has all six jobs SUCCESS for photo byte integrity, duplicate retry, review audit snapshot and safe scope. New substantive successor adds scoped sealed-manifest API/UI with real-byte status, deny after revocation, audit-failure rollback/retry, review preflight against corrupted photos, and backend/browser regressions. The successor is published but NOT VERIFIED until its own exact six-job CI succeeds. Offline synchronization, operator signoff and full P5-INSP-04 acceptance remain OPEN. All production releases OFF.
+
+## 2026-10-21 | Private inspection evidence integrity and immutable review manifest (CI REQUIRED)
+
+Original upload/list/download and private review seal VERIFIED at 6c49d985/run39699253318 all six SUCCESS. New successor adds corruption checks on read and replay, atomic exclusive storage, retired-inventory/limit validation, review-time ordered photo ID/hash manifest in immutable audit and authenticated browser upload/review assertions. Requires six-green on exact successor; P5-INSP-04 offline and operator acceptance remain OPEN. No unattended dispatch, settlement, or release.
+
+## 2026-10-21 | Private inspection photo evidence candidate, exact CI required
+
+Bounded photo upload and authorized view/download on immutable staff inspection records, content-hash retry key, independent review seal, tenant/foreign denial, audit and staff UI. Full P5-INSP-04 offline/mobile requirements remain OPEN and production release unchanged.
+
+## 2026-10-21 Phase 5 independent review queue - exact CI required
+
+New authorized review queue for pending or reviewed unit inspection evidence, self-inspector exclusion, actual staff filter and same-organization independent reviewer identity with fail-closed corrupt foreign pointer and backend/browser tests. Not complete offline/photo evidence or operator acceptance. Source predecessor 66c7ffa49/run 39681565435 all six SUCCESS.
+
+## 2026-10-21 | Scoped independent inspection reviewer identity — DETACHED
+
+The inspectable candidate adds same-organization reviewer labels and denies forged foreign reviewer references for independent review evidence, with staff UI and backend/browser regressions. Not on authorized branch, no hosted validation. P5-INSP-04 and Phase 5 remain open.
+
+## 2026-10-21 | Preventive blocked-operator recovery - CI REQUIRED
+
+ce3bfe31/run 39667729154 and 07dbcbfe/run 39677973524 each passed all six. New staff blocked-only recovery view, scoped safe reason codes, audited takeover reuse, tenantless retry/idempotence and cross-org denial are published only as candidate pending full exact-SHA CI. P5-PM-05 remains OPEN; unattended dispatch and finance release remain OFF.
+
+## 2026-10-21 | Scoped preventive recovery health review - CURRENT CI REQUIRED
+
+Pagination/title search/due-only inbox verified at ce3bfe31, run 39667729154 all six passed. New bounded authorized read-only bulk execution-health review and loaded-schedule UI use existing audited takeover, include negative and browser regressions, and require full exact successor-SHA CI. Full P5-PM-05 remains OPEN; no financial or unattended dispatch release.
+
+## 2026-10-21 | Preventive schedule paging and staff search candidate (hosted CI required)
+
+The staff scheduling UI already supports load-more, but the HTTP schedules list route ignored the requested limit/offset. Detached candidate b0d692a970dc8dc2264fe58e355a4704e15e32f4 forwards validated pagination to existing role/org/property-scoped service, shows the loaded count, and adds backend negative and authenticated browser regressions. This is NOT final P5-PM-05 acceptance, unattended delivery, or a published/verified feature. Latest source and CI must be checked before publication.
+
+## In-app overdue dispatch attention starvation fix (2026-10-21, CI REQUIRED)
+
+| System attention candidate fairness | Five-minute gated JobRun + scoped in-app attention view | Smart Maintenance, globally release OFF | System worker, only Owner/Admin opted-in groups | Prepared, NOT VERIFIED | Correlated filtering of already-recorded/nonpolicy assignments and >400-row regression. Does not activate auto dispatch, vendor calls, notifications or charging. |
+
+---
+
+## On-call calendar monthly view (2026-10-21, CI REQUIRED)
+
+| Maintenance on-call month view | /dashboard/maintenance/on-call | Core maintenance | Authorized Owner/Admin/Manager writes, CREW scoped reads | Prepared, NOT VERIFIED | Month and week navigation, bounded 28-31 day server requests and in-page authorized shift management; browser acceptance pending exact-SHA six-job CI |
+
+---
+
+## Phase 5 independent inspection review candidate (2026-10-21, CI REQUIRED)
+
+| Inspection independent review | /dashboard/maintenance/staff-inspection-records/[id] | Core staff evidence | Owner/Admin/active assigned Manager with existing access rights | Prepared, NOT VERIFIED | Separate immutable review decision and reason; no self-review or hidden finance/dispatch action. Original inspection retained; migration and browser/permission tests require six-job CI on exact SHA. Mobile/offline/photos still missing. |
+
+---
+
+## 2026-10-20 | Due crew-response system attention — DETACHED / FULL CI REQUIRED
+
+Prepared an end-to-end in-app maintenance dispatch escalation *attention* workflow: additive migration b8f2a91c4d65 (213 model tables), system-attributed immutable notice per exact work-order assignment timestamp, organization/property/crew and current policy revalidation, exclusive group opt-in, per-rule escalate and timeout, verified original staff-confirmed policy offer, and stable PostgreSQL property→work-order lock ordering. A five-minute ARQ cron reserves durable recovery-capable JobRuns only when operator deployment setting DISPATCH_AUTO_REVIEW_ENABLED is explicitly on; default is OFF. Worker retries cannot duplicate a notice because (work_order_id,assigned_at) is database-unique. Real staff dispatch attention API and responsive UI show the persisted system notice without inventing a message, recall, accepted offer, tenant charge or vendor invoice. Negative/idempotence/backend plus authenticated Postgres/browser workflow regressions prepared. This is NOT external provider delivery, timed backup contact or autonomous crew assignment; P5-AUTO-01, P5-DLV-02, P5-ESC-03 remain OPEN. Publishing must wait for six-job green predecessor SHA 7c9cece747d829f4ca8ac0b59aceff81cba216d7 (GitHub run 39536297032), then fast-forward expected-SHA CAS and another full six-job CI. Do not touch main/Zargul.
+
+---
+
+## 2026-10-20 | Owner/Admin automation intent and reversible UI — PUBLISHED / CI REQUIRED
+
+Published additive migration f6c8e2a104d9, per-group automation_requested flag (default OFF), active Owner/Admin-only create/edit, before/after audit, UI control that expressly distinguishes requesting future automation from activating it, backend authorization/idempotent-toggle coverage and authenticated browser enabled/disabled acceptance. Group opt-in is NOT autonomous dispatch, a messaging integration or a permission to incur costs; every executor and delivery path remains disabled. Current published feature SHA 7c9cece747d829f4ca8ac0b59aceff81cba216d7; verify all six jobs on run 39536297032 and fix failures. Prior verified checkpoint 7c98702ed102cf9c8f6be0976112c176cb0d048d CI 39533718238 all six passed. Follow-up P5-AUTO-01 durable executor, provider delivery receipts, idempotent escalation and recovery, then inspection/procurement/inventory/financial work remain OPEN.
+
+---
+
+## 2026-10-20 | Operator-confirmed policy-guided crew offer — IMPLEMENTATION / CI REQUIRED
+
+The first executable per-property Smart Dispatch policy path is an explicit staff-confirmed in-app offer, backed by revalidation of authorized actor, active Unit/Property, configured group/urgency/local-hours primary CREW policy, and live assigned on-call crew. Work order, existing offer and policy snapshot are auditable and share the existing commit. The Owner/Admin settings and manager work-order UI are linked; no external message, timer or automatic attempt is represented as delivered. Backend plus browser regressions must pass all six CI jobs at the exact successor SHA. See `docs/PHASE5_ACCEPTANCE_AND_ISSUES.md` for open autonomous dispatch, delivery, escalation, inspection, procurement, inventory and financial acceptance requirements. Do not close Phase 5.
+
+---
+
+## 2026-10-20 | Phase 5 audited manual dispatch follow-up — IMPLEMENTED CANDIDATE / SIX-JOB CI REQUIRED
+
+On top of the fully verified dispatch attention/in-app offer work (commit `095ca6f3bf364fe6126018decde1c6e7b6ca3a8f`, six-job CI `39521393773`), implemented an operator-managed manual escalation-review case workflow. Only current active organization Owner/Admin or real property-assigned Manager may open or resolve work-order cases. A database-unique nullable `open_work_order_id` permits at most one active case per work order; original case reasons, actor identity and closure outcomes are preserved, with append-only audited opens/closes and idempotent exact retries. Retired inventory cannot receive new reviews, while existing cases can be closed by still-authorized staff. Non-staff/foreign/revoked roles fail closed. Added model + additive Alembic `d7a1c0e948b2` (212 expected tables), owner/manager UI, schema/API, backend security and database-constraint tests and authenticated browser open/close regression. No SMS/email/call was sent, no response timeout executed, and no financial entry was posted. **This is a manual review ledger, not automated vendor escalation, messaging, dispatch or approval.** Verify six hosted jobs at exact published SHA and correct failures before declaring VERIFIED. Remaining Phase 5: autonomous, opt-in dispatch execution/delivery confirmations/recovery, vendor compliance gates, purchases, inventory, inspections, accounting and full acceptance.
+
+---
+
+## 2026-10-20 | Effective dispatch group/policy resolution on actual work-order readiness — PREPARED / HOSTED CI REQUIRED
+
+The work-order readiness API now selects the real property-specific maintenance dispatch group (exclusive override or inherited DEFAULT), maps emergency/normal/low urgency, and computes business-hours or after-hours using validated IANA timezone and Monday-Friday local office hours. The selected saved policy is returned as an **advisory** preview with explicit configured/missing state, timeout, first/backup targets and escalation preference; group absence and missing rules do not invent routing or contact. The work-order page displays effective group and urgency policy to authorized management without claiming automated dispatch, provider delivery, countdown, expense or payment. Fail-closed guards block malformed foreign-organization bindings and invalid stored timezones. Deterministic time-zone/weekend/regression checks plus API authorization tests were prepared. First verify the group-settings parent and all six CI jobs at its exact published SHA; then publish and verify this independent child batch. Remaining: actual timed offer execution, delivery/provider confirmations, escalation, recovery and vendor compliance.
+
+---
+
+## 2026-10-20 | Phase 5 Smart Dispatch: maintenance groups and owner-controlled policy settings — PREPARED / HOSTED CI REQUIRED
+
+Built organization-scoped maintenance dispatch groups, a persisted DEFAULT group, exclusive property-to-group overrides with fallback to DEFAULT, validated IANA timezone and business-hour configuration, and six independent urgency (emergency/normal/low) × period (business_hours/after_hours) policies per group. Settings include first/backup target, timeout, escalation preference, and validated active Owner/Admin contacts. Only Owner/Admin may view or mutate settings. Real property membership is verified on write; every material modification has before/after audit evidence and default group creation is idempotent. Added migration `c9e52d4f1b78` (3 new tables, total expected 211), model registry, backend negative tests, authenticated browser E2E, and responsive Owner/Admin UI linked from the on-call calendar. This is **configuration only**: no automatic delivery, executed escalation, vendor contact, tenant charge, payroll or finance posting. Do not mark COMPLETE until all six hosted CI jobs pass on the exact published SHA. While this batch is not yet published or verified, the prior on-call offer recovery commit must first pass hosted CI.
+
+---
+
+## 2026-10-20 | On-call offer browser guard and manual crew role hardening — DETACHED / SIX-JOB CI REQUIRED
+
+Prepared follow-up regression to the live on-call offer implementation: authenticated browser asserts no active coverage means no in-app offer button and the backend returns conflict rather than fabricating an assignment; real property crew roster remains available for separate manual assignment. Existing manual crew assignment now requires the authorized staff user to be active/not deleted and requires the target property assignment to carry the actual CREW role, not just a user whose global role happens to be CREW. Backend regressions deny inactive/deleted staff, mislabeled property assignments and audit side effects. This is a detached successor, not published or CI verified. Publish only after predecessor d912117fdcb51ba081845cabfc756be8c07c4788 passes all six hosted CI jobs, then exact-SHA CAS without force and verify six successor jobs. No automatic external delivery, group dispatch policies or escalation is implied.
+
+---
+
+## 2026-10-20 | Live on-call crew readiness and explicit in-app offer — IMPLEMENTED / HOSTED CI REQUIRED
+
+A scoped, read-only work-order dispatch-readiness API now resolves the eligible crew physically on call at the current UTC time, validating organization, active crew role and live property membership, rejecting overlapping corrupt coverage, and showing limited coarse-insurance ranked preferred vendor fallbacks. Authorized staff can explicitly offer an acknowledged work order to that on-call crew using the established assignment transaction. A property-row lock serializes against shift cancellation/schedule edits; a work-order lock protects competing assignment decisions; exact selection evidence and the pending crew assignment are committed together. Owner/Admin/Manager work-order detail includes readiness and a clearly labelled in-app offer action. No external SMS/call/email is sent or marked delivered; no tenant access, invoices, charges, payments or payroll. Negative regressions cover foreign/tenant/crew access, revocation, retired locations, expired/cancelled shift, corrupted overlaps and pending-offer duplication. Must verify six hosted CI jobs at exact published SHA before calling VERIFIED. This is not automatic Smart Dispatch, group policies or timed escalation.
+
+---
+
+## 2026-10-20 | On-call calendar direct property scheduling — DETACHED / CI GATED
+
+The seven-day on-call calendar can now schedule and cancel coverage directly, with no unrelated work order required. Bounded GET /work-orders/on-call-property-roster provides up to 200 active organization/manager-assigned properties and their currently active, same-org CREW assignments, never any tenant or financial details. POST /work-orders/on-call-property/{property_id}/shifts and POST /work-orders/on-call-property/{property_id}/shifts/{shift_id}/cancel reuse the SAME property row lock, validation, no-overlap/idempotency and immutable audit as the work-order entry path; cancellation remains accessible on retired properties to preserve safe recovery. Live manager role/property checks deny revoked assignments and foreign companies. Crew see only their own shifts through the read-only calendar; tenant cannot list or modify. Responsive UI chooses property/crew/date, saves, navigates weeks and cancels with a required reason. Backend security/idempotency regression and authenticated browser scenario cover direct calendar schedule, view and cancellation. No messaging, auto-dispatch, payroll or tenant charges. Preceding vendor CI 39473257249 on d8e38abc430875f917a075d2fac05b35a65b622c requires all six SUCCESS before exact-SHA publish of successor.
+
+---
+
+## 2026-10-20 | Phase 5 seven-day on-call calendar — DETACHED / CI REQUIRED
+
+Extended the primary on-call crew shift candidate with a cross-property responsive seven-day calendar at /dashboard/maintenance/on-call and read-only GET /work-orders/on-call-calendar. Server applies actual organization and property scope; Admin/Owner see their organization's on-call coverage, Manager sees only currently assigned properties and Crew sees only their own shifts with current property assignments. Tenants/foreign organizations, inactive/deleted staff, and revoked assignments cannot read coverage. Bounded date range (1–31 days, within one year), maximum 500 returned records, optional cancelled history; overlaps at day boundaries appear in every relevant day. The UI navigates weeks, filters cancelled history and labels UTC date boundaries separately from local display times. Queue links to calendar only for eligible roles. Authenticated browser test confirms staff scheduling, calendar display and cancellation; backend negative tests cover tenants/other org, manager/crew revocation and cancelled history. No automatic dispatch or on-call notifications. New table/migration a0c7d4e19f32, expected 208 model tables. Parent preferred-vendor CI must finish all six green at exact SHA before safe branch promotion and successor six-job CI.
+
+---
+
+## 2026-10-20 | Phase 5 primary on-call crew shift scheduling — DETACHED / CI REQUIRED
+
+Prepared a complete staff-facing property-level primary on-call shift configuration with schedule creation, conflict checking, review, cancellation and retained audit. New migration a0c7d4e19f32 after d3f7c0a198be stores schedule UTC timestamps, property/crew/organization FKs, original scheduler and reasoned cancellation. Active Admin/Owner or currently assigned Manager schedules only eligible active, same-organization CREW on the real property; creation locks the actual property and rejects overlapping noncancelled shifts, invalid/past/timezone-free windows and retired locations. Identical replay returns the original without duplicate audit, while cancellation is append-only event/history with idempotent same-reason retry. Separate saved cancellation preserves the underlying shift evidence. Staff work-order detail can select existing property crew, create 1–72-hour future coverage and cancel with mandatory reason. Backend regressions cover roles, foreign/other-property isolation, overlapping shifts, revocation, cancelled replay and audit counts; browser E2E creates then cancels via staff panel. Additive SQLite/PostgreSQL/bootstrap model parity expects 208 tables. No automatic dispatch, emergency alerting, vendor outreach or financial posting. Publish only after preceding preferred-vendor CI all six SUCCESS against exact SHA, then run and verify successor six-job CI.
+
+---
+
+## 2026-10-20 | Preferred-vendor insurance-readiness labels — DETACHED / CI GATED
+
+Vendor ranking now surfaces existing insurance status (CURRENT, EXPIRING_30_DAYS, UPCOMING, EXPIRED or MISSING) in the staff candidate picker and ranked choices. Insurance policies are retrieved only for same-organization active vendors; the maintenance API returns coarse status only, never carrier, policy number, coverage amount or private certificate evidence. Existing expired/expiring status takes conservative precedence across multiple active policies. Missing or expired insurance is a warning, NOT automatic dispatch approval or a newly invented vendor eligibility decision. A backend regression verifies current, expired and missing states and UI shows the labels. No automatic vendor outreach, spending, work-order posting or tenant charges. Parent 8a27379a40520b2665e3049c7fccce88610faa20 run 39463404881 must be fully six-job green before safe promotion, followed by this successor CI.
+
+---
+
+## 2026-10-20 | Phase 5 ranked property/trade preferred vendors — DETACHED, CI GATED
+
+Prepared end-to-end configuration for up to three ranked, distinct eligible vendor companies per property and maintenance category. Authorized active Admin/Owner/assigned Manager can list active vendor candidates, read rank 1–3 and update rankings from the work-order detail; save is serialized by the PostgreSQL property row lock, with unique database rank/company constraints, idempotent replay, append-only old/new audit and scoped activity. Strong live organization/property/unit, vendor active/not deleted, trade-match, and role/manager property assignment validation; tenant/crew/foreign users cannot list or edit. Inactive vendors are not recommended. Manual changes do not dispatch staff, notify vendors, approve contractor payments, grant unit access, or charge tenants. New Alembic revision d3f7c0a198be after b5d0c8e7a214, SQLite/PostgreSQL/fresh schema parity update (207 tables), backend denial/idempotency tests and authenticated UI save regression. Parent pending time correction inbox must have six green GitHub CI jobs on exact SHA before expected-head nonforce promotion, followed by successor full six-job verification. Future: on-call schedules, urgent dispatch rules, approvals, procurement, inspection and accounting.
+
+---
+
+## 2026-10-20 | Phase 5 pending crew-time approval inbox — DETACHED / CI GATED
+
+Follow-on to published 4d0315216abde01ca7be74db5724e1deed0fa982 (crew original/reviewed time summary; hosted CI 39455507549). Adds a staff-only pending time correction inbox on the maintenance work orders page and GET /work-orders/time-corrections/pending, sorted oldest-first with bounded paging. The API joins actual Unit to Property and enforces organization and manager's live property assignment; crew/tenant and cross-organization access are denied. Cross-work-order or wrong-crew correction references are excluded. Each request links to the work order's existing independent approve/deny workflow. Backend regression and authenticated browser test cover scoping and discovery. No payroll, tenant billing or accounting posting. Only publish after predecessor all-six green, exact-head nonforce CAS and successor CI.
+
+---
+
+## 2026-10-20 | Phase 5: reviewed crew-time summary — CI GATED
+
+Predecessor 2f4418a5d07bdfd4c0e27d0fff59c72d2d621d3c passed six required hosted CI jobs in run 39450921066. Current successor provides a bounded and role-scoped read-only original-versus-reviewed time summary for each work order. Original recorded minutes never change when management approves a time correction; the summary separately counts latest approved corrections and pending reviews. Role and organization checks deny tenant, foreign and revoked property personnel. This is operational evidence, not payroll approval or a tenant charge. The staff UI refreshes counts after entries, correction requests and decisions, with backend and authenticated browser regressions. New successor must pass exact-SHA six-job CI before VERIFIED. Further Phase 5 inventory, purchase approvals, inspections and dispatch automation are unfinished.
+
+---
+
+## 2026-10-20 | Phase 5 crew-time correction workflow — CI GATED
+
+Crew-original time evidence remains immutable. Assigned original crew may propose amended completed work intervals with a required explanation; an independently authorized organization admin/owner or live property manager must approve/deny with separate reason. Pending request retries are idempotent, overlapping crew time evidence cannot be approved, role/revocation/tenant isolation and actual unit/property/org scope are enforced under work-order row lock, both actions append work-order activity and immutable old/new audit. Correction decisions never edit original time entries and never post payroll or tenant charges. Additive Alembic b5d0c8e7a214 plus SQLite/PostgreSQL/bootstrap parity and regression coverage. Repairs malformed PostgreSQL dollar quoting in prior crew time trigger migration. Six hosted CI jobs required before VERIFIED.
+
+---
+
+## Phase 5 dispatch and crew work evidence — CI gated (2026-10-20)
+
+Maintenance Work Orders now has prepared staff recall of pending or accepted crew offers, scoped acceptance/rejection, explicit arrival ETA, and crew time interval recording while IN_PROGRESS. Crew time record visibility is admin/owner/manager and assigned crew only, never tenant; PostgreSQL/SQLite ORM and database triggers keep time evidence append-only. Work order time records do not post accounting entries or payroll. Revision f4b82c1a9d60 follows a6c8d0e24519; all features remain **CI gated** until six hosted jobs pass on the exact branch SHA. Full crew portal/schedule, messaging, dispatch groups, SLA, work-order-to-bill and purchase approvals remain unfinished.
+
+---
+
 # FEATURE REGISTRY
 
-**The surface map. Every page. Every slot. Every flag.**
-**Last updated: 2026-09-22**
+**The surface and access map. Every page. Every capability. Every slot.**
+**Last updated: 2026-09-24**
 
 Companion to PROJECT_MASTER.md and PLAN_GAPS.md.
 
-This file is the map. It defines, for every page in the app:
+This registry records the planned surface of each page and enough
+metadata to implement access correctly without guessing. It follows
+Hybrid Capability Gating from PROJECT_MASTER Sections 70, 79, and 80.
 
-1. Every tab, field, button, section, and behavior AppFolio has on
-   that page (or that the plan calls for), whether or not we've built
-   it yet.
-2. The feature flag that gates each slot.
-3. The platform stage that flag is currently at
-   (HIDDEN / BETA / ROLLOUT / ALL_ORGS).
-4. Which backend endpoints the slot needs.
+## Core rules
 
-**The rule (Section 79 of the master doc):** every page ships with
-its full planned surface — every slot below exists in the code,
-gated by its flag. Unbuilt features render as hidden slots. Flipping
-a flag makes a feature appear. No page is ever rewritten.
-
-`check_parity.py` reads this file, verifies every slot is present
-in the page source, and fails the build if not. See Section E1 of
-PLAN_GAPS.md.
-
----
+1. Pages and independently releasable capabilities may have a release
+   gate.
+2. Ordinary fields, columns, filters, labels, sorting, and routine form
+   controls do **not** get independent release gates.
+3. Release control, plan entitlement, org configuration, permissions,
+   and user preferences are separate concerns.
+4. A non-applicable access layer passes automatically.
+5. Backend entitlement/permission enforcement is authoritative. UI
+   hiding is never security.
+6. `check_parity.py` checks plan/coverage consistency only. Automated
+   tests are required to prove behavior.
 
 ## How to read a page block
 
-Each page has:
+Each page records:
 
-- **Route** — where the page lives
-- **AppFolio reference** — which pages of the Manager Guide this
-  maps to
-- **JSON id** — the parity checklist item this page belongs to
-- **Surface table** — every slot, with its flag, stage, and status
-- **Backend endpoints** — what the full surface requires
-- **Notes** — edge cases, dependencies, decisions
+- **Route** — page location
+- **AppFolio reference** — reference used for parity planning
+- **JSON id** — parity-checklist grouping
+- **Page release gate** — only when independent page rollout is useful
+- **Surface table** — every meaningful slot
+- **Backend endpoints** — backend surface required
+- **Notes** — dependencies and edge cases
 
-The **stage** column values:
-- **BUILT** — feature is on for all orgs (all_orgs stage + implemented)
-- **HIDDEN** — flag exists, code slot exists, feature is off for everyone
-- **BETA** — on for specific pilot orgs (list lives in the DB, not this file)
-- **ROLLOUT** — on for specific orgs (list lives in the DB)
-- **ALL_ORGS** — on for every org (but the slot still needs to be implemented)
+### Surface columns
 
-The **flag** column is the canonical flag key. Every flag in this
-file gets a row in the `feature_flags` table on first migration.
-Default stage for any new flag is HIDDEN.
+- **Release gate** — `release.*` key or `—`
+- **Entitlement** — commercial capability key, `core`, or `—`
+- **Org config** — `yes`, `no`, or `—`
+- **Permission** — permission/menu/action key or `—`
+- **User hide** — `yes`, `no`, or `—`
+- **Status** — ✅ present / ⬜ hidden implementation present / ❌ missing
 
-The **status** column tracks whether the slot exists in the code yet:
-- ✅ **present** — slot exists and works
-- ⬜ **hidden** — slot exists in code, gated by flag, currently off
-- ❌ **missing** — not in code yet (this is what the retrofit fixes)
+A release gate does not imply that a capability is separately saleable.
+For example, Print can have an internal release/kill switch while its
+entitlement remains `core` or `—`.
 
----
+## Naming conventions
 
-## Naming convention
+Release gates are dotted and prefixed with `release.`:
 
-Flags are dotted, lowercase, hierarchical:
+    release.accounting.receipts
+    release.accounting.receipts.application_fee
+    release.accounting.receipts.process_nsf
 
-    accounting.receipts.tabs
-    accounting.receipts.fields.date
-    accounting.receipts.cash_automatic
-    accounting.receipts.print
+Commercial entitlements are stable business-capability keys:
 
-Top-level page flag: `{module}.{page}` (e.g. `accounting.receipts`).
-Every slot under that page uses the same prefix.
+    application_fees
+    nsf_processing
+    bank_reconciliation
 
-Cross-page flags (like CTRL+K repeat form) live at the top:
-`universal.repeat_form`, `universal.repeat_field`.
+Permission keys use the existing uppercase permission/menu convention
+where possible. Action-level permission keys may be introduced later
+when a capability needs finer authorization than its page.
 
 ---
 
 ## Page index
 
-*(as pages are added to this file, they appear here)*
-
-| Route | Section in this file | Status |
+| Route / family | Section | Status |
 |---|---|---|
-| `/dashboard/accounting/receipts` | §Receipts — list | ✅ written |
-| `/dashboard/accounting/receipts/new` | §Receipts — new | ✅ written |
-| ... (expands as pages are added) | | |
+| `/dashboard/accounting/receipts` + `/new` | §Receipts | ✅ written |
+| `/dashboard/accounting/bills` + `/new` | §Bills | ✅ written |
+| `/dashboard/accounting/deposits` + `/new` | §Bank Deposits | ✅ written |
+| `/dashboard/accounting/gl-accounts` | §GL Accounts | ✅ written |
+| `/dashboard/accounting/journal-entries` + `/new` + `/[id]` | §Journal Entries | ✅ written |
+| `/dashboard/accounting/management-fees` + `/new` | §Management Fees | ✅ written |
+| `/dashboard/accounting/diagnostics` | §Diagnostics | ✅ written |
+| `/dashboard/accounting/owner-statements` + `/new` + `/[id]` | §Owner Statements | ✅ written |
+| `/dashboard/accounting/bank-accounts` | §Bank Accounts | ✅ written |
+| `/dashboard/accounting/charges` + `/new` | §Charges | ✅ written |
+| `/dashboard/properties` + `/[id]` | §Properties | ✅ written |
+| `/dashboard/settings/display` | §Settings — Display | ✅ written |
+| `/dashboard/settings/currencies` | §Settings — Currencies | ✅ written |
+| `/dashboard/settings/permissions` | §Settings — Permissions | ✅ written |
+| `/dashboard/settings/sidebar` | §Settings — compatibility route | ✅ written |
+| Future settings families | §Settings — planned capability pages | ✅ planned surface written |
+
+## Internal platform application
+
+Phase 3.4.10 added a separate `platform-admin/` Next.js application for platform staff. It is intentionally outside the customer `/dashboard` route registry and uses the platform JWT audience plus its own browser token namespace.
+
+Verified internal surfaces:
+- Organizations: platform list/detail and authorized enterprise provisioning.
+- Plans: read/manage catalog according to platform role.
+- Release Gates: platform stage and organization-allowlist control.
+- Fraud Review: platform review queue and audited decisions.
+- Staff Audit: platform-actor audit history.
+
+These platform surfaces do not change the customer five-layer access model. Customer release consumption and Settings → Features begin in Phase 3.4.11.
+
 
 ---
 
 # §Receipts — list page
 
-**Route:** `/dashboard/accounting/receipts`
-**AppFolio reference:** Manager Guide pp. 68–72
-**JSON id:** `accounting.receipts`
-**Page flag:** `accounting.receipts.list`
+**Route:** `/dashboard/accounting/receipts`  
+**AppFolio reference:** Manager Guide pp. 68–72  
+**JSON id:** `accounting.receipts`  
+**Page release gate:** `release.accounting.receipts`
 
 ## Surface
 
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| List table | section | accounting.receipts.list.table | ALL_ORGS | ✅ present | |
-| Date range filter | field | accounting.receipts.list.filter_date | ALL_ORGS | ✅ present | |
-| Type filter (Tenant/Owner/Other) | field | accounting.receipts.list.filter_type | ALL_ORGS | ✅ present | |
-| Property filter | field | accounting.receipts.list.filter_property | ALL_ORGS | ✅ present | |
-| Include-reversed checkbox | field | accounting.receipts.list.include_reversed | ALL_ORGS | ✅ present | |
-| Row: date column | column | accounting.receipts.list.col_date | ALL_ORGS | ✅ present | |
-| Row: type column | column | accounting.receipts.list.col_type | ALL_ORGS | ✅ present | |
-| Row: from column | column | accounting.receipts.list.col_from | ALL_ORGS | ✅ present | |
-| Row: cash account column | column | accounting.receipts.list.col_cash | ALL_ORGS | ✅ present | |
-| Row: amount column | column | accounting.receipts.list.col_amount | ALL_ORGS | ✅ present | |
-| Detail modal | modal | accounting.receipts.list.detail_modal | ALL_ORGS | ✅ present | |
-| Reverse button (in modal) | button | accounting.receipts.reverse | ALL_ORGS | ✅ present | |
-| Footer total row | row | accounting.receipts.list.footer_total | ALL_ORGS | ✅ present | |
-| **Print button (row)** | button | accounting.receipts.print | HIDDEN | ❌ missing | Opens print layout for one receipt |
-| **Repeat button (row)** | button | accounting.receipts.repeat | HIDDEN | ❌ missing | Copies a prior receipt into a new one |
-| **Edit-lock after deposit indicator** | indicator | accounting.receipts.edit_lock_after_deposit | HIDDEN | ❌ missing | Row shows a lock icon once deposited |
-| **Export CSV / Excel** | button | reporting.export | HIDDEN | ❌ missing | Cross-page, governed by org export-format setting |
-| **Print list** | button | accounting.receipts.list.print | HIDDEN | ❌ missing | Print-friendly view of the list |
-| **Process NSF button** | button | accounting.receipts.process_nsf | HIDDEN | ❌ missing | Opens NSF workflow (bank fee + tenant charge) |
-| **Bulk select + bulk action** | behavior | accounting.receipts.list.bulk | HIDDEN | ❌ missing | Select multiple rows for batch operations |
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Receipts list page | page | release.accounting.receipts | core | no | ACCOUNTING.RECEIVABLES | yes | ✅ present | Top-level release boundary |
+| List table | section | — | — | — | — | — | ✅ present | Inherits page access |
+| Date range filter | filter | — | — | — | — | — | ✅ present | Routine control |
+| Type filter | filter | — | — | — | — | — | ✅ present | Routine control |
+| Property filter | filter | — | — | — | — | — | ✅ present | Routine control |
+| Include-reversed checkbox | field | — | — | — | — | — | ✅ present | Routine control |
+| Date / type / from / cash / amount columns | columns | — | — | — | — | — | ✅ present | Routine table columns |
+| Detail modal | modal | — | — | — | — | — | ✅ present | Part of page |
+| Reverse receipt action | action | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Backend authorization still required; no independent rollout currently needed |
+| Footer total row | row | — | — | — | — | — | ✅ present | Routine UI |
+| Print one receipt | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Gated print-data endpoint + dedicated printable customer page |
+| Repeat prior receipt | capability | release.accounting.receipts.repeat | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Gated repeat-data endpoint hydrates the existing New Receipt form |
+| Edit-lock-after-deposit indicator | behavior | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Deposit linkage is exposed; posted receipt fields remain immutable and corrections use reversal/NSF |
+| Export CSV / Excel | capability | release.reporting.export | core | yes | REPORTING.ALL | no | ✅ present | Shared report delivery now generates authorized organization-scoped CSV server-side and supports email attachment delivery. |
+| Print receipts list | capability | release.accounting.receipts.list_print | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; print view remains planned |
+| Process NSF | capability | release.accounting.receipts.process_nsf | nsf_processing | yes | ACCOUNTING.RECEIVABLES | no | ✅ present | Gated NSF action reuses verified reversal spine and preserves original deposit history |
+| Bulk actions | capability | release.accounting.receipts.bulk | core | no | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; batch workflow remains planned |
 
 ## Backend endpoints the full surface requires
 
-| Endpoint | Supports flag |
-|---|---|
-| GET /api/accounting/receipts (list) | built |
-| GET /api/accounting/receipts/{id} | built |
-| POST /api/accounting/receipts/{id}/reverse | built |
-| GET /api/accounting/receipts/{id}/print-data | accounting.receipts.print |
-| POST /api/accounting/receipts/{id}/repeat | accounting.receipts.repeat |
-| POST /api/accounting/receipts/{id}/process-nsf | accounting.receipts.process_nsf |
-| GET /api/accounting/receipts/export | reporting.export |
-| GET /api/accounting/receipts/print-view | accounting.receipts.list.print |
+| Endpoint | Access requirement | Status |
+|---|---|---|
+| GET /api/accounting/receipts | page access + permission | built |
+| GET /api/accounting/receipts/{id} | page access + row scope | built |
+| POST /api/accounting/receipts/{id}/reverse | permission + row scope | built |
+| GET /api/accounting/receipts/{id}/print-data | release print + permission | built |
+| GET /api/accounting/receipts/{id}/repeat-data | release repeat + permission | built |
+| POST /api/accounting/receipts/{id}/process-nsf | release NSF + entitlement if required + org config + permission | built |
+| GET /api/accounting/receipts/export | release export + permission | planned |
+| GET /api/accounting/receipts/print-view | release list-print + permission | planned |
 
 ## Notes
 
-- Reverse button uses `window.confirm()` today — will move to the
-  styled confirm modal during retrofit (Phase 3.5.5).
-- Bulk select is a real slot (AppFolio has it) but low priority —
-  staging at HIDDEN keeps the code path present without shipping UI.
-- Edit-lock indicator reads `deposit_lines` membership — that data
-  already exists, so the slot is a UI add only.
+- Reverse currently uses `window.confirm()` and will move to the shared
+  styled confirmation pattern during compatibility work.
+- Deposit locking is an integrity rule. It should not disappear merely
+  because a release flag is off.
+- The existing permission model currently authorizes the Receivables
+  area broadly. Action-level permission keys can be added later where
+  a real authorization need exists.
 
 ---
 
 # §Receipts — new page
 
-**Route:** `/dashboard/accounting/receipts/new`
-**AppFolio reference:** Manager Guide pp. 68–72
-**JSON id:** `accounting.receipts`
-**Page flag:** `accounting.receipts.new`
+**Route:** `/dashboard/accounting/receipts/new`  
+**AppFolio reference:** Manager Guide pp. 68–72  
+**JSON id:** `accounting.receipts`  
+**Page release gate:** `release.accounting.receipts`
 
-## Surface — Common (all tabs)
+## Surface — common
 
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Receipt date field | field | accounting.receipts.fields.date | ALL_ORGS | ✅ present | |
-| Cash account dropdown | field | accounting.receipts.fields.cash | ALL_ORGS | ✅ present | |
-| Property field | field | accounting.receipts.fields.property | ALL_ORGS | ✅ present | |
-| Reference # field | field | accounting.receipts.fields.reference | ALL_ORGS | ✅ present | |
-| Remarks field | field | accounting.receipts.fields.remarks | ALL_ORGS | ✅ present | |
-| **Cash Account "Automatic" option** | field-option | accounting.receipts.cash_automatic | HIDDEN | ❌ missing | Uses property's default bank |
-| **CTRL+K repeat form** | keyboard | universal.repeat_form | HIDDEN | ❌ missing | Copies field values from prior entry |
-| **CTRL+J repeat field** | keyboard | universal.repeat_field | HIDDEN | ❌ missing | Repeats the last value typed in this field |
-| **Print preview** | button | accounting.receipts.print | HIDDEN | ❌ missing | Print after save |
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New receipt page | page | release.accounting.receipts | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Shares Receipts page release boundary |
+| Receipt date | field | — | — | — | — | — | ✅ present | Routine field |
+| Cash account | field | — | — | — | — | — | ✅ present | Routine field |
+| Property | field | — | — | — | — | — | ✅ present | Routine field |
+| Reference # | field | — | — | — | — | — | ✅ present | Routine field |
+| Remarks | field | — | — | — | — | — | ✅ present | Routine field |
+| Cash Account “Automatic” option | behavior | — | core | yes | ACCOUNTING.RECEIVABLES | no | ✅ present | Resolves active OPERATING bank mapping, with active 1150 fallback |
+| CTRL+K repeat form | capability | release.universal.repeat_form | core | yes | — | no | ⬜ hidden implementation present | Flagged compatibility slot; shortcut behavior remains planned |
+| CTRL+J repeat field | capability | release.universal.repeat_field | core | yes | — | no | ⬜ hidden implementation present | Flagged compatibility slot; shortcut behavior remains planned |
+| Print preview | capability | release.accounting.receipts.print | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Dedicated printable receipt route backed by gated print-data |
 
-## Surface — Tenant tab
+## Surface — Tenant receipt
 
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Tenant picker | field | accounting.receipts.tabs.tenant | ALL_ORGS | ✅ present | |
-| Charges table | section | accounting.receipts.charges_table | ALL_ORGS | ✅ present | |
-| Auto-description from GL | behavior | accounting.receipts.auto_description | ALL_ORGS | ✅ present | |
-| Prepayment checkbox | field | accounting.receipts.prepayment | ALL_ORGS | ✅ present | |
-| "+ Add line" button | button | accounting.receipts.tabs.tenant.add_line | ALL_ORGS | ✅ present | |
-| Line remove button | button | accounting.receipts.tabs.tenant.remove_line | ALL_ORGS | ✅ present | |
-| Running total row | row | accounting.receipts.tabs.tenant.total | ALL_ORGS | ✅ present | |
-| **Charge Late Fees button** | button | accounting.receipts.tabs.tenant.charge_late_fees | HIDDEN | ❌ missing | Opens late fee bulk workflow |
-| **Charge per-lease picker (multi-unit tenant)** | field | accounting.receipts.tabs.tenant.lease_picker | HIDDEN | ❌ missing | Tenant with multiple leases picks which one |
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Tenant receipt mode | mode | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Core receipt type |
+| Tenant picker | field | — | — | — | — | — | ✅ present | Routine field |
+| Charges table | section | — | — | — | — | — | ✅ present | Core tenant-receipt workflow |
+| Auto-description from GL | behavior | — | — | — | — | — | ✅ present | Core behavior |
+| Prepayment checkbox | field | — | — | — | — | — | ✅ present | Routine field |
+| Add/remove line controls | controls | — | — | — | — | — | ✅ present | Routine controls |
+| Running total | row | — | — | — | — | — | ✅ present | Routine UI |
+| Charge Late Fees | capability | release.accounting.late_fees | late_fees | yes | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; late-fee workflow remains planned |
+| Per-lease picker for multi-lease tenant | field | — | — | — | — | — | ❌ missing | Appears when data requires it; not a release capability |
 
-## Surface — Owner tab
+## Surface — Owner receipt
 
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Owner picker | field | accounting.receipts.tabs.owner | ALL_ORGS | ✅ present | |
-| Payer name field | field | accounting.receipts.tabs.owner.payer | ALL_ORGS | ✅ present | |
-| Amount field | field | accounting.receipts.tabs.owner.amount | ALL_ORGS | ✅ present | |
-| Income account dropdown | field | accounting.receipts.tabs.owner.income_account | ALL_ORGS | ✅ present | |
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Owner receipt mode | mode | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Core receipt type |
+| Owner picker | field | — | — | — | — | — | ✅ present | |
+| Payer name | field | — | — | — | — | — | ✅ present | |
+| Amount | field | — | — | — | — | — | ✅ present | |
+| Income account | field | — | — | — | — | — | ✅ present | |
 
-## Surface — Other tab
+## Surface — Other receipt
 
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Received-from field | field | accounting.receipts.tabs.other.received_from | ALL_ORGS | ✅ present | |
-| Amount field | field | accounting.receipts.tabs.other.amount | ALL_ORGS | ✅ present | |
-| Income account dropdown | field | accounting.receipts.tabs.other.income_account | ALL_ORGS | ✅ present | |
-| Exclude-from-mgmt-fee checkbox | field | accounting.receipts.exclude_mgmt_fee | ALL_ORGS | ✅ present | |
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Other receipt mode | mode | — | core | no | ACCOUNTING.RECEIVABLES | no | ✅ present | Core receipt type |
+| Received-from | field | — | — | — | — | — | ✅ present | |
+| Amount | field | — | — | — | — | — | ✅ present | |
+| Income account | field | — | — | — | — | — | ✅ present | |
+| Exclude from management fee | field | — | — | — | — | — | ✅ present | Core accounting field |
 
-## Surface — Application Fee (new tab)
+## Surface — Application Fee
 
-| Slot | Type | Flag | Stage | Status | Notes |
-|---|---|---|---|---|---|
-| Application Fee tab | tab | accounting.receipts.application_fee_form | HIDDEN | ❌ missing | Dedicated form. Separate from Other. |
-| Applicant name field | field | accounting.receipts.application_fee_form.name | HIDDEN | ❌ missing | |
-| Amount field | field | accounting.receipts.application_fee_form.amount | HIDDEN | ❌ missing | |
-| Property + unit pickers | field | accounting.receipts.application_fee_form.unit | HIDDEN | ❌ missing | |
-| GL account (defaults to 4420) | field | accounting.receipts.application_fee_form.gl | HIDDEN | ❌ missing | |
-| Cash account | field | accounting.receipts.application_fee_form.cash | HIDDEN | ❌ missing | |
-| Reference # | field | accounting.receipts.application_fee_form.reference | HIDDEN | ❌ missing | |
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Application Fee mode/tab | capability | release.accounting.receipts.application_fee | application_fees | yes | ACCOUNTING.RECEIVABLES | no | ⬜ hidden implementation present | Flagged compatibility tab slot; application-fee backend remains planned |
+| Applicant name | field | — | — | — | — | — | ❌ missing | Inherits Application Fee access |
+| Amount | field | — | — | — | — | — | ❌ missing | |
+| Property + unit | fields | — | — | — | — | — | ❌ missing | |
+| GL account | field | — | — | — | — | — | ❌ missing | Defaults to 4420 per current plan |
+| Cash account | field | — | — | — | — | — | ❌ missing | |
+| Reference # | field | — | — | — | — | — | ❌ missing | |
 
 ## Backend endpoints the full surface requires
 
-| Endpoint | Supports flag |
-|---|---|
-| POST /api/accounting/receipts (create) | built |
-| GET /api/accounting/receipts/tenant/{id}/open-charges | built |
-| GET /api/properties/{id}/default-bank-account | accounting.receipts.cash_automatic |
-| POST /api/accounting/receipts/{id}/charge-late-fees | accounting.receipts.tabs.tenant.charge_late_fees |
-| POST /api/accounting/receipts/application-fee | accounting.receipts.application_fee_form |
+| Endpoint | Access requirement | Status |
+|---|---|---|
+| POST /api/accounting/receipts | page access + permission | built |
+| GET /api/accounting/receipts/tenant/{id}/open-charges | permission + tenant/org scope | built |
+| GET /api/properties/{id}/default-bank-account | permission + property/org scope | planned |
+| POST /api/accounting/receipts/{id}/charge-late-fees | late-fee release/entitlement/config + permission | planned |
+| POST /api/accounting/receipts/application-fee | application-fee release/entitlement/config + permission | planned |
 
 ## Notes
 
-- The Cash Account "Automatic" option is AppFolio behavior: when
-  selected, the system uses the property's default bank account.
-  This depends on `properties.default_bank_account_id` which is a
-  Phase 3.5 item (see PLAN_GAPS.md / Section 57).
-- The Application Fee tab is a separate form because AppFolio
-  separates applicant fees from normal tenant receipts.
-- CTRL+K / CTRL+J are universal, not Receipts-specific. They live at
-  `universal.repeat_form` and `universal.repeat_field`, gated once,
-  used everywhere.
+- The registry intentionally does not assign gates to every field.
+- Access checks for protected workflows must exist on the backend even
+  when the frontend also hides the capability.
+- The exact commercial packaging of `application_fees`, `nsf_processing`,
+  and `late_fees` can evolve without changing the release-gate model.
+
+---
+---
+
+# §Bills — list page
+
+**Route:** `/dashboard/accounting/bills`  
+**AppFolio reference:** Accounting / Bills & Payables  
+**JSON id:** `accounting.bills`  
+**Page release gate:** `release.accounting.bills`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Bills list page | page | release.accounting.bills | core | no | ACCOUNTING.PAYABLES | yes | ✅ present | Core AP page |
+| Date / status / payee filters | filters | — | — | — | — | — | ✅ present | Routine controls |
+| Bill table + unpaid footer | section | — | — | — | — | — | ✅ present | Bill #, payee, dates, amount, balance, status |
+| Bill detail modal | modal | — | — | — | ACCOUNTING.PAYABLES | — | ✅ present | Includes line details and payment history |
+| Pay Bill | capability | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Partial payment allowed |
+| Reverse unpaid bill | action | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Existing reversal rule |
+| Reverse after partial payment | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Reverses unreversed bill-payment GL transactions and the original accrual atomically |
+| Recurring Bills | capability | release.accounting.bills.recurring | recurring_bills | yes | ACCOUNTING.PAYABLES | no | ✅ present | Monthly Bill/Credit schedules with Post Code, date window, due day, line allocations, and durable due posting |
+| Write Checks | capability | release.accounting.write_checks | check_writing | yes | ACCOUNTING.PAYABLES | no | ✅ present | Find Bills -> Confirm & Finalize -> Print with durable check/bill allocations and atomic issue/void accounting |
+| Enter Credit | capability | release.accounting.vendor_credits | vendor_credits | yes | ACCOUNTING.PAYABLES | no | ✅ present | Positive-value vendor credits post DR Accounts Payable / CR selected expense accounts |
+| Manually Post Bills | capability | release.accounting.bills.manual_post | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Select recurring schedules and post due occurrences through a chosen date |
+| Owner Draw | capability | release.accounting.owner_draw | core | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Tenant Payable | capability | release.accounting.tenant_payable | core | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+| Convert Work Order to Bill | capability | release.maintenance.work_order_to_bill | maintenance | yes | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Flagged compatibility slot; workflow remains planned |
+
+## Backend surface
+
+| Endpoint / service | Access requirement | Status |
+|---|---|---|
+| GET `/api/accounting/bills` | release + ACCOUNTING.PAYABLES | built |
+| GET `/api/accounting/bills/{id}` | permission + org scope | built |
+| POST `/api/accounting/bills/{id}/pay` | permission + org scope + accounting rules | built |
+| POST `/api/accounting/bills/{id}/reverse` | permission + org scope + reversal rules | built |
+| POST `/api/accounting/bills` | permission + posting rules | built |
+| DELETE `/api/accounting/bills/{id}` | permission + org scope + unpaid-only accounting-safe reversal | built |
+| GET/POST `/api/accounting/bills/recurring/schedules` | recurring release + entitlement/config + ACCOUNTING.PAYABLES | built |
+| POST `/api/accounting/bills/recurring/post` | manual-post release + entitlement/config + ACCOUNTING.PAYABLES | built |
+| GET `/api/accounting/bills/credits/list` + POST `/api/accounting/bills/credits` | vendor-credit release + entitlement/config + ACCOUNTING.PAYABLES | built |
+| GET/POST `/api/accounting/checks` + eligible bills / bank accounts / detail / memo / void | write-checks release + entitlement/config + ACCOUNTING.PAYABLES | built |
+| GET `/api/accounting/checks/{id}/print` | check-printing release + entitlement/config + ACCOUNTING.BANK_ACCOUNTS | built |
 
 ---
 
-# END OF FEATURE_REGISTRY.md (v1 — Receipts sample)
+# §Bills — new page
 
-*(The remaining 13 pages will be added in the follow-up session —
-the format above is the template.)*
+**Route:** `/dashboard/accounting/bills/new`  
+**JSON id:** `accounting.bills`  
+**Page release gate:** `release.accounting.bills`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New Bill page | page | release.accounting.bills | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Core bill-entry workflow |
+| Default Cash Account | field | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Optional payment default; bill entry remains accrual-only |
+| Delete unpaid Bill | action | — | core | no | ACCOUNTING.PAYABLES | no | ✅ present | Visible only for unpaid zero-paid bills; backend enforces rule |
+| Payee / bill date / due date / reference / remarks | fields | — | — | — | — | — | ✅ present | Routine fields |
+| Multi-line account/property/description/amount table | section | — | — | — | — | — | ✅ present | Two-step accrual entry |
+| Add/remove line controls + total | controls | — | — | — | — | — | ✅ present | Routine controls |
+| Real Vendor entity picker | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; current payee text behavior preserved |
+| Cash Account field at bill entry | field | — | — | — | — | — | ⬜ hidden implementation present | Structural compatibility slot present; field behavior remains planned |
+| Post Code for recurring bill | field | — | — | — | — | — | ⬜ hidden implementation present | Structural compatibility slot present; recurring workflow remains planned |
+| Delete visibility rule | behavior | — | core | no | ACCOUNTING.PAYABLES | no | ⬜ hidden implementation present | Structural compatibility slot present; delete workflow remains planned |
+
+---
+
+# §Bank Deposits — list page
+
+**Route:** `/dashboard/accounting/deposits`  
+**AppFolio reference:** Accounting / Bank Deposits  
+**JSON id:** `accounting.deposits`  
+**Page release gate:** `release.accounting.deposits`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Deposits list page | page | release.accounting.deposits | core | no | ACCOUNTING.DEPOSITS | yes | ✅ present | Core banking workflow |
+| Date / bank filters | filters | — | — | — | — | — | ✅ present | Routine controls |
+| Deposit table + total footer | section | — | — | — | — | — | ✅ present | Deposit #, date, account, description, total |
+| Deposit detail modal | modal | — | — | — | ACCOUNTING.DEPOSITS | — | ✅ present | Shows included receipts |
+| No direct reverse rule | behavior | — | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Corrections through accounting workflow |
+| Print Bank Deposit | capability | release.accounting.deposits.print | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Gated printable deposit slip backed by org-scoped deposit detail |
+| Edit Bank Deposit | capability | release.accounting.deposits.edit | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Safe metadata/receipt-membership edit; no duplicate GL posting |
+| Process NSF from deposit | capability | release.accounting.deposits.process_nsf | nsf_processing | yes | ACCOUNTING.DEPOSITS | no | ⬜ hidden implementation present | Flagged compatibility slot; correction workflow remains planned |
+| Escrow refund | capability | release.accounting.deposits.escrow_refund | escrow_refunds | yes | ACCOUNTING.DEPOSITS | no | ⬜ hidden implementation present | Flagged compatibility slot; escrow-refund workflow remains planned |
+
+---
+
+# §Bank Deposits — new page
+
+**Route:** `/dashboard/accounting/deposits/new`  
+**JSON id:** `accounting.deposits`  
+**Page release gate:** `release.accounting.deposits`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New Bank Deposit page | page | release.accounting.deposits | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Batch undeposited receipts |
+| Bank account / date / deposit # / description | fields | — | — | — | — | — | ✅ present | Routine fields |
+| Available receipts table | section | — | — | — | — | — | ✅ present | Select receipts for batch |
+| All / None quick select | controls | — | — | — | — | — | ✅ present | Core batch helper |
+| Running included count + total | row | — | — | — | — | — | ✅ present | Core UI |
+| Date mismatch warning | behavior | — | core | no | ACCOUNTING.DEPOSITS | no | ✅ present | Warns when any selected receipt date differs from the deposit date |
+| Deposit number auto-increment per bank | behavior | — | core | yes | ACCOUNTING.DEPOSITS | no | ✅ present | Durable per-bank sequence with D-00001-style automatic numbering |
+
+---
+
+# §GL Accounts
+
+**Route:** `/dashboard/accounting/gl-accounts`  
+**AppFolio reference:** Accounting / Chart of Accounts  
+**JSON id:** `accounting.coa`  
+**Page release gate:** `release.accounting.gl_accounts`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Chart of Accounts page | page | release.accounting.gl_accounts | core | no | ACCOUNTING.GL_ACCOUNTS | yes | ✅ present | Core accounting configuration |
+| Account groups/list | section | — | — | — | — | — | ✅ present | Existing list surface |
+| Add / edit / deactivate account | capability | — | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Core CRUD |
+| Sub-account nesting | behavior | — | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Parent relationship |
+| Offset account | field | — | — | — | — | — | ✅ present | Routine account field |
+| Subject to management fees | field | — | — | — | — | — | ✅ present | Accounting field |
+| Include on cash flow | field | — | — | — | — | — | ✅ present | Accounting field |
+| Account ledger link | navigation | — | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Links to per-account ledger |
+| Must-clear-to-zero setting | field | — | — | — | — | — | ✅ present | Existing model flag is exposed through API, drawer, and list |
+| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Release-gated subtract-only role/account posting restrictions; backend enforcement is centralized in post_transaction() |
+| Recalculate Balances | capability | release.accounting.gl_accounts.recalculate | core | no | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Release-gated live-ledger recomputation verifies org-scoped debits/credits from immutable gl_entries without writing cached balances |
+| Hide semantics | behavior | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Existing soft deactivation hides inactive accounts from default pickers while historical references remain |
+
+---
+
+# §Journal Entries — list page
+
+**Route:** `/dashboard/accounting/journal-entries`  
+**AppFolio reference:** Accounting / Journal Entries  
+**JSON id:** `accounting.je`  
+**Page release gate:** `release.accounting.journal_entries`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Journal Entries page | page | release.accounting.journal_entries | core | no | ACCOUNTING.JOURNAL_ENTRIES | yes | ✅ present | Core GL workflow |
+| Date filters + list | section | — | — | — | — | — | ✅ present | Existing history view |
+| History / Recurring tabs | capability | release.accounting.journal_entries.recurring | recurring_journal_entries | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Real recurring-JE schedules/templates with History/Recurring tabs, pause/resume management, monthly catch-up posting, and durable daily due sweep through the jobs runtime |
+| Post GPR | capability | release.accounting.journal_entries.post_gpr | gpr_posting | yes | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Real gated monthly workflow uses unit market rent vs active-lease scheduled rent, posts zero-net 4100/4115/4120 reclassification entries through the central GL service, includes vacant units, and rejects duplicate monthly unit postings |
+| Manually Post Journal Entries | capability | release.accounting.journal_entries.manual_post | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Existing New Journal Entry workflow posts balanced manual entries through the GL posting service |
+
+---
+
+# §Journal Entries — new page
+
+**Route:** `/dashboard/accounting/journal-entries/new`  
+**JSON id:** `accounting.je`  
+**Page release gate:** `release.accounting.journal_entries`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New Journal Entry page | page | release.accounting.journal_entries | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Manual balanced JE |
+| Date / reference / memo | fields | — | — | — | — | — | ✅ present | Routine fields |
+| Multi-line account/property/description/debit/credit grid | section | — | — | — | — | — | ✅ present | Core JE entry |
+| Add/remove line controls | controls | — | — | — | — | — | ✅ present | Routine controls |
+| Live debit/credit balance | behavior | — | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Prevents unbalanced submit |
+| Remarks vs line description rule | behavior | — | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Header memo is transaction-level while each posting line carries its own description |
+
+---
+
+# §Journal Entries — detail page
+
+**Route:** `/dashboard/accounting/journal-entries/[id]`  
+**JSON id:** `accounting.je`  
+**Page release gate:** `release.accounting.journal_entries`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Journal Entry detail | page | release.accounting.journal_entries | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | Reads GL transaction detail |
+| Header / source / reference metadata | section | — | — | — | — | — | ✅ present | Core detail |
+| Debit/credit lines | section | — | — | — | — | — | ✅ present | Core detail |
+| Reversal-only integrity | behavior | — | core | no | ACCOUNTING.JOURNAL_ENTRIES | no | ✅ present | No edit/delete of posted GL transaction |
+
+---
+
+# §Management Fees
+
+**Routes:** `/dashboard/accounting/management-fees`, `/dashboard/accounting/management-fees/new`  
+**AppFolio reference:** Accounting / Management Fees  
+**JSON id:** `accounting.mgmt_fees`  
+**Page release gate:** `release.accounting.management_fees`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Management Fee runs list | page | release.accounting.management_fees | core | yes | ACCOUNTING.MANAGEMENT_FEES | yes | ✅ present | Existing fee-run history |
+| Date filters / detail view | controls | — | — | — | — | — | ✅ present | Routine UI |
+| New fee run / preview | page | release.accounting.management_fees | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Preview before posting |
+| Two-tier fee calculation | behavior | — | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Rent + other income rules |
+| Flat / minimum / end-date overrides | settings | — | — | — | — | — | ✅ present | Existing per-property inputs |
+| Creates Bill as second step | behavior | — | core | no | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Existing accounting spine |
+| Pay Owners | capability | release.accounting.pay_owners | owner_payouts | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36181749221. Staff preview owner balances and masked ACH readiness, create durable drafts, then record externally completed payouts through central GL posting; app does not initiate payment |
+| Overcollection strategy | capability | release.accounting.management_fees.overcollection | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36184596917: org-scoped Credits then Receipts / Receipts then Credits policy with audited API and customer workflow |
+| Management Fee Exclusions | capability | release.accounting.management_fees.exclusions | core | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36187449354: org-scoped read-only audit list over the existing exclusion flag with date/property filters and reversed-source history |
+| Post GPR | capability | release.accounting.management_fees.post_gpr | gpr_posting | yes | ACCOUNTING.MANAGEMENT_FEES | no | ✅ present | Verified in CI run 36186643771: Management Fees entry point reuses the central GPR candidate/posting engine and shared duplicate unit/month protection |
+
+---
+
+# §Diagnostics
+
+**Route:** `/dashboard/accounting/diagnostics`  
+**AppFolio reference:** Financial Diagnostics / PROJECT_MASTER §35  
+**JSON id:** `accounting.diagnostics`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Diagnostics report | page | — | core | no | ACCOUNTING.DIAGNOSTICS | yes | ✅ present | Backend permission is authoritative |
+| Nine financial checks | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Verified in CI run 36196379096; includes 60-day bank reconciliation lapses, posted-GL integrity, and bank-to-GL mapping health |
+| Refund Negative Diagnostic | action | release.accounting.diagnostics.refund_negative | core | yes | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Verified in CI run 36189649244; uses the configured offset account and central GL posting |
+| Bank reconciliation lapse check | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Verified in CI run 36191470527; flags active accounts over the 60-day window, including never-reconciled aged accounts |
+| Real positive fee check | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | must_clear-driven check verified in CI run 36192333662 |
+| Additional checks to 9 | behavior | — | core | no | ACCOUNTING.DIAGNOSTICS | no | ✅ present | Posted GL Transaction Integrity + Bank Account GL Mapping Health verified in CI run 36196379096 |
+
+## Backend endpoints
+
+| Endpoint | Access requirement | Status |
+|---|---|---|
+| GET /api/accounting/diagnostics | ACCOUNTING.DIAGNOSTICS | built |
+| POST /api/accounting/diagnostics/refund-negative | release gate + ACCOUNTING.DIAGNOSTICS + accounting write role | built and verified |
+
+---
+
+# §Owner Statements
+
+**Routes:** `/dashboard/accounting/owner-statements`, `/dashboard/accounting/owner-statements/new`, `/dashboard/accounting/owner-statements/[id]`, `/dashboard/accounting/owner-statements/packet-settings`  
+**AppFolio reference:** Accounting / Owner Statements  
+**JSON id:** `accounting.owner_statements`  
+**Page release gate:** `release.accounting.owner_statements`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Statements list | page | release.accounting.owner_statements | core | yes | ACCOUNTING.OWNER_STATEMENTS | yes | ✅ present | Period filter + history |
+| Generate statement page | page | release.accounting.owner_statements | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Owner/period preview and creation |
+| Frozen statement detail | page | release.accounting.owner_statements | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Snapshot prevents later drift |
+| Per-property sections | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing snapshot structure |
+| Running balance | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing transaction rendering |
+| Beginning / ending cash | behavior | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Existing summary |
+| Print / Save PDF | capability | — | core | no | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Browser print-ready output |
+| Required Reserves line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Verified explicit per-property reserve input feeds frozen statements and cash summary |
+| Prepaid Rent line | behavior | — | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Verified from property-scoped GL 2300 liability balance at period end |
+| Property Cash Summary | capability | release.accounting.owner_statements.cash_summary | core | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Verified release-gated snapshot summary of cash, reserves, prepaid rent, and available cash |
+| Owner Packet customizer | capability | release.owner_portal.packet_customizer | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ✅ present | Verified durable report selection, email preference, and cover message; generation/delivery remains Phase 3.7 |
+| Email statement | capability | release.owner_statements.email | owner_portal | yes | ACCOUNTING.OWNER_STATEMENTS | no | ⬜ hidden implementation present | Release-gated compatibility slot; delivery workflow remains planned |
+
+---
+
+# §Bank Accounts
+
+**Route:** `/dashboard/accounting/bank-accounts`  
+**AppFolio reference:** Accounting / Bank Accounts & Reconciliation  
+**JSON id:** `accounting.banks`  
+**Page release gate:** `release.accounting.bank_accounts`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Bank Accounts page | page | release.accounting.bank_accounts | core | no | ACCOUNTING.BANK_ACCOUNTS | yes | ✅ present | Core physical-bank configuration |
+| List / detail / add / edit / deactivate | capability | — | core | no | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Existing CRUD |
+| Bank name / routing / account number | fields | — | — | — | — | — | ✅ present | Sensitive data; backend scope required |
+| ACH format | field | — | — | — | — | — | ✅ present | CSV / NACHA field exists |
+| Bank Reconciliation | capability | release.accounting.bank_reconciliation | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36087388737: durable snapshot, clearable activity, balance calculator, and zero-difference finish guard |
+| QIF Import | capability | release.accounting.bank_reconciliation.qif | bank_reconciliation | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36087388737: statement-line import with exact date+amount unique auto-match |
+| Check Setup | capability | release.accounting.check_setup | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36091014657: per-bank auto numbering, prefix, stock position, memo/signature preferences |
+| ACH File Generation | capability | release.accounting.ach_files | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified CSV/NACHA generation; no accounting-state mutation |
+| $0 ACH Test File | capability | release.accounting.ach_test_file | ach_payments | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36101023004 attempt 2: CSV/NACHA zero-dollar prenote generation, source-bank validation, owner-self/admin scope, no payment or GL mutation |
+| Check Printing | capability | release.accounting.check_printing | check_writing | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Printable check view backed by org-scoped check detail |
+| Bank Feed | capability | release.accounting.bank_feed | bank_feeds | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36099568648: provider-neutral durable CSV import, duplicate protection, org/bank-scoped exact matching, rematch workflow, and no GL mutation; live Plaid remains Phase 8 |
+| Adjustments | capability | release.accounting.bank_adjustments | core | yes | ACCOUNTING.BANK_ACCOUNTS | no | ✅ present | Verified in CI run 36097448099: ledger-native per-bank adjustments, org-scoped offset validation, immutable reversal, and reconciliation visibility |
+
+---
+
+# §Owner ACH Setup
+
+**Route:** `/dashboard/accounting/owners/[id]/ach`  
+**AppFolio reference:** Manager Guide owner ACH setup / payments  
+**JSON id:** `people.owners.ach_setup`  
+**Page release gate:** `release.accounting.owner_ach_setup`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Owner ACH Setup page | page | release.accounting.owner_ach_setup | ach_payments | yes | PEOPLE.OWNERS | no | ✅ present | Verified in CI run 36100394485: durable one-owner/one-org bank destination; full account numbers are write-only to the browser and masked on reads |
+| Account holder / bank / routing / account / account type | fields | — | — | — | — | — | ✅ present | Routing uses the verified ABA validator; saving configuration creates no payment or GL entry |
+| Enable owner ACH destination | control | — | — | — | — | — | ✅ present | Configuration only; payout execution remains a separate workflow |
+| Owner self-service scope | behavior | — | ach_payments | yes | PEOPLE.OWNERS | no | ✅ present | OWNER may manage self only; ADMIN may manage owners in the same organization; manager/other-owner access is denied |
+
+## Backend surface
+
+| Endpoint / service | Access requirement | Status |
+|---|---|---|
+| GET `/api/accounting/owners/{owner_id}/ach` | release + entitlement/config + PEOPLE.OWNERS + same-org owner scope | built |
+| PUT `/api/accounting/owners/{owner_id}/ach` | release + entitlement/config + ADMIN or owner-self + same-org owner scope | built |
+
+## Notes
+
+- Owners remain customer-side `User(role=OWNER)` records. No duplicate owner identity table is introduced.
+- Stored bank details follow the existing Phase 11 encryption-at-rest deferral used by Bank Accounts.
+- Full bank account numbers are never returned by the read API.
+
+---
+
+# §Owner Held Security Deposits
+
+**Route:** `/dashboard/accounting/owner-held-security-deposits`  
+**AppFolio reference:** Manager Guide p.33  
+**JSON id:** `accounting.owners.owner_held_security_deposits`  
+**Page release gate:** `release.accounting.owner_held_security_deposits`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Owner Held Security Deposits page | page | release.accounting.owner_held_security_deposits | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Verified in CI run 36103471013: configure deposit Key Accounts and choose one for a lease move-in |
+| Deposit Key Accounts | capability | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Verified: only active LIABILITY accounts offset to Operating Cash, excluded from management fees and cash flow |
+| Move-in deposit account selection | capability | — | core | yes | ACCOUNTING.GL_ACCOUNTS | no | ✅ present | Verified: stores the approved deposit liability on Lease.security_deposit_gl_account_id |
+
+## Backend surface
+
+| Endpoint / service | Access requirement | Status |
+|---|---|---|
+| GET `/api/accounting/owner-held-security-deposits` | capability + ACCOUNTING.GL_ACCOUNTS | built |
+| POST `/api/accounting/owner-held-security-deposits/key-accounts` | capability + ADMIN/OWNER/MANAGER | built |
+| DELETE `/api/accounting/owner-held-security-deposits/key-accounts/{id}` | capability + ADMIN/OWNER/MANAGER | built |
+| POST/PATCH `/leases` deposit-account field | property scope + configured deposit Key Account + capability | built |
+
+---
+
+# §Charges — list page
+
+**Route:** `/dashboard/accounting/charges`  
+**JSON id:** `accounting.charges`  
+**Page release gate:** `release.accounting.charges`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Charges list | page | release.accounting.charges | core | no | ACCOUNTING.CHARGES | yes | ✅ present | Existing standalone charges page |
+| Date / status filters | filters | — | — | — | — | — | ✅ present | Routine controls |
+| Charge table / drill-down | section | — | — | — | — | — | ✅ present | Existing list surface |
+| Charge edit rules | behavior | — | core | no | ACCOUNTING.CHARGES | no | ✅ present | Paid floor; no charge-to-credit conversion |
+| Bulk tenant charges upload | capability | release.accounting.charges.bulk_upload | bulk_charges | yes | ACCOUNTING.CHARGES | no | ⬜ hidden implementation present | Release-gated compatibility slot; bulk import workflow remains planned |
+
+---
+
+# §Charges — new page
+
+**Route:** `/dashboard/accounting/charges/new`  
+**JSON id:** `accounting.charges`  
+**Page release gate:** `release.accounting.charges`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| New Charge page | page | release.accounting.charges | core | no | ACCOUNTING.CHARGES | no | ✅ present | Core charge-entry workflow |
+| Tenant / account / date / amount / description | fields | — | — | — | — | — | ✅ present | Routine fields |
+| Submit / cancel | controls | — | — | — | — | — | ✅ present | Routine controls |
+
+---
+
+# §Properties — list page
+
+**Route:** `/dashboard/properties`  
+**AppFolio reference:** Properties / Property Directory  
+**JSON id:** `properties.core`  
+**Page release gate:** `release.properties`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Properties list | page | release.properties | core | no | PROPERTIES.ALL | yes | ✅ present | Core property-management page |
+| Property cards / unit summary | section | — | — | — | — | — | ✅ present | Existing list surface |
+| Add Property navigation | action | — | core | no | PROPERTIES.ADD | no | ✅ present | Existing create route |
+| Property Groups | capability | release.properties.groups | property_groups | yes | PROPERTIES.GROUPS | no | ⬜ hidden implementation present | Release-gated compatibility slot; grouping workflow remains planned |
+| Map view | capability | release.properties.map | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; map workflow remains planned |
+
+---
+
+# §Property Detail
+
+**Route:** `/dashboard/properties/[id]`  
+**AppFolio reference:** Property Detail full tab set  
+**JSON id:** `properties.tabs`  
+**Page release gate:** `release.properties`
+
+## Current surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Property header / edit / delete | section | — | core | no | PROPERTIES.ALL | no | ✅ present | Row/org scope required |
+| Overview tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Property identity + financial/internal notes summary |
+| Units tab | tab | — | core | no | PROPERTIES.UNITS | no | ✅ present | Unit list and unit CRUD navigation |
+| Photos tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Upload, cover, marketing, captions/sort planned/built per current component |
+| Utilities tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Existing property utilities |
+| Insurance tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Existing property insurance |
+| Financials tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Financial summary/ownership |
+| Taxes tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Tax records CRUD |
+| Policies tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Pet/smoking/lease/insurance/laundry policies |
+| Amenities tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Fee + availability fields |
+| Appliances tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Condition/warranty fields |
+| Improvements tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Cost/category/contractor/warranty |
+| Expenses tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Existing expense tracking |
+| Notes tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ present | Universal timestamped entity-note stream |
+| History tab | tab | — | core | no | PROPERTIES.ALL | no | ✅ present | Audit/history view |
+| Default bank account | field | — | — | — | — | — | ❌ missing | Drives Receipt Cash Account “Automatic” |
+
+## Planned additional property capabilities
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Photo editor | capability | release.properties.photo_editor | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; crop/rotate remains planned |
+| Keys tracking | capability | release.properties.keys | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; physical key inventory remains planned |
+| Statement Settings | capability | release.properties.statement_settings | owner_statements | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility slot; property-specific statement settings remain planned |
+| Non-Revenue tab | capability | release.properties.non_revenue | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; workflow remains planned |
+| Staff tab | capability | release.properties.staff | core | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; assignments workflow remains planned |
+| Budget tab | capability | release.properties.budget | budgeting | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; budget workflow remains planned |
+| Fixed Assets tab | capability | release.properties.fixed_assets | fixed_assets | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; asset workflow remains planned |
+| RUBs tab | capability | release.properties.rubs | rubs | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; expansion workflow remains planned |
+| Compliance tab | capability | release.properties.compliance | compliance | yes | PROPERTIES.ALL | no | ⬜ hidden implementation present | Release-gated compatibility tab slot; compliance workflow remains planned |
+| Universal attachments | capability | release.documents.attachments | core | yes | — | no | ✅ present | Verified universal entity-linked attachments; target-specific backend authorization remains authoritative instead of a single property permission |
+
+## Backend surface
+
+| Endpoint / service | Access requirement | Status |
+|---|---|---|
+| GET `/properties` | release + PROPERTIES.ALL + org/assignment scope | built |
+| POST `/properties` | PROPERTIES.ADD + org scope | built |
+| GET/PATCH/DELETE `/properties/{id}` | permission + row scope | built |
+| GET `/properties/{id}/history` | permission + row scope | built |
+| Unit CRUD under `/properties/{id}/units` | PROPERTIES.UNITS + row scope | built |
+| Taxes / utilities / insurance / expenses / amenities / appliances / improvements / photos routers | page permission + property/org scope | built |
+| Planned property capability endpoints | corresponding release/entitlement/config + permission + property scope | planned |
+
+---
+
+# §Settings — Display
+
+**Route:** `/dashboard/settings/display`  
+**JSON id:** `settings.display`  
+**Page release gate:** `release.settings.display`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Display settings page | page | release.settings.display | core | no | SETTINGS.DISPLAY | yes | ✅ present | User display preferences |
+| Currency selector | field | — | — | — | — | — | ✅ present | Uses org currency list |
+| Layout mode | field | — | — | — | — | — | ✅ present | Tabs / Vertical |
+| Theme | field | — | — | — | — | — | ✅ present | Light / Dark / Auto |
+| Density | field | — | — | — | — | — | ✅ present | Compact / Comfortable / Spacious |
+| Date format | field | — | — | — | — | — | ✅ present | US / ISO / EU |
+| Number format | field | — | — | — | — | — | ✅ present | US / EU / SPACE |
+| Font size | field | — | — | — | — | — | ✅ present | Small / Normal / Large |
+| Accent color | field | — | — | — | — | — | ✅ present | User presentation setting |
+| Reduce motion | field | — | — | — | — | — | ✅ present | Accessibility preference |
+
+---
+
+# §Settings — Currencies
+
+**Route:** `/dashboard/settings/currencies`  
+**JSON id:** `settings.currencies`  
+**Page release gate:** `release.settings.currencies`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Currencies page | page | release.settings.currencies | core | no | SETTINGS.CURRENCIES | yes | ✅ present | Per-org currency catalog |
+| List seeded/custom currencies | section | — | — | — | — | — | ✅ present | 9 defaults seeded per org |
+| Add custom currency | action | — | core | yes | SETTINGS.CURRENCIES | no | ✅ present | Code/name/symbol/locale/decimals |
+| Edit custom currency | action | — | core | yes | SETTINGS.CURRENCIES | no | ✅ present | Existing CRUD |
+| Soft-delete custom currency | action | — | core | yes | SETTINGS.CURRENCIES | no | ✅ present | Existing CRUD |
+
+---
+
+# §Settings — Permissions
+
+**Route:** `/dashboard/settings/permissions`  
+**JSON id:** `settings.menu_permissions`  
+**Page release gate:** `release.settings.permissions`
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Permissions page | page | release.settings.permissions | core | no | SETTINGS.PERMISSIONS | yes | ✅ present | Backend re-enforces all edits |
+| Roles tab | capability | — | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Role-by-menu matrix |
+| Users tab | capability | — | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Per-user overrides |
+| My Preferences tab | capability | — | core | yes | — | no | ✅ present | Personal order/hiding |
+| GL Account Permissions | capability | release.accounting.gl_account_permissions | core | yes | SETTINGS.PERMISSIONS | no | ✅ present | Finer posting authorization; configuration can only subtract posting access |
+
+---
+
+# §Settings — Sidebar compatibility route
+
+**Route:** `/dashboard/settings/sidebar`  
+**JSON id:** `settings.menu_permissions`  
+**Page release gate:** —
+
+## Surface
+
+| Slot | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Redirect to Permissions → My Preferences | compatibility route | — | core | no | — | no | ✅ present | Preserves old bookmarks and deep-links directly to the self-service My Preferences tab; standalone sidebar page is deprecated |
+
+---
+
+# §Settings — planned capability pages
+
+These settings families are planned but do not yet have current routes
+under `/dashboard/settings`. Their eventual route names are finalized
+when the page is implemented; capability keys below are the durable
+access boundary.
+
+| Capability | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Company / Branding | settings family | release.settings.company | core | yes | SETTINGS | no | ❌ missing | Company identity, logo, address, time zone, packet cover |
+| Accounting Settings | settings family | release.settings.accounting | core | yes | SETTINGS.ACCOUNTING | no | ✅ present | Key Accounts hub, configurable GPR/receipt defaults, per-bank Check Setup links, fiscal year/report export defaults, plus ACCRUAL/CASH report-basis metadata |
+| Security | settings family | release.settings.security | security_controls | yes | SETTINGS | no | ❌ missing | Org-wide sessions, IP allowlist, and password-policy controls remain planned |
+| Personal Two-step verification | user security control | — | core | no | — | no | ✅ built | TOTP authenticator enrollment, one-time recovery codes, and pre-JWT login challenge; personal security control is not commercially gated |
+| Personal Login history | user security activity | — | core | no | — | no | ✅ built | Self-only successful/failed sign-ins from immutable audit history with direct client IP and bounded client metadata; personal security activity is not commercially gated |
+| Data / Backup / Retention | settings family | release.settings.data | core | yes | SETTINGS | no | ❌ missing | Backup schedule/restore/export preferences |
+| Features | settings family | release.settings.features | core | yes | SETTINGS | no | ✅ built | Org-level capability configuration; release, entitlement, org config, permission, and user preference remain independent |
+| Documents | settings family | release.settings.documents | documents | yes | SETTINGS | no | ❌ missing | Templates/export/document defaults |
+| Leasing | settings family | release.settings.leasing | leasing | yes | SETTINGS | no | ❌ missing | Leasing configuration |
+| Maintenance | settings family | release.settings.maintenance | maintenance | yes | SETTINGS | no | ❌ missing | Maintenance configuration |
+| Owners | settings family | release.settings.owners | owner_portal | yes | SETTINGS | no | ❌ missing | Owner configuration |
+| Communication | settings family | release.settings.communication | messaging | yes | SETTINGS | no | ❌ missing | Channel/template/quiet-hours configuration |
+| Approvals | settings family | release.settings.approvals | approvals | yes | SETTINGS | no | ❌ missing | Approval workflow settings |
+| Auditing Center | settings family | release.settings.audit | audit_center | yes | SETTINGS | no | ✅ built | Read-only org-scoped immutable audit activity with filters and CSV export |
+| Property Groups | settings family | release.settings.property_groups | property_groups | yes | SETTINGS | no | ❌ missing | Property group management |
+| Risk / Tags / Affordable | settings family | release.settings.risk_tags_affordable | compliance | yes | SETTINGS | no | ❌ missing | Expansion/compliance settings |
+| Developer / API Keys | settings family | release.settings.developer | api_access | yes | SETTINGS | no | ❌ missing | External API keys/integration controls |
+
+---
+
+# Registry completion notes
+
+1. Routine fields and controls intentionally inherit their containing
+   page/capability and therefore have no independent release gate.
+2. Entitlement keys identify commercial capability boundaries; they do
+   not imply that current pricing has already been finalized.
+3. Permission keys reuse current menu permissions where available.
+   Action-level permissions can be introduced when a real authorization
+   need is identified.
+4. Backend authorization and entitlement checks remain authoritative.
+5. Expansion-product capabilities stay in the registry but do not block
+   the Core Launch milestone.
+
+# END OF FEATURE_REGISTRY.md
+
+
+## Phase 3.6 — Universal Entity Notes
+
+| Surface | Type | Release gate | Entitlement | Org config | Permission | User hide | Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| GET /api/notes/{entity_type}/{entity_id} | API | — | core | no | target permission | no | ✅ built | Organization-scoped timestamped note list; property assignment scope enforced where applicable |
+| POST /api/notes/{entity_type}/{entity_id} | API | — | core | no | target permission | no | ✅ built | Append-only internal note creation plus immutable note_added audit event |
+| EntityNotes shared component | component | — | core | no | backend authoritative | no | ✅ built | Reusable customer detail-surface notes UI |
+| Property Notes tab | tab | — | core | yes | PROPERTIES.ALL | no | ✅ built | First customer surface using the universal component |
+
+| Phase 5 work-order provenance enforcement | capability | /dashboard/maintenance/work-orders | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 provisional | Tenant detail, queue, summary, triage and similar-request results deny explicitly staff-originated requests; verified requester ID required by prepared successor; legacy unknown remains unchanged. Full six-job hosted CI required before ✅ |
+| Phase 5 staff inspection structured checklist | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached, not verified | Optional five-area dated staff checklist with condition/notes, audit, scoped read and CSV; requires six-job CI, full Inspections module stays hidden |
+| Phase 5 scoped inspection history/detail | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 hosted CI pending | Immutable inspection detail API and page; current Unit→Property integrity, retired history, revoked assignment/tenant denial, findings audit, E2E link; full Inspections remains hidden |
+
+| Phase 5 staff inspection history filters | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached, CI gated | Condition and inclusive date filters on role-scoped inspection history with pagination and authenticated browser regression; full Inspections remains hidden |
+
+| Phase 5 scoped inspection recorder labels | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached, CI gated | Same-org user display labels in authorized creation/history/detail; foreign/malformed recorder actor IDs never disclose another organization identity; full Inspections remains gated |
+
+| Phase 5 inspection filtered history by authorized unit | capability | /dashboard/maintenance/staff-inspection-records | core | yes | PROPERTIES.UNITS | no | 🔧 detached successor; CI gated | Select authorized unit and combine with condition/date history filtering; server enforces per-unit property/org scoping and tenant denial; E2E and regression coverage |
+
+| Phase 5 linked inspection maintenance follow-up | capability | /dashboard/maintenance/staff-inspection-records/[id] | core | yes | PROPERTIES.UNITS + MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Staff may create an audited work order referencing a source inspection only after organization, unit and property authorization; protected API and linked detail, integration and browser coverage; no automatic posting |
+
+| Phase 5 tenantless staff/manual work orders | capability | /dashboard/maintenance/work-orders/new | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Null tenant_id for staff-created work orders, real requester provenance and tenant isolation preserved; additive column loosening and SQLite/PostgreSQL migration regressions; recurrence still gated |
+
+| Phase 5 preventive schedules and manual occurrence generation | capability | /api/maintenance/preventive/schedules | core | yes | Authorized ADMIN/MANAGER property scope | no | 🔧 CI gated | Persistent daily-interval policy, active pause, tenantless manual due occurrence with database uniqueness and audit; background scheduler and UI not released |
+
+| Phase 5 preventive staff dashboard and daily due worker | capability | /dashboard/maintenance/preventive | core | yes | Scoped ADMIN/MANAGER | no | 🔧 detached; CI gated | Staff schedule creation, pause/resume, due generation, occurrence history, browser test; durable daily cron and catch-up with creator reauthorization; no dispatch or financial posting |
+
+| Phase 5 preventive schedule settings edits | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, six-job CI gated | Admin/manager may edit title/instructions/interval only after pause, with row lock, assignment reauthorization and immutable before/after audit; existing due date and generated orders are preserved; staff UI + E2E |
+
+| Phase 5 preventive schedule pause-edit and optional cutoff | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, six-job CI gated | Authorized pause-only interval/title/instructions/end-date edits with audit and row lock; bounded due sweep, old work orders preserved; no dispatch or billing |
+
+| Phase 5 retired preventive history retention | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Read-only schedules/occurrences for archived units with live org/manager assignment checks; creation, modification and generation stay blocked |
+
+| Phase 5 preventive occurrence history pagination | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Authorized paginated occurrence history in staff UI; stable due-date ordering, load-older and deduplication, tenant and cross-org denial unchanged |
+
+| Phase 5 preventive due backlog preview | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 prepared, CI gated | Staff-scoped bounded read-only schedule due-date preview, pause/end cutoff, no work order or finance writes, backend/browser regressions |
+
+| Phase 5 preventive replay audit binding | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 detached, CI gated | Replay refuses cross-org, mismatched-unit, stale/latest corrupt occurrence and unrelated manual-order substitution using append-only provenance |
+| Phase 5 preventive execution recovery and health | capability | /dashboard/maintenance/preventive | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 published, CI gated | Separate executor from original creator; admin/manager-controlled recovery with property rechecks, schedule-row locks, audit reasons, read-only execution status, staff UI and backend/browser tests; no tenant entry or charges |
+| Phase 5 crew dispatch accept/reject | capability | /dashboard/maintenance/work-orders/[id] | core | yes | MAINTENANCE.WORK_ORDERS | no | 🔧 prepared successor, CI gated | New crew assignments are pending offers; assigned crew can accept or reject with reason, retaining append-only decision trail and safe reassignment; historical work orders keep legacy start behavior |

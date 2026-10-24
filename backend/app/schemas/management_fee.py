@@ -10,7 +10,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -47,6 +47,22 @@ class FeeRunIn(BaseModel):
 class FeeReverseIn(BaseModel):
     reversal_date: date
     memo: Optional[str] = None
+
+
+OvercollectionStrategy = Literal[
+    "CREDITS_THEN_RECEIPTS",
+    "RECEIPTS_THEN_CREDITS",
+]
+
+
+class OvercollectionStrategyUpdate(BaseModel):
+    strategy: OvercollectionStrategy
+
+
+class OvercollectionStrategyOut(BaseModel):
+    strategy: OvercollectionStrategy
+    label: str
+    recommended: bool
 
 
 # ============================================================
@@ -128,4 +144,25 @@ class ManagementFeeRunOut(BaseModel):
 
 class ManagementFeeRunListOut(BaseModel):
     items: List[ManagementFeeRunOut]
+    total: int
+
+# ============================================================
+# MANAGEMENT FEE EXCLUSIONS
+# ============================================================
+
+class ManagementFeeExclusionOut(BaseModel):
+    receipt_id: int
+    receipt_date: date
+    receipt_type: str
+    amount: Decimal
+    property_id: Optional[int] = None
+    property_name: Optional[str] = None
+    reference_number: Optional[str] = None
+    source_name: Optional[str] = None
+    remarks: Optional[str] = None
+    is_reversed: bool
+
+
+class ManagementFeeExclusionListOut(BaseModel):
+    items: List[ManagementFeeExclusionOut]
     total: int

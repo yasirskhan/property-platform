@@ -34,9 +34,12 @@ from app.models.charge import Charge
 from app.models.gl_account import GLAccount
 from app.models.lease import Lease
 from app.models.property import Property, Unit
+from app.services.menu_resolver import permission_allows_user
 
 
 router = APIRouter(prefix="/api/accounting/charges", tags=["charges"])
+
+WRITE_ROLES = {"ADMIN", "OWNER", "MANAGER"}
 
 
 # ------------------------------------------------------------
@@ -46,16 +49,33 @@ def _role(user: User) -> str:
     return (user.role.value if hasattr(user.role, "value") else str(user.role)).upper()
 
 
-def _require_writer(user: User) -> int:
-    """Return the org id. Raise if role not permitted."""
-    if _role(user) not in ("ADMIN", "OWNER", "MANAGER"):
+def _require_org(user: User) -> int:
+    if user.organization_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User has no organization.",
+        )
+    return user.organization_id
+
+
+def _require_charges_access(db: Session, user: User) -> int:
+    org_id = _require_org(user)
+    if not permission_allows_user(
+        db, user=user, menu_key="ACCOUNTING.CHARGES"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Charges permission required.",
+        )
+    return org_id
+
+
+def _require_write(user: User) -> None:
+    if _role(user) not in WRITE_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only ADMIN, OWNER, or MANAGER can manage charges.",
         )
-    if user.organization_id is None:
-        raise HTTPException(status_code=400, detail="User has no organization.")
-    return user.organization_id
 
 
 def _resolve_tenant_unit_property(db: Session, org_id: int, tenant_user_id: int):
@@ -133,7 +153,7 @@ def list_charges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_writer(current_user)
+    org_id = _require_charges_access(db, current_user)
 
     q = db.query(Charge).filter(
         Charge.organization_id == org_id,
@@ -163,7 +183,7 @@ def get_charge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_writer(current_user)
+    org_id = _require_charges_access(db, current_user)
     row = (
         db.query(Charge)
         .filter(Charge.id == charge_id, Charge.organization_id == org_id)
@@ -183,7 +203,8 @@ def create_charge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_writer(current_user)
+    _require_write(current_user)
+    org_id = _require_charges_access(db, current_user)
 
     # Tenant must be in this org
     tenant = (
@@ -257,7 +278,8 @@ def update_charge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_writer(current_user)
+    _require_write(current_user)
+    org_id = _require_charges_access(db, current_user)
 
     row = (
         db.query(Charge)
@@ -312,7 +334,8 @@ def delete_charge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org_id = _require_writer(current_user)
+    _require_write(current_user)
+    org_id = _require_charges_access(db, current_user)
 
     row = (
         db.query(Charge)

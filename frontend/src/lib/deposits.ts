@@ -9,7 +9,7 @@
 // All calls go through lib/api.ts for auth + error handling.
 // ============================================================
 
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 
 // ------------------------------------------------------------
 // Shapes (mirror backend schemas)
@@ -37,6 +37,7 @@ export type Deposit = {
   deposit_date: string;         // YYYY-MM-DD
   deposit_number: string | null;
   description: string | null;
+  bank_sequence: number | null;
   total: string;
   notes: string | null;
 
@@ -79,6 +80,14 @@ export type UndepositedReceiptsResponse = {
 // ------------------------------------------------------------
 // Write shapes
 // ------------------------------------------------------------
+
+export type DepositUpdateIn = {
+  deposit_date?: string;
+  deposit_number?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  receipt_ids?: number[];
+};
 
 export type DepositCreateIn = {
   bank_gl_account_id: number;
@@ -143,4 +152,15 @@ export function listUndepositedReceipts(
       bank_gl_account_id: bankGlAccountId,
     })}`
   );
+}
+
+export function updateDeposit(
+  id: number,
+  payload: DepositUpdateIn
+): Promise<DepositDetail> {
+  return apiPatch(`/api/accounting/deposits/${id}`, payload);
+}
+
+export function getPrintableDeposit(id: number): Promise<DepositDetail> {
+  return apiGet(`/api/accounting/deposits/${id}/print`);
 }

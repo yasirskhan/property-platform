@@ -1,0 +1,312 @@
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.core.database import Base
+from app.models.audit_log import AuditLog
+from app.models.bill import Bill
+from app.models.vendor import Vendor
+from app.models.bill_line import BillLine
+from app.models.gl_account import GLAccount, GLAccountPostingRestriction
+from app.models.gl_entry import GLEntry
+from app.models.gl_transaction import GLTransaction
+from app.models.release_gate import ReleaseGate, ReleaseGateOrganization
+from app.models.user import Organization, User, UserRole
+from app.schemas.bill import BillCreateIn, BillLineIn, BillPayIn
+from app.services.bill_posting import pay_bill, post_bill, reverse_bill
+from app.services.gl_posting import PostingError
+from app.services import bill_posting
+
+
+TEST_TABLES = [
+    Organization.__table__,
+    User.__table__,
+    GLAccount.__table__,
+    GLAccountPostingRestriction.__table__,
+    ReleaseGate.__table__,
+    ReleaseGateOrganization.__table__,
+    GLTransaction.__table__,
+    GLEntry.__table__,
+    Vendor.__table__,
+    Bill.__table__,
+    BillLine.__table__,
+    AuditLog.__table__,
+]
+
+
+@pytest.fixture()
+def db() -> Session:
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine, tables=TEST_TABLES)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(engine, tables=list(reversed(TEST_TABLES)))
+        engine.dispose()
+
+
+def seed(db: Session):
+    org = Organization(name="Bill Polish Org", slug="bill-polish")
+    db.add(org)
+    db.flush()
+    user = User(
+        email="bill-polish@example.com",
+        hashed_password="unused",
+        first_name="Bill",
+        last_name="Admin",
+        role=UserRole.ADMIN,
+        organization_id=org.id,
+        is_active=True,
+        is_verified=True,
+    )
+    ap = GLAccount(
+        organization_id=org.id,
+        gl_number="2100",
+        name="Accounts Payable",
+        account_type="LIABILITY",
+        is_active=True,
+    )
+    expense = GLAccount(
+        organization_id=org.id,
+        gl_number="6100",
+        name="Repairs",
+        account_type="EXPENSE",
+        is_active=True,
+    )
+    cash = GLAccount(
+        organization_id=org.id,
+        gl_number="1150",
+        name="Rental Trust",
+        account_type="ASSET",
+        is_active=True,
+    )
+    db.add_all([user, ap, expense, cash])
+    db.commit()
+    return org, user, ap, expense, cash
+
+
+def create_bill(db: Session, org, user, expense, cash) -> Bill:
+    return post_bill(
+        db=db,
+        organization_id=org.id,
+        payload=BillCreateIn(
+            payee_name="Plumber",
+            bill_date=date(2026, 9, 20),
+            cash_gl_account_id=cash.id,
+            lines=[
+                BillLineIn(
+                    gl_account_id=expense.id,
+                    description="Repair",
+                    amount=Decimal("100.00"),
+                )
+            ],
+        ),
+        created_by=user,
+    )
+
+
+@pytest.mark.accounting
+def test_bill_default_cash_account_is_used_for_payment(db: Session) -> None:
+    org, user, _ap, expense, cash = seed(db)
+    bill = create_bill(db, org, user, expense, cash)
+
+    updated = pay_bill(
+        db=db,
+        organization_id=org.id,
+        bill=bill,
+        payload=BillPayIn(
+            payment_date=date(2026, 9, 21),
+            cash_gl_account_id=None,
+            amount=Decimal("25.00"),
+        ),
+        created_by=user,
+    )
+
+    assert updated.cash_gl_account_id == cash.id
+    assert updated.status == "PARTIAL"
+    payment = (
+        db.query(GLTransaction)
+        .filter(
+            GLTransaction.source_type == "bill_payment",
+            GLTransaction.source_id == bill.id,
+        )
+        .one()
+    )
+    cash_entry = (
+        db.query(GLEntry)
+        .filter(
+            GLEntry.transaction_id == payment.id,
+            GLEntry.gl_account_id == cash.id,
+        )
+        .one()
+    )
+    assert Decimal(cash_entry.credit) == Decimal("25.00")
+
+
+@pytest.mark.accounting
+def test_partial_bill_reversal_unwinds_payment_and_accrual_atomically(
+    db: Session,
+) -> None:
+    org, user, _ap, expense, cash = seed(db)
+    bill = create_bill(db, org, user, expense, cash)
+    pay_bill(
+        db=db,
+        organization_id=org.id,
+        bill=bill,
+        payload=BillPayIn(
+            payment_date=date(2026, 9, 21),
+            amount=Decimal("40.00"),
+        ),
+        created_by=user,
+    )
+
+    mirror = reverse_bill(
+        db=db,
+        original=bill,
+        reversal_date=date(2026, 9, 24),
+        memo="Correct partially paid bill",
+        created_by=user,
+    )
+
+    db.refresh(bill)
+    assert bill.status == "PARTIAL"
+    assert bill.is_reversed is True
+    assert mirror.status == "VOID"
+
+    originals = (
+        db.query(GLTransaction)
+        .filter(
+            GLTransaction.organization_id == org.id,
+            GLTransaction.source_id == bill.id,
+            GLTransaction.transaction_type == "BILL",
+        )
+        .all()
+    )
+    assert originals
+    assert all(txn.is_reversed for txn in originals)
+
+    balances = {}
+    for entry in db.query(GLEntry).filter(GLEntry.organization_id == org.id).all():
+        balances.setdefault(entry.gl_account_id, Decimal("0"))
+        balances[entry.gl_account_id] += (
+            Decimal(entry.debit or 0) - Decimal(entry.credit or 0)
+        )
+    assert all(value == Decimal("0") for value in balances.values())
+
+
+@pytest.mark.accounting
+def test_delete_mode_only_allows_unpaid_and_hides_bill_history_rows(
+    db: Session,
+) -> None:
+    org, user, _ap, expense, cash = seed(db)
+    bill = create_bill(db, org, user, expense, cash)
+
+    mirror = reverse_bill(
+        db=db,
+        original=bill,
+        reversal_date=date(2026, 9, 24),
+        memo="Delete unpaid bill",
+        created_by=user,
+        deactivate=True,
+    )
+
+    db.refresh(bill)
+    assert bill.is_reversed is True
+    assert bill.is_active is False
+    assert bill.deleted_at is not None
+    assert mirror.status == "VOID"
+    assert mirror.is_active is False
+
+
+
+@pytest.mark.accounting
+def test_explicit_company_link_preserves_payee_snapshot_and_reversal(db: Session, monkeypatch):
+    org, admin, _ap, expense, cash = seed(db)
+    monkeypatch.setattr(bill_posting, "permission_allows_user", lambda *a, **kw: True)
+    company = Vendor(organization_id=org.id, company_name="Acme Repairs", is_active=True)
+    db.add(company)
+    db.commit()
+    bill = post_bill(
+        db=db, organization_id=org.id, created_by=admin,
+        payload=BillCreateIn(
+            vendor_id=company.id, payee_name="Acme Repairs", bill_date=date(2026, 9, 27),
+            lines=[BillLineIn(gl_account_id=expense.id, amount=Decimal("100.00"))],
+        ),
+    )
+    assert bill.vendor_id == company.id
+    assert bill.payee_name == "Acme Repairs"
+    txn_count = db.query(GLTransaction).count()
+    assert txn_count == 1
+    company.company_name = "Acme New Name"
+    company.is_active = False
+    db.commit()
+    assert bill.payee_name == "Acme Repairs"
+    mirror = reverse_bill(
+        db=db, original=bill, reversal_date=date(2026, 9, 28),
+        memo="Correct bill", created_by=admin,
+    )
+    assert mirror.vendor_id == company.id
+    assert mirror.payee_name == bill.payee_name
+    assert db.query(GLTransaction).count() == txn_count + 1
+
+
+@pytest.mark.accounting
+def test_vendor_id_cross_org_inactive_name_and_permission_fail_before_gl(db: Session, monkeypatch):
+    org, admin, _ap, expense, _cash = seed(db)
+    monkeypatch.setattr(bill_posting, "permission_allows_user", lambda *a, **kw: True)
+    foreign_org = Organization(name="Foreign Payables", slug="foreign-payables")
+    db.add(foreign_org)
+    db.flush()
+    valid = Vendor(organization_id=org.id, company_name="Local Co", is_active=True)
+    foreign = Vendor(organization_id=foreign_org.id, company_name="Foreign Co", is_active=True)
+    db.add_all([valid, foreign])
+    db.commit()
+    def attempt(vendor_id, name):
+        return post_bill(
+            db=db, organization_id=org.id, created_by=admin,
+            payload=BillCreateIn(
+                vendor_id=vendor_id, payee_name=name, bill_date=date(2026, 9, 27),
+                lines=[BillLineIn(gl_account_id=expense.id, amount=Decimal("100.00"))],
+            ),
+        )
+    with pytest.raises(PostingError):
+        attempt(foreign.id, "Foreign Co")
+    with pytest.raises(PostingError):
+        attempt(valid.id, "Different Company")
+    valid.is_active = False
+    db.commit()
+    with pytest.raises(PostingError):
+        attempt(valid.id, "Local Co")
+    valid.is_active = True
+    db.commit()
+    monkeypatch.setattr(bill_posting, "permission_allows_user", lambda *a, **kw: False)
+    with pytest.raises(PostingError):
+        attempt(valid.id, "Local Co")
+    assert db.query(GLTransaction).count() == 0
+    assert db.query(Bill).count() == 0
+
+
+@pytest.mark.accounting
+def test_manual_bill_never_links_vendor_implicitly(db: Session, monkeypatch):
+    org, admin, _ap, expense, cash = seed(db)
+    company = Vendor(organization_id=org.id, company_name="Plumber", is_active=True)
+    db.add(company)
+    db.commit()
+    monkeypatch.setattr(bill_posting, "permission_allows_user", lambda *a, **kw: False)
+    bill = create_bill(db, org, admin, expense, cash)
+    assert bill.vendor_id is None
+    assert bill.payee_name == "Plumber"
+    assert db.query(GLTransaction).count() == 1

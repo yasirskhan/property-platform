@@ -1,4 +1,217 @@
+## 2026-10-24 | Latest predecessor VERIFIED; next acceptance candidate requires own CI
+- `02fdd0b171daae45320a5a1dafb7c8d67baa6369` / Actions `40060920637`: **ALL SIX SUCCESS**, including real PostgreSQL concurrent reviewed recovery, audit-failure rollback, retained partial work, and UI reset/retry. Historical failures remain failed.
+- A separate unpublished successor prepared after this verified SHA includes new P5-PM-05 per-original-work-order immutable recovery receipts, foreign actor and orphan audit fail-closed checks, and P5-INSP-04 same-device multi-tab offline draft preflight prior to independent review. It needs its own six exact-SHA jobs and actual operator/security/restore acceptance. P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-INSP-04, P5-PM-05, P5-PROC-06, P5-FIN-07, P5-ACC-08 remain OPEN. Production dispatch/provider/finance release OFF.
+
+---
+
+## 2026-10-24 P5-PM-05 | Every committed reviewed recovery occurrence has a scoped receipt | PREPARED, CI REQUIRED
+
+The preceding P5-PM-05 recovery SHA `02fdd0b171daae45320a5a1dafb7c8d67baa6369` started GitHub Actions run `40060920637`; require its six individually SUCCESS before promoting this successor. The new successor adds a distinct immutable audit for EACH successfully committed recovered due work order, linking it to the first root work order and operator's original recovery reason. Each write commits atomically with existing original occurrence/work order proofs; partial failure cannot mark failed occurrences committed. Staff can inspect scoped original-provenance-verified recovery receipts with exact work-order links, without leaking mismatched, forged or foreign IDs. Backend and authenticated browser regressions cover full receipt chain, authorization, tampering and partial-run behavior. Historic records created before per-occurrence receipts cannot be retrospectively claimed to have a full batch manifest. No financial posting, automatic dispatch, external delivery or tenant entry right. All eight P5 requirement IDs remain OPEN pending full external and operator acceptance.
+
+---
+
+## 2026-10-24 | Reviewed preventive backlog recovery | P5-PM-05 | EXACT CI REQUIRED
+- Verified predecessor `eb0f9b43f2d5e0d5736b4250f9d8c0752b2f1cb7`, run `40050843752`: backend, frontend, platform-admin, security, e2e, staging-config ALL SUCCESS. Earlier original-occurrence reconciliation prepared-only references are superseded by verified source.
+- New published implementation `8970d68e9350f69eccaa34620e111705d1a64d54`; run `40058174471` requires all six final job outcomes. Its operator flow verifies original occurrence history again under lock, denies a stale expected cursor, requires a reason, persists independent reason audit with the first original due work order, and provides a reviewed confirmation UI. Negative auth/foreign/stale/replay and authenticated browser tests are in source. This is NOT independently approved financial authorization.
+- P5-AUTO-01, P5-DLV-02, P5-ESC-03, P5-INSP-04, P5-PM-05, P5-PROC-06, P5-FIN-07, P5-ACC-08 remain OPEN. No operator restore/security signoff, supplier delivery, tenant liability, messaging, autonomous dispatch or financial posting is claimed. All production switches OFF. Phase 6 Messaging remains gated by actual Phase 5 acceptance.
+
+---
+
+## 2026-10-24 Phase 5 reconciliation: exact verified green source + new P5-PM-05 candidate
+- Verified GREEN: prior P5-PROC-06 read-only unposted usage-cost preview `dde4b91a4639535b34f1d49d537abf6068b25f2b` / Actions `40048458692`, **all six required jobs SUCCESS**. Prior preview `b75abee7` / run `40046131465` failed backend (immutable audit update in new regression) and security (transitive vulnerable Zod 4.6.5); correction preserved triggers and patched both app lockfiles to 4.6.6 without advisory exemptions. Historical red remains red.
+- New P5-PM-05 original preventive occurrence recovery audit **CODE PREPARED, OWN CI REQUIRED**: a scoped, read-only full-history reconciliation of up to 500 occurrence rows INCLUDING orphan/cross-organization/cross-property invalid rows hidden from normal paginated history, independent signed original generation proof + work order identity, tenantless/entry/financial safeguards, cursor integrity. Authenticated staff UI and five backend+browser tests. 500+ fails closed; this is not scheduler disaster-restore certification, production worker release, or human/operator signoff. No new work orders/dispatch/money.
+- Phase 5 remains OPEN, all eight outstanding requirement IDs preserved. Do not advance Phase 6 or enable production/external providers.
+
+---
+## 2026-10-23 P5-PROC-06 next internal multi-line batch source saved detached. Adds atomic group request and independent whole-batch Owner/Admin review, original audited line provenance, per-line physical receipt/issue/reversal using existing mechanisms, org/property scope, immutable batch mapping, migration e4a19d7f6c31 and UI/tests. Does NOT implement externally placed PO, supplier fulfillment/receipts, GL inventory valuation, payable, settlement, tenant charges or production release. Parent variance 9e1e9e318 run39924753728 was pending all-six CI at preparation. Candidate must pass its OWN six jobs; P5-PROC-06 and all eight Phase5 accepted IDs remain open.
+
+---
+
+## 2026-10-23 | P5-PROC-06 PHYSICAL DISCREPANCY WORKFLOW — PUBLISHED IMPLEMENTATION, EXACT SHA CI PENDING. Real internally attested physical stock variance request, separate Owner/Admin approval/denial, independent recovered-stock certification, append-only tables/triggers, real organization/property/role scope and original audit verification. Approval alone decrements available units; confirmed recovery restores units, immutable originals retained. Current customer UI, backend unit, database bootstrap/upgrade/real PostgreSQL race and authenticated browser tests included. **No supplier delivery, vendor acknowledgment, financial posting or tenant charge.** Predecessor stock issue and reversal `2b781607` / CI `39891681804`: ALL SIX SUCCESS. This successor must pass all six on its own exact SHA; P5-PROC-06 and Phase 5 remain OPEN.
+
+---
+
+## 2026-10-22 | P5-PROC-06 physical discrepancy independently approved recount and restoration — SAVED DETACHED, NOT VERIFIED: New immutable proposal/decision/restoration PostgreSQL+SQLite ledger, separate witness and independent reviewers, approved-only stock shrinkage, independent recovery, per-order source locking and reserved-stock conservation; staff review/recovery UI and backend/E2E/migration tests. No GL/payables/tenant charge/supplier confirmation. Parent source 3817abd1/run39865980062 pending exact six-job hosted CI. Do not promote this successor before its predecessor is green; audit/restore/operator acceptance of this candidate also pending.
+
+---
+
+## 2026-10-22 | P5-PROC-06 usage versus financial release gap
+Documented predecessor procurement physical receipts are published but not CI verified: run39778085927 FAILED 3 backend migration/bootstrap expectations, repairs 9e02224c backend FAILED and 54c4163a E2E FAILED; 2bd98911/run39852464256 security FAILED; f33e3a12/run39853320347 security FAILED for platform-admin; c3dd281a/run39853694091 patches both app locks and awaits six-green. Independent attached DETACHED issue/usage + reversal backend/UI/tests builds only on authentic physical receiving from that source, denies cross-property and foreign actors, preserves conservation and idempotent retry. A saved PostgreSQL multi-session test competes stock issues and independent reversals; an additional test exercises revoked manager and same-SKU purchase-source totals. These are UNVERIFIED until the candidate exact six-job CI. No external supplier confirmation, stock valuation GL entry, bill, payment, tenant charge or production issue release. Full procurement line items, external/operator/security/restore acceptance and P5-FIN-07 remain OPEN.
+
+---
+
+## 2026-10-22 | Verified preventive bounded catch-up versus unresolved PM acceptance
+P5-PM-05 source 2d709e9e / run39774116416 has all six required hosted jobs SUCCESS: staff manual up-to-12 occurrence catch-up, tenantless/no-charge, replay and browser test. This confirms this bounded workflow, not later scheduler restore/production acceptance, stock, external messaging or finance. Continue approved dependencies.
+
+## 2026-10-22 | P5-PROC-06 controlled physical stock, deferred commitments
+A first single-line, property/work-order-bound material procurement workflow is saved as an inspectable DETACHED successor of 2d709e9e. Request idempotency, live org/property/vendor scope, independent Owner/Admin approval, manual physical receipt with exact references and reversible append-only stock movements are coded with staff UI, migration and backend/browser tests. This is internal attestation only: NO supplier message/delivery confirmation, stock issue/consumption, multishipment supplier acknowledgement, multi-line purchase order, invoice, payables, GL posting, tenant charge or production release. Independent vendor contracts and operator/restore/security approval require external evidence. Separate hosted CI is mandatory before even the internal slice is VERIFIED.
+
+## 2026-10-22 | Phase 5 independent unresolved acceptance
+P5-INSP-04: Photo upload acknowledgment must be bound to exact org/inspection/byte digest before local deletion. Published f192562d is pending exact six-job CI. Device-local IndexedDB photos remain readable without encryption, require manual sync, and do not establish cross-device or full mobile acceptance.
+P5-PM-05: Bounded authorized recovery of multiple overdue maintenance occurrences with tested retries and persistent history has an inspectable DETACHED candidate after f192562d. It still requires publication and all six hosted jobs. Backend creates tenantless uncharged work orders only; no dispatch, payroll or delivery.
+P5-PROC-06 purchase approvals, receiving/stock and cost allocation plus P5-FIN-07 ledger posting/reversal are independently unfinished. Real providers, payment credentials, operator acceptance, restores and security signoff remain external gates; do not fabricate successful acceptance.
+
+---
+
+## 2026-10-21 | Offline capture gap
+Explicit local draft/manual authenticated sync is prepared, not published. Sensitive images reside on the local device without server-side encryption; warn users and do not claim secure managed offline sync. Cross-device transfer, mobile lifecycle, storage eviction, operator acceptance remain OPEN.
+
+## 2026-10-21 | Frozen inspection photo evidence review manifest — CURRENT EXACT CI REQUIRED
+
+Source 7daf7132/run39703229920 has all six jobs SUCCESS for photo byte integrity, duplicate retry, review audit snapshot and safe scope. New substantive successor adds scoped sealed-manifest API/UI with real-byte status, deny after revocation, audit-failure rollback/retry, review preflight against corrupted photos, and backend/browser regressions. The successor is published but NOT VERIFIED until its own exact six-job CI succeeds. Offline synchronization, operator signoff and full P5-INSP-04 acceptance remain OPEN. All production releases OFF.
+
+## 2026-10-21 | Private inspection evidence integrity and immutable review manifest (CI REQUIRED)
+
+Original upload/list/download and private review seal VERIFIED at 6c49d985/run39699253318 all six SUCCESS. New successor adds corruption checks on read and replay, atomic exclusive storage, retired-inventory/limit validation, review-time ordered photo ID/hash manifest in immutable audit and authenticated browser upload/review assertions. Requires six-green on exact successor; P5-INSP-04 offline and operator acceptance remain OPEN. No unattended dispatch, settlement, or release.
+
+## 2026-10-21 | P5-INSP-04 evidence and offline gap
+
+New photo evidence upload/review seal is a candidate requiring six-job CI and is not offline synchronization or operator approval. Virus scanning, source-mobile capture resilience and complete acceptance remain open; no automatic release.
+
+## 2026-10-21 | Preventive recovery successor pending exact CI
+
+Bulk authorized health review is VERIFIED at 07dbcbfe, run 39677973524 (six SUCCESS). New blocked-only operator recovery UI/reason codes and post-revocation replay regression require exact successor six-job CI. This closes neither the complete PM recovery acceptance nor operator-release/financial/provider dependencies.
+
+## 2026-10-21 | Preventive execution recovery gap
+
+The verified ce3bfe31 schedule inbox now supports scoped title/due filters. Prepared bounded bulk health review and existing reasoned operator takeover are not autonomous dispatch or evidence of complete PM recovery; pending full successor CI, worker retry/fault recovery acceptance remains OPEN. No finance, external delivery or tenant charges authorized.
+
+## 2026-10-21 | Preventive schedule paging repair candidate (unpublished)
+
+The staff scheduling UI already supports load-more, but the HTTP schedules list route ignored the requested limit/offset. Detached candidate b0d692a970dc8dc2264fe58e355a4704e15e32f4 forwards validated pagination to existing role/org/property-scoped service, shows the loaded count, and adds backend negative and authenticated browser regressions. This is NOT final P5-PM-05 acceptance, unattended delivery, or a published/verified feature. Latest source and CI must be checked before publication.
+
+## 2026-10-21 | Phase 5 inspection review progress (unverified)
+
+Prepared independent, immutable review decision and linked staff UI for existing inspection records. Remaining Phase 5 inspection requirements include photos/attachments, offline capture/sync safeguards, broader reviewer acceptance, and integration validation. This candidate is not complete or CI verified. Autonomous dispatch, external delivery, escalation, materials/procurement and financial settlement remain open.
+
+---
+
+## 2026-10-20 | Due crew-response system attention — DETACHED / FULL CI REQUIRED
+
+Prepared an end-to-end in-app maintenance dispatch escalation *attention* workflow: additive migration b8f2a91c4d65 (213 model tables), system-attributed immutable notice per exact work-order assignment timestamp, organization/property/crew and current policy revalidation, exclusive group opt-in, per-rule escalate and timeout, verified original staff-confirmed policy offer, and stable PostgreSQL property→work-order lock ordering. A five-minute ARQ cron reserves durable recovery-capable JobRuns only when operator deployment setting DISPATCH_AUTO_REVIEW_ENABLED is explicitly on; default is OFF. Worker retries cannot duplicate a notice because (work_order_id,assigned_at) is database-unique. Real staff dispatch attention API and responsive UI show the persisted system notice without inventing a message, recall, accepted offer, tenant charge or vendor invoice. Negative/idempotence/backend plus authenticated Postgres/browser workflow regressions prepared. This is NOT external provider delivery, timed backup contact or autonomous crew assignment; P5-AUTO-01, P5-DLV-02, P5-ESC-03 remain OPEN. Publishing must wait for six-job green predecessor SHA 7c9cece747d829f4ca8ac0b59aceff81cba216d7 (GitHub run 39536297032), then fast-forward expected-SHA CAS and another full six-job CI. Do not touch main/Zargul.
+
+---
+
+## 2026-10-20 | Operator-confirmed policy-guided crew offer — IMPLEMENTATION / CI REQUIRED
+
+The first executable per-property Smart Dispatch policy path is an explicit staff-confirmed in-app offer, backed by revalidation of authorized actor, active Unit/Property, configured group/urgency/local-hours primary CREW policy, and live assigned on-call crew. Work order, existing offer and policy snapshot are auditable and share the existing commit. The Owner/Admin settings and manager work-order UI are linked; no external message, timer or automatic attempt is represented as delivered. Backend plus browser regressions must pass all six CI jobs at the exact successor SHA. See `docs/PHASE5_ACCEPTANCE_AND_ISSUES.md` for open autonomous dispatch, delivery, escalation, inspection, procurement, inventory and financial acceptance requirements. Do not close Phase 5.
+
+---
+
+## 2026-10-20 | Audited manual dispatch review cases — SIX-JOB CI REQUIRED
+
+Built user-facing maintenance dispatch follow-up cases with Owner/Admin/real assigned Manager controls, persisted reason and independent closure explanation, immutable old/new audit entries, one OPEN case per work order database constraint and historical closed cases. Current work-order/property/unit/organization checks prevent foreign, tenant, crew or revoked access; retired property blocks new review creation while authorized historical cases remain closable. Database migration d7a1c0e948b2 (212 model tables), schema/API, UI link from dispatch inbox, backend duplicate/isolation/retirement tests and browser create/close acceptance. No messaging, automatic timeout execution, crew recall, vendor confirmation, tenant fee or invoice is implied. This is an incremental manual operator workflow only. CI exact SHA must be fully green. Further unfinished Phase 5: real dispatch executor/delivery retry/confirmation, independent approvals, inspections, purchasing/materials and finance controls.
+
+---
+
+## 2026-10-20 | Effective dispatch group/policy resolution on actual work-order readiness — PREPARED / HOSTED CI REQUIRED
+
+The work-order readiness API now selects the real property-specific maintenance dispatch group (exclusive override or inherited DEFAULT), maps emergency/normal/low urgency, and computes business-hours or after-hours using validated IANA timezone and Monday-Friday local office hours. The selected saved policy is returned as an **advisory** preview with explicit configured/missing state, timeout, first/backup targets and escalation preference; group absence and missing rules do not invent routing or contact. The work-order page displays effective group and urgency policy to authorized management without claiming automated dispatch, provider delivery, countdown, expense or payment. Fail-closed guards block malformed foreign-organization bindings and invalid stored timezones. Deterministic time-zone/weekend/regression checks plus API authorization tests were prepared. First verify the group-settings parent and all six CI jobs at its exact published SHA; then publish and verify this independent child batch. Remaining: actual timed offer execution, delivery/provider confirmations, escalation, recovery and vendor compliance.
+
+---
+
+## 2026-10-20 | Phase 5 Smart Dispatch: maintenance groups and owner-controlled policy settings — PREPARED / HOSTED CI REQUIRED
+
+Built organization-scoped maintenance dispatch groups, a persisted DEFAULT group, exclusive property-to-group overrides with fallback to DEFAULT, validated IANA timezone and business-hour configuration, and six independent urgency (emergency/normal/low) × period (business_hours/after_hours) policies per group. Settings include first/backup target, timeout, escalation preference, and validated active Owner/Admin contacts. Only Owner/Admin may view or mutate settings. Real property membership is verified on write; every material modification has before/after audit evidence and default group creation is idempotent. Added migration `c9e52d4f1b78` (3 new tables, total expected 211), model registry, backend negative tests, authenticated browser E2E, and responsive Owner/Admin UI linked from the on-call calendar. This is **configuration only**: no automatic delivery, executed escalation, vendor contact, tenant charge, payroll or finance posting. Do not mark COMPLETE until all six hosted CI jobs pass on the exact published SHA. While this batch is not yet published or verified, the prior on-call offer recovery commit must first pass hosted CI.
+
+---
+
+## 2026-10-20 | Live on-call crew readiness and explicit in-app offer — IMPLEMENTED / HOSTED CI REQUIRED
+
+A scoped, read-only work-order dispatch-readiness API now resolves the eligible crew physically on call at the current UTC time, validating organization, active crew role and live property membership, rejecting overlapping corrupt coverage, and showing limited coarse-insurance ranked preferred vendor fallbacks. Authorized staff can explicitly offer an acknowledged work order to that on-call crew using the established assignment transaction. A property-row lock serializes against shift cancellation/schedule edits; a work-order lock protects competing assignment decisions; exact selection evidence and the pending crew assignment are committed together. Owner/Admin/Manager work-order detail includes readiness and a clearly labelled in-app offer action. No external SMS/call/email is sent or marked delivered; no tenant access, invoices, charges, payments or payroll. Negative regressions cover foreign/tenant/crew access, revocation, retired locations, expired/cancelled shift, corrupted overlaps and pending-offer duplication. Must verify six hosted CI jobs at exact published SHA before calling VERIFIED. This is not automatic Smart Dispatch, group policies or timed escalation.
+
+---
+
+## 2026-10-20 | On-call calendar direct property scheduling — DETACHED / CI GATED
+
+The seven-day on-call calendar can now schedule and cancel coverage directly, with no unrelated work order required. Bounded GET /work-orders/on-call-property-roster provides up to 200 active organization/manager-assigned properties and their currently active, same-org CREW assignments, never any tenant or financial details. POST /work-orders/on-call-property/{property_id}/shifts and POST /work-orders/on-call-property/{property_id}/shifts/{shift_id}/cancel reuse the SAME property row lock, validation, no-overlap/idempotency and immutable audit as the work-order entry path; cancellation remains accessible on retired properties to preserve safe recovery. Live manager role/property checks deny revoked assignments and foreign companies. Crew see only their own shifts through the read-only calendar; tenant cannot list or modify. Responsive UI chooses property/crew/date, saves, navigates weeks and cancels with a required reason. Backend security/idempotency regression and authenticated browser scenario cover direct calendar schedule, view and cancellation. No messaging, auto-dispatch, payroll or tenant charges. Preceding vendor CI 39473257249 on d8e38abc430875f917a075d2fac05b35a65b622c requires all six SUCCESS before exact-SHA publish of successor.
+
+---
+
+## 2026-10-20 | Phase 5 seven-day on-call calendar — DETACHED / CI REQUIRED
+
+Extended the primary on-call crew shift candidate with a cross-property responsive seven-day calendar at /dashboard/maintenance/on-call and read-only GET /work-orders/on-call-calendar. Server applies actual organization and property scope; Admin/Owner see their organization's on-call coverage, Manager sees only currently assigned properties and Crew sees only their own shifts with current property assignments. Tenants/foreign organizations, inactive/deleted staff, and revoked assignments cannot read coverage. Bounded date range (1–31 days, within one year), maximum 500 returned records, optional cancelled history; overlaps at day boundaries appear in every relevant day. The UI navigates weeks, filters cancelled history and labels UTC date boundaries separately from local display times. Queue links to calendar only for eligible roles. Authenticated browser test confirms staff scheduling, calendar display and cancellation; backend negative tests cover tenants/other org, manager/crew revocation and cancelled history. No automatic dispatch or on-call notifications. New table/migration a0c7d4e19f32, expected 208 model tables. Parent preferred-vendor CI must finish all six green at exact SHA before safe branch promotion and successor six-job CI.
+
+---
+
+## 2026-10-20 | Phase 5 primary on-call crew shift scheduling — DETACHED / CI REQUIRED
+
+Prepared a complete staff-facing property-level primary on-call shift configuration with schedule creation, conflict checking, review, cancellation and retained audit. New migration a0c7d4e19f32 after d3f7c0a198be stores schedule UTC timestamps, property/crew/organization FKs, original scheduler and reasoned cancellation. Active Admin/Owner or currently assigned Manager schedules only eligible active, same-organization CREW on the real property; creation locks the actual property and rejects overlapping noncancelled shifts, invalid/past/timezone-free windows and retired locations. Identical replay returns the original without duplicate audit, while cancellation is append-only event/history with idempotent same-reason retry. Separate saved cancellation preserves the underlying shift evidence. Staff work-order detail can select existing property crew, create 1–72-hour future coverage and cancel with mandatory reason. Backend regressions cover roles, foreign/other-property isolation, overlapping shifts, revocation, cancelled replay and audit counts; browser E2E creates then cancels via staff panel. Additive SQLite/PostgreSQL/bootstrap model parity expects 208 tables. No automatic dispatch, emergency alerting, vendor outreach or financial posting. Publish only after preceding preferred-vendor CI all six SUCCESS against exact SHA, then run and verify successor six-job CI.
+
+---
+
+## 2026-10-20 | Preferred-vendor insurance-readiness labels — DETACHED / CI GATED
+
+Vendor ranking now surfaces existing insurance status (CURRENT, EXPIRING_30_DAYS, UPCOMING, EXPIRED or MISSING) in the staff candidate picker and ranked choices. Insurance policies are retrieved only for same-organization active vendors; the maintenance API returns coarse status only, never carrier, policy number, coverage amount or private certificate evidence. Existing expired/expiring status takes conservative precedence across multiple active policies. Missing or expired insurance is a warning, NOT automatic dispatch approval or a newly invented vendor eligibility decision. A backend regression verifies current, expired and missing states and UI shows the labels. No automatic vendor outreach, spending, work-order posting or tenant charges. Parent 8a27379a40520b2665e3049c7fccce88610faa20 run 39463404881 must be fully six-job green before safe promotion, followed by this successor CI.
+
+---
+
+## 2026-10-20 | Phase 5 ranked property/trade preferred vendors — DETACHED, CI GATED
+
+Prepared end-to-end configuration for up to three ranked, distinct eligible vendor companies per property and maintenance category. Authorized active Admin/Owner/assigned Manager can list active vendor candidates, read rank 1–3 and update rankings from the work-order detail; save is serialized by the PostgreSQL property row lock, with unique database rank/company constraints, idempotent replay, append-only old/new audit and scoped activity. Strong live organization/property/unit, vendor active/not deleted, trade-match, and role/manager property assignment validation; tenant/crew/foreign users cannot list or edit. Inactive vendors are not recommended. Manual changes do not dispatch staff, notify vendors, approve contractor payments, grant unit access, or charge tenants. New Alembic revision d3f7c0a198be after b5d0c8e7a214, SQLite/PostgreSQL/fresh schema parity update (207 tables), backend denial/idempotency tests and authenticated UI save regression. Parent pending time correction inbox must have six green GitHub CI jobs on exact SHA before expected-head nonforce promotion, followed by successor full six-job verification. Future: on-call schedules, urgent dispatch rules, approvals, procurement, inspection and accounting.
+
+---
+
+## 2026-10-20 | Crew time independent reviewer identity — REGRESSION ADDED, CI GATED
+
+Correction approval now explicitly denies reviewer ID equal to original correction requester ID, even if the user's role changes from CREW to MANAGER after submitting the request. This hardens the existing independent-review requirement; review still checks live organization/property scope, and the rejection does not mutate the correction or append an approval audit. A role-change regression proves an independent manager can still approve. Include in successor CI before calling approval inbox COMPLETE.
+
+---
+
+## 2026-10-20 | Phase 5 pending crew-time approval inbox — DETACHED / CI GATED
+
+Follow-on to published 4d0315216abde01ca7be74db5724e1deed0fa982 (crew original/reviewed time summary; hosted CI 39455507549). Adds a staff-only pending time correction inbox on the maintenance work orders page and GET /work-orders/time-corrections/pending, sorted oldest-first with bounded paging. The API joins actual Unit to Property and enforces organization and manager's live property assignment; crew/tenant and cross-organization access are denied. Cross-work-order or wrong-crew correction references are excluded. Each request links to the work order's existing independent approve/deny workflow. Backend regression and authenticated browser test cover scoping and discovery. No payroll, tenant billing or accounting posting. Only publish after predecessor all-six green, exact-head nonforce CAS and successor CI.
+
+---
+
+## 2026-10-20 | Phase 5: reviewed crew-time summary — CI GATED
+
+Predecessor 2f4418a5d07bdfd4c0e27d0fff59c72d2d621d3c passed six required hosted CI jobs in run 39450921066. Current successor provides a bounded and role-scoped read-only original-versus-reviewed time summary for each work order. Original recorded minutes never change when management approves a time correction; the summary separately counts latest approved corrections and pending reviews. Role and organization checks deny tenant, foreign and revoked property personnel. This is operational evidence, not payroll approval or a tenant charge. The staff UI refreshes counts after entries, correction requests and decisions, with backend and authenticated browser regressions. New successor must pass exact-SHA six-job CI before VERIFIED. Further Phase 5 inventory, purchase approvals, inspections and dispatch automation are unfinished.
+
+---
+
+## 2026-10-20 | Phase 5 crew-time correction workflow — CI GATED
+
+Crew-original time evidence remains immutable. Assigned original crew may propose amended completed work intervals with a required explanation; an independently authorized organization admin/owner or live property manager must approve/deny with separate reason. Pending request retries are idempotent, overlapping crew time evidence cannot be approved, role/revocation/tenant isolation and actual unit/property/org scope are enforced under work-order row lock, both actions append work-order activity and immutable old/new audit. Correction decisions never edit original time entries and never post payroll or tenant charges. Additive Alembic b5d0c8e7a214 plus SQLite/PostgreSQL/bootstrap parity and regression coverage. Repairs malformed PostgreSQL dollar quoting in prior crew time trigger migration. Six hosted CI jobs required before VERIFIED.
+
+---
+
+## 2026-10-20 | Crew completed time interval records — DETACHED / CI GATED
+
+Delivered candidate end-to-end crew time evidence workflow: active assigned crew can add completed timezone-aware start/end periods while a work order is in progress, with bounded 1–1440 whole-minute intervals, overlap denial, identical replay idempotency and work-order row lock. Role/property/organization checks deny tenant/foreign visibility; admin/owner/manager have paged read-only history. Records use a dedicated FK-bound table with duration and chronology constraints and immutable old/new audit reference (not payroll, invoices, expenses or tenant charges); no POST endpoints to edit/delete a recorded interval. Staff detail view shows history and crew input controls; backend and browser tests cover saving and safeguards. Migration f4b82c1a9d60 is additive with guarded downgrade and model/bootstrap parity. Ongoing time-clock shifts, approvals and money posting remain out of scope. This descendant is detached and must pass hosted six-job CI after its predecessors.
+
+---
+
+## 2026-10-20 | Crew arrival ETA after acceptance — DETACHED / CI GATED
+
+Approved crew portal requirement: current property-authorized crew must first accept assignment, then may record/update a timezone-aware, future arrival ETA (bounded to 30 days) on an unstarted active-property/unit job. Timestamp is normalized to UTC on write and visible to authorized work-order viewers, with before/after append-only audit, activity and same-timestamp idempotency. A new/recalled/rejected dispatch clears the active ETA, preserving prior audit. New additive migration a6c8d0e24519 has guarded downgrade and SQLite/PostgreSQL/bootstrap checks; role, invalid ETA, status transition, browser save tests included. This feature does not provide an automatic tenant alert, ETA SLA promise, on-call rotation or GPS tracking. Prepared descendant, NOT published or verified until predecessor and successor six-job CI pass.
+
+---
+
+## 2026-10-20 | Revalidate active inventory at crew acceptance/start — DETACHED
+
+Regression closes the gap when a property or unit becomes inactive or soft-deleted AFTER an offer was made: active crew cannot accept or start new work until location is active again. Existing historic view and rejecting stale offers remain available; no financial posting or tenant consent is altered. Tests cover four retirement flags, accept, start, restoration and immutable audit count. Prepared descendant of the unverified staff recall candidate; hosted all-six CI required.
+
+---
+
+## 2026-10-20 | Staff recall of unstarted dispatch — DETACHED / CI GATED
+
+Authorized admin, owner or current-property manager can recall an unstarted crew offer (pending, accepted or historical NULL) with a required explanation. Row-lock serializes against crew accept/reject/start; recall returns the order to acknowledged, clears assignment and leaves distinct "recalled" response rather than falsely attributing a crew rejection. Activity and append-only old/new audit preserve actor, previous crew/response and reason in one transaction. Recalled work has scoped queue filter/summary, staff UI and browser/backend tests; tenant/crew/foreign/revoked manager cannot recall; started work is immutable to this operation. No funds, consent or recurring schedule are changed. Prepared successor of dispatch commit 4186419abd9213522b027d66af5311036ef3e4f3, not published or verified until predecessor and successor six-job CI pass.
+
+---
+
+## Phase 5 operational recovery and crew decisions (2026-10-20)
+
+Preventive execution becomes transferable without rewriting immutable creator attribution. The per-schedule execution operator is scoped to the actual organization/property and validated on each daily sweep; staff have read-only execution health and an audited recovery action. Migration `c4b7e2f9a601` and browser/backend regressions await exact hosted CI verification.
+
+Next dispatch foundation uses distinct pending/accepted/rejected crew assignment responses and row-lock serialization, requires rejection reason, and returns rejected orders to the authorized manager queue with full audit. Existing assigned work orders with NULL response remain startable to avoid forging acceptance. Prepared additive migration `e1b9c7d2a540` must be published and six-job CI verified before release.
+
+**Still missing:** dispatch groups/urgency and business-hour policy, notifications, SLA clocks/escalation, on-call calendar, ranked preferred vendors and recovery; full inspections, materials, purchasing, invoice integration. An assignment response is not proof the full dispatch subsystem is complete.
+
 # PLAN GAPS
+
+> **Engineering order update — 2026-09-23:** Phase 3.4.S Engineering Safety Foundation now sits between registry completion (3.4.2) and implementation phase 3.4.3. Core launch work takes priority over specialized expansion products. Hybrid Capability Gating replaces per-field flagging. See PROJECT_MASTER Sections 70, 79, 80, 82, and 84 plus ENGINEERING_SAFETY.md.
+
 
 **Supplement to PROJECT_MASTER.md**
 **Last updated: 2026-09-22**
@@ -255,22 +468,44 @@ Each gets its own sub-phase with its own section in the master doc.
 
 ## C6. Migration tooling
 
-**Decision:** Two-sided.
+**Decision:** Two-sided, with export/import as the primary safe path.
 
 **Org side (customer-run):**
-- CSV importer with column mapping, dry run, commit
+- Generic CSV importer with column mapping, dry run, commit
 - Standard templates for properties, units, tenants, owners, leases,
   charges, payments, GL history
 - **Phase 4.**
 
-**Our side (platform-run):**
-- Direct API migration from AppFolio — **Phase 4.13**
-- Direct API migration from Buildium — **Phase 4.14**
-- Direct API migration from Yardi — **Phase 4.15**
-- Direct API migration from RentManager — **Phase 4.16**
-- Direct API migration from DoorLoop — **Phase 4.17**
+**Provider migration side (platform-run):**
+- AppFolio export migration — **Phase 4.13**:
+  - CSV/XLSX upload is the primary supported migration transport;
+  - report/file detection, column mapping, staging, validation and coverage;
+  - stable source-ID linking across files;
+  - possible-match review rather than automatic overwrite;
+  - exact-fingerprint dry run before controlled commit;
+  - accounting reconciliation before financial history is committed;
+  - missing/ambiguous data is surfaced for review, never invented.
+- AppFolio API transport is an **optional later adapter/testing path** feeding
+  the same staging/dry-run/commit pipeline. It must not block Phase 4.13 and
+  must not use undocumented browser/session endpoints as production transport.
+- Direct/API-assisted Buildium migration — **Phase 4.14**
+- Direct/API-assisted Yardi migration — **Phase 4.15**
+- Direct/API-assisted RentManager migration — **Phase 4.16**
+- Direct/API-assisted DoorLoop migration — **Phase 4.17**
+  - **2026-10-18 VERIFIED source-independent foundation** (SHA `8323b120`, CI `39152511094`): secured DoorLoop
+    DRAFT run creation/list/get and audit, nonpersistent bounded CSV/XLSX export
+    inventory, exact-file-fingerprint read-only source-quality diagnostics,
+    staff roles and provider/active-organization isolation. See
+    `docs/DOORLOOP_MIGRATION_PLAN.md`. The new role-gated Platform Admin DoorLoop export-review
+    UI is separately provisional pending exact-SHA CI. Actual customer imports stay
+    blocked by authorized, versioned source exports and verified resource,
+    relationship and accounting contracts.
 
-**Cost:** 1–2 sessions per competitor.
+Detailed Phase 4.13 contract:
+`docs/APPFOLIO_MIGRATION_IMPORT_PLAN.md`.
+
+**Cost:** Phase 4.13 continues in bounded verified batches; later provider
+adapters remain separately estimated.
 
 ## C7. Trust account interest
 
@@ -294,13 +529,19 @@ the bank rejects any check not on the list.
 
 ## C9. 1099 e-filing
 
-**Decision:** Provider-based. **Track1099** or equivalent. Handles
-IRS FIRE system, e-delivery, corrections.
+**Decision (2026-09-26):** Use IRS IRIS (Taxpayer Portal / approved A2A) or
+Track1099 or an equivalent supported provider. FIRE retires for the 2027 filing
+season; do not generate legacy FIRE submissions for tax year 2026. Bring secure
+payer/recipient tax profiles and W-9 intake ahead of Phase 3.7 filing; keep
+actual transmission, recipient delivery, corrections and provider workflows
+in the Phase 4.5 integration scope until verified. Follow the applicable tax-
+year IRS instructions and do not infer reportable payments from raw GL totals.
 
 - Vendor 1099-NEC (non-employee compensation)
 - Owner 1099-MISC (rent paid directly to individual owners, when
   applicable)
-- W-9 collection + tracking + expiration alerts
+- Secure W-9/tax-profile intake and tracking: prerequisite pulled into Phase 3.7;
+  provider e-delivery/corrections/retention/expiration alerts remain Phase 4.5
 
 **Phase:** **Phase 4.5.**
 
@@ -445,3 +686,66 @@ ships by flipping a flag. No more loops.
 ---
 
 # END OF PLAN_GAPS.md
+## Open Phase 5 maintenance attribution issue (2026-10-19)
+
+**Priority: blocking recurring generation.** `WorkOrder.tenant_id` is NOT NULL and manual staff creation still writes the staff user ID there for backward compatibility. Additive `request_origin` and `requested_by_user_id` now exist, but a complete reader/API/finance/report consumer audit and safe nullable-tenant migration are not yet implemented. Explicit tenant-origin records must not disclose to a tenant unless requested_by_user_id matches that tenant; historical unknown provenance remains compatibility-scoped. Do not create automated orders with fabricated tenant IDs. Planned: complete model/schema migration, recurring schedule/occurrence unique keys, on-call dispatch policies, inspections/inventory and billing integration behind separate authorization and audit gates.
+
+## Phase 5 inspection checklist gate (prepared 2026-10-19)
+
+A bounded signed-in staff checklist form and storage/read/report workflow is prepared in detached code, not verified. Five checklist areas record per-item condition and optional notes, with immutable evidence and append-only audit. The existing staff-only permission and current property/unit scoping remain. Scope explicitly excludes mobile offline sync, photographs, external approvals and the full Inspections feature gate. Must verify additive migration, PostgreSQL regressions, frontend, browser E2E, security and staging at exact SHA before treating this portion delivered.
+
+## Phase 5 staff inspection detail and parent integrity (2026-10-19; CI gated)
+
+Record history/report reads validate stored inspection parent against actual Unit→Property; malformed rows do not leak or masquerade as another property's evidence. Append-only creation audit now contains findings. Read-only scoped GET /api/unit-inspections/{id} and staff detail page keep retired history available to authorized staff while respecting assignment revocations. Tests cover mismatched parent, recovery, forbidden cross-organization/tenant access and persisted browser navigation. This does not enable full inspections, photo/offline or approval features; exact six-job hosted CI required.
+
+## Phase 5 inspection history filters (2026-10-19; detached)
+
+Staff-recorded inspection history can be filtered by recorded condition and inclusive inspection-date range with server-side authorization, bounded pagination, and explicit invalid-range errors. No tenant access, cross-property visibility, automatic evidence, accounting changes or module-wide release. Exact six-job CI required.
+
+## Phase 5 inspection actor identity visibility (2026-10-19; detached)
+
+Authorized staff inspection records show same-organization recorder names in list/detail after access check. Missing/deleted/foreign recorder profiles receive stable-ID fallback, never foreign name disclosure. Bulk list label resolution avoids per-row lookup. Backend negative test covers deliberately corrupt cross-org recorder reference. Requires exact hosted CI; no expanded module authorization.
+
+## Phase 5 inspection history filter and E2E strict locator (2026-10-19)
+
+The entry and filter fields have overlapping accessible labels: browser test must select the entry condition by its exact accessible name, retaining assertions. Prepared authorized-unit history filtering extends condition/date filters with server-scoped unit ID; backend negative tests cover unassigned manager unit, foreign organization and tenant denial. Still pending six-job hosted verification at the exact branch head. Full inspections and recurring scheduling stay gated.
+
+## Phase 5 inspection-to-maintenance follow-up (2026-10-19; detached)
+
+An authorized staff inspection can serve as traceable source evidence for a manually created maintenance work order. New nullable source_inspection_id FK is additive and never backfills invented links. Source inspection ID must be readable by the current staff user and match the selected work-order unit and property, otherwise request is rejected. Tenants and unauthorized organization/property users cannot forge source evidence. The link persists to the existing status-change audit and can be opened from the authorized work-order detail. The UI drafts a request from inspection facts but still requires an explicit user submission; no automatic dispatch, financial posting or tenant charge occurs. Exact hosted CI and permission regressions required before release.
+
+## Phase 5 non-fabricated maintenance tenant identity (2026-10-19; detached)
+
+New staff-originated work orders currently inherit submitting staff ID in legacy tenant_id, which is not a real lease tenant. Prepared revision 5a9e3c7d1b2f makes tenant_id nullable without rewriting old rows and records NULL for new staff submissions. The true staff requester remains in requested_by_user_id and append-only creation audit; tenant submissions still validate active lease/actual tenant. API read types and scope must support absence. Existing WorkOrder migrations/imports are historical evidence-only. No synthetic system identity or tenant charge is allowed when recurrence is later built. Exact six-job CI must pass and downgrade must reject populated tenantless records.
+
+## Phase 5 preventive schedules (2026-10-19; CI gated)
+
+Initial explicit-due foundation: organization-scoped schedule records with property/unit association, interval days, next due, active state, and actor audit. Authorized staff may manually materialize one due occurrence into a tenantless, no-entry-consent, unbilled work order. Duplicate schedule/date prohibited by DB uniqueness; a row-level lock serializes PostgreSQL workers. No automatic scheduler, automatic catch-up, self-service feature release, dispatch, or financial posting. Exact six-job CI is required.
+
+## Phase 5 preventive daily sweep and staff UI (2026-10-19; detached)
+
+Prepared signed-in staff schedule page, per-schedule activity history, duplicate-safe due generation, pause/resume and daily Arq due sweep. The durable scheduled JobRun is per UTC date. Worker reuses the audited occurrence transaction; a per-schedule bounded catch-up of 12 periods prevents unlimited burst. Creator identity, role, organization, active property/unit and manager assignment are revalidated. Automatic work orders neither grant entry permission nor post tenant charges. UTC due policy and full operations/release gates need further refinement before marking complete.
+
+## Phase 5 paused preventive schedule edits (2026-10-19; detached)
+
+Schedules can be paused and their task title, description and repeat interval changed. Editing an active schedule returns 409. The due date and previously generated work orders remain unchanged; all effective changes are audited with before/after values and must pass live role/organization/property-assignment authorization. PostgreSQL row lock protects concurrency with generation; there is no silent financial or tenant effect. Hosted six-job CI remains required, and dispatch/inspections/inventory/purchasing are unfinished.
+
+## Phase 5 bounded preventive schedule lifecycle (2026-10-19; detached)
+
+Staff can pause a schedule, then edit its title, instructions, interval and optional end date. Active edits are rejected, and row locks serialize updates with generation. End dates stop due generation and daily catch-up after the last eligible occurrence without rewriting prior work orders; replay remains idempotent, no tenant rights or charges. Full six-job CI still required. Dispatch, inspection approvals, inventory and purchasing remain open.
+
+## Phase 5 retired maintenance schedule evidence (2026-10-20; detached)
+
+Historical schedules and occurrence work-order references remain readable by current organization-authorized staff even when property or unit is inactive; manager assignments must remain currently valid. Such inventory cannot be used for new recurrence, activation changes, or schedule settings edits. The feature requires six-job hosted CI; automatic dispatch, on-call policy, mobile inspection approval, purchasing and inventory are still unfinished.
+
+## Phase 5 preventive occurrence history paging (2026-10-20; detached)
+
+Staff can load older recurring work-order occurrences in bounded authorized pages, with deduplication and chronological ordering. The history API already enforced unit/property/org scope; backend tests cover pagination and tenant denial. Exact successor six-job CI remains mandatory. Purchase orders, inventory and full dispatch still remain open.
+
+## Phase 5 preventive due preview (prepared; CI gate)
+
+Staff may preview bounded due dates of a current active preventive schedule without creating work orders or financial entries. Pending preview never authorizes entry, vendor dispatch or tenant billing. Corrupted occurrence replay must not reveal other organization's work. All-six exact-SHA CI pending; inventory and purchasing still outstanding.
+
+## Phase 5 preventive replay audit bindings (prepared)
+
+Scheduled generation and replay must never return an unrelated work order as an occurrence even if a database association is corrupted within the same property and unit. The prepared change verifies append-only creation evidence ties exact schedule and due date. Bounded read-only due previews are planned for the same staff-scoped screen; no automatic dispatch, entry consent or billing is granted. Requires exact SHA CI success before delivery.

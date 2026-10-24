@@ -1,0 +1,92 @@
+"""Manual inspection record; explicitly entered evidence, not inferred status."""
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+Condition = Literal["SATISFACTORY", "ATTENTION_NEEDED", "NOT_ASSESSED"]
+ChecklistArea = Literal["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCES", "SAFETY"]
+
+
+class InspectionChecklistItem(BaseModel):
+    area: ChecklistArea
+    condition: Condition
+    notes: str = Field(default="", max_length=500)
+
+    @field_validator("notes")
+    @classmethod
+    def trim_notes(cls, value: str) -> str:
+        return value.strip()
+
+
+
+class UnitInspectionCreateIn(BaseModel):
+    unit_id: int = Field(ge=1)
+    inspection_date: date
+    recorded_condition: Condition
+    findings: str = Field(default="", max_length=2000)
+    checklist_items: list[InspectionChecklistItem] = Field(default_factory=list, max_length=5)
+
+    @field_validator("checklist_items")
+    @classmethod
+    def distinct_areas(cls, items: list[InspectionChecklistItem]) -> list[InspectionChecklistItem]:
+        if len({item.area for item in items}) != len(items):
+            raise ValueError("Checklist areas cannot be duplicated")
+        return items
+
+    @field_validator("inspection_date")
+    @classmethod
+    def observed_date(cls, value: date) -> date:
+        if value > date.today() or value.year < 2000:
+            raise ValueError("Inspection date must be a recorded past or current date")
+        return value
+
+    @field_validator("findings")
+    @classmethod
+    def strip_findings(cls, value: str) -> str:
+        return value.strip()
+
+
+class UnitInspectionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    property_id: int
+    unit_id: int
+    inspection_date: date
+    recorded_condition: Condition
+    findings: str
+    checklist_items: list[InspectionChecklistItem] = Field(default_factory=list)
+    recorded_by_id: int | None
+    recorded_by_name: str | None = None
+    recorded_at: datetime
+    # Current scoped inventory labels for display, not frozen audit snapshots.
+    property_name: str | None = None
+    unit_number: str | None = None
+
+class InspectionReviewIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["CONFIRMED", "FOLLOW_UP_REQUIRED"]
+    notes: str = Field(min_length=10, max_length=1000)
+
+    @field_validator("notes")
+    @classmethod
+    def strip_review_notes(cls, value: str) -> str:
+        stripped = value.strip()
+        if len(stripped) < 10:
+            raise ValueError("Review explanation must contain at least ten characters")
+        return stripped
+
+
+class InspectionReviewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    inspection_id: int
+    reviewer_id: int
+    reviewer_name: str | None = None
+    decision: Literal["CONFIRMED", "FOLLOW_UP_REQUIRED"]
+    notes: str
+    reviewed_at: datetime

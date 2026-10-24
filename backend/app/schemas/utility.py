@@ -87,6 +87,136 @@ class UtilityBillOut(UtilityBillBase):
 
 
 # ------------------------------------------------------------
+# RUBs METER READINGS
+# ------------------------------------------------------------
+class MeterReadingCreate(BaseModel):
+    meter_identifier: str = Field(..., min_length=1, max_length=120)
+    reading_date: date
+    reading_value: Decimal = Field(..., ge=0)
+    unit_of_measure: str = Field(..., min_length=1, max_length=32)
+    unit_id: Optional[int] = Field(default=None, gt=0)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    request_key: str = Field(..., min_length=8, max_length=96)
+
+
+class MeterReadingImportRow(BaseModel):
+    meter_identifier: str = Field(..., min_length=1, max_length=120)
+    reading_date: date
+    reading_value: Decimal = Field(..., ge=0)
+    unit_of_measure: str = Field(..., min_length=1, max_length=32)
+    unit_id: Optional[int] = Field(default=None, gt=0)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+
+
+class MeterReadingCSVImport(BaseModel):
+    request_key: str = Field(..., min_length=8, max_length=96)
+    csv_text: str = Field(..., min_length=1, max_length=1_000_000)
+
+
+class MeterReadingOut(BaseModel):
+    id: int
+    utility_id: int
+    unit_id: Optional[int] = None
+    meter_identifier: str
+    reading_date: date
+    reading_value: Decimal
+    unit_of_measure: str
+    source: str
+    import_batch_key: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MeterReadingImportResult(BaseModel):
+    created: int
+    replayed: int
+    total: int
+    readings: List[MeterReadingOut]
+
+
+# ------------------------------------------------------------
+# RUBs ALLOCATION RULES / PREVIEW
+# ------------------------------------------------------------
+class AllocationUnitInput(BaseModel):
+    unit_id: int = Field(..., gt=0)
+    weight: Optional[Decimal] = Field(default=None, gt=0)
+
+
+class AllocationRuleCreate(BaseModel):
+    basis: str = Field(..., pattern="^(SQUARE_FEET|OCCUPANCY|FIXTURES|MANUAL_WEIGHT)$")
+    effective_date: date
+    units: List[AllocationUnitInput] = Field(..., min_length=1, max_length=500)
+    request_key: str = Field(..., min_length=8, max_length=96)
+
+
+class AllocationRuleAuthorize(BaseModel):
+    request_key: str = Field(..., min_length=8, max_length=96)
+
+
+class AllocationRuleOut(BaseModel):
+    id: int
+    utility_id: int
+    revision_number: int
+    effective_date: date
+    basis: str
+    unit_inputs: List[AllocationUnitInput]
+    status: str
+    is_authorized: bool
+    authorized_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class AllocationPreviewRequest(BaseModel):
+    rule_revision_id: int = Field(..., gt=0)
+    bill_id: int = Field(..., gt=0)
+
+
+class AllocationSnapshotSave(BaseModel):
+    rule_revision_id: int = Field(..., gt=0)
+    bill_id: int = Field(..., gt=0)
+    request_key: str = Field(..., min_length=8, max_length=96)
+
+
+class AllocationSnapshotItem(BaseModel):
+    unit_id: int
+    weight: Decimal
+    share: Decimal
+    amount: Decimal
+
+
+class AllocationSnapshotOut(BaseModel):
+    id: int
+    utility_id: int
+    bill_id: int
+    rule_revision_id: int
+    billing_period_start: date
+    billing_period_end: date
+    bill_amount: Decimal
+    basis: str
+    unit_inputs: List[AllocationUnitInput]
+    items: List[AllocationSnapshotItem]
+    allocated_total: Decimal
+    remainder_rule: str
+    reviewed_at: datetime
+
+
+class TrueUpUnitWeight(BaseModel):
+    unit_id: int = Field(..., gt=0)
+    weight: Decimal = Field(..., gt=0)
+
+
+class TrueUpPreviewRequest(BaseModel):
+    period_start: date
+    period_end: date
+    snapshot_ids: List[int] = Field(..., min_length=1, max_length=500)
+    actual_total: Decimal = Field(..., ge=0)
+    unit_weights: List[TrueUpUnitWeight] = Field(..., min_length=1, max_length=500)
+
+
+# ------------------------------------------------------------
 # TRASH SCHEDULE
 # ------------------------------------------------------------
 class TrashScheduleBase(BaseModel):

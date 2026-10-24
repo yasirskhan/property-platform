@@ -111,6 +111,8 @@ class ApplicationPayment(Base):
 
     amount = Column(Numeric(10, 2), nullable=False)
     stripe_payment_intent_id = Column(String(255), nullable=True)
+    # Nullable for historical/provider payments. One posted receipt may settle at most one application.
+    receipt_id = Column(Integer, ForeignKey("receipts.id", ondelete="RESTRICT"), nullable=True, unique=True, index=True)
     status = Column(String(20), nullable=False, default="pending")  # pending / paid / refunded / failed
     paid_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

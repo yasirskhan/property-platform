@@ -18,6 +18,9 @@ from sqlalchemy import (
     Boolean,
     Numeric,
     Text,
+    CheckConstraint,
+    DDL,
+    event,
     Enum as SqlEnum,
 )
 from sqlalchemy.orm import relationship
@@ -73,13 +76,25 @@ class WorkOrder(Base):
 
     # Who/where
     unit_id = Column(Integer, ForeignKey("units.id"), nullable=False, index=True)
-    tenant_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    tenant_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    # Additive, truthful attribution fields. Legacy tenant_id remains intact
+    # for old API consumers until a separately verified compatibility migration.
+    request_origin = Column(String(32), nullable=True)
+    requested_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    source_inspection_id = Column(Integer, ForeignKey("unit_inspection_records.id", ondelete="RESTRICT"), nullable=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)
 
     # Assigned crew (may be null until assigned)
     assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     assigned_at = Column(DateTime, nullable=True)
     assigned_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # NULL preserves legacy accepted-by-start assignments. New offers require a crew decision.
+    assignment_response = Column(String(16), nullable=True)
+    assignment_responded_at = Column(DateTime, nullable=True)
+    # UTC-naive storage; crew-submitted timestamp is validated as timezone aware.
+    crew_eta_at = Column(DateTime, nullable=True)
+    # Explicit vendor COMPANY association independent of the assigned CREW user.
+    vendor_id = Column(Integer, ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Details
     title = Column(String(255), nullable=False)
@@ -142,3 +157,98 @@ class WorkOrderUpdate(Base):
 
     def __repr__(self):
         return f"<WorkOrderUpdate wo={self.work_order_id} by={self.user_id}>"
+
+class WorkOrderTimeEntry(Base):
+    """Staff-only work-time evidence; not a payroll approval or tenant charge."""
+    __tablename__ = "work_order_time_entries"
+    __table_args__ = (
+        CheckConstraint("duration_minutes BETWEEN 1 AND 1440", name="ck_crew_time_minutes"),
+        CheckConstraint("ended_at > started_at", name="ck_crew_time_order"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    work_order_id = Column(Integer, ForeignKey("work_orders.id", ondelete="RESTRICT"), nullable=False, index=True)
+    crew_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    started_at = Column(DateTime, nullable=False)
+    ended_at = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer, nullable=False)
+    notes = Column(String(500), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class WorkOrderTimeCorrection(Base):
+    """Reviewed proposed replacement; original time entry never changes."""
+    __tablename__ = "work_order_time_corrections"
+    __table_args__ = (
+        CheckConstraint("duration_minutes BETWEEN 1 AND 1440", name="ck_time_correction_minutes"),
+        CheckConstraint("proposed_ended_at > proposed_started_at", name="ck_time_correction_order"),
+        CheckConstraint("status IN ('pending','approved','denied')", name="ck_time_correction_status"),
+    )
+    id = Column(Integer, primary_key=True)
+    work_order_id = Column(Integer, ForeignKey("work_orders.id", ondelete="RESTRICT"), nullable=False, index=True)
+    time_entry_id = Column(Integer, ForeignKey("work_order_time_entries.id", ondelete="RESTRICT"), nullable=False, index=True)
+    requested_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    proposed_started_at = Column(DateTime, nullable=False)
+    proposed_ended_at = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer, nullable=False)
+    reason = Column(String(1000), nullable=False)
+    status = Column(String(12), nullable=False, default="pending")
+    reviewed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    review_reason = Column(String(1000), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+def _reject_crew_time_mutation(*_args, **_kwargs) -> None:
+    raise RuntimeError("work_order_time_entries is append-only")
+
+
+event.listen(WorkOrderTimeEntry, "before_update", _reject_crew_time_mutation, propagate=True)
+event.listen(WorkOrderTimeEntry, "before_delete", _reject_crew_time_mutation, propagate=True)
+
+_POSTGRES_TIME_FUNCTION = DDL("""
+    CREATE OR REPLACE FUNCTION prevent_crew_time_mutation()
+    RETURNS trigger AS $$
+    BEGIN
+        RAISE EXCEPTION 'work_order_time_entries is append-only';
+    END;
+    $$ LANGUAGE plpgsql;
+""").execute_if(dialect="postgresql")
+
+_POSTGRES_TIME_TRIGGER = DDL("""
+    CREATE TRIGGER crew_time_immutable
+    BEFORE UPDATE OR DELETE ON work_order_time_entries
+    FOR EACH ROW EXECUTE FUNCTION prevent_crew_time_mutation();
+""").execute_if(dialect="postgresql")
+
+_SQLITE_TIME_UPDATE = DDL("""
+    CREATE TRIGGER crew_time_no_update BEFORE UPDATE ON work_order_time_entries
+    BEGIN SELECT RAISE(ABORT, 'work_order_time_entries is append-only'); END;
+""").execute_if(dialect="sqlite")
+
+_SQLITE_TIME_DELETE = DDL("""
+    CREATE TRIGGER crew_time_no_delete BEFORE DELETE ON work_order_time_entries
+    BEGIN SELECT RAISE(ABORT, 'work_order_time_entries is append-only'); END;
+""").execute_if(dialect="sqlite")
+
+for guard in (_POSTGRES_TIME_FUNCTION, _POSTGRES_TIME_TRIGGER, _SQLITE_TIME_UPDATE, _SQLITE_TIME_DELETE):
+    event.listen(WorkOrderTimeEntry.__table__, "after_create", guard)
+
+
+class MaintenanceOnCallShift(Base):
+    """Property-level on-call primary crew; schedule alone never dispatches."""
+    __tablename__ = "maintenance_on_call_shifts"
+    __table_args__ = (
+        CheckConstraint("ends_at > starts_at", name="ck_on_call_shift_order"),
+    )
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="RESTRICT"), nullable=False, index=True)
+    crew_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    starts_at = Column(DateTime, nullable=False)
+    ends_at = Column(DateTime, nullable=False)
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    cancelled_at = Column(DateTime, nullable=True)
+    cancelled_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    cancellation_reason = Column(String(1000), nullable=True)

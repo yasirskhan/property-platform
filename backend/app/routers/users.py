@@ -33,7 +33,9 @@ from app.core.database import get_db
 from app.models.property import Property, PropertyAssignment
 from app.models.user import User, UserRole
 from app.routers.auth import get_current_user
+from app.routers.properties import check_property_access
 from app.schemas.user import UserCreate, UserOut, UserUpdate
+from app.services.audit import append_audit_log
 
 
 router = APIRouter(tags=["User Management"])
@@ -52,17 +54,9 @@ def _require_role(current_user: User, *allowed: UserRole):
 
 
 def _scoped_org_id(current_user: User, provided_org_id: Optional[int]) -> int:
-    """
-    Determine which organization a new user should belong to.
-    - Admin: uses whatever they passed (must be provided).
-    - Owner / Manager: forced to their own organization.
-    """
-    if current_user.role == UserRole.ADMIN:
-        if provided_org_id is None:
-            raise HTTPException(status_code=400, detail="organization_id is required for admin")
-        return provided_org_id
-
-    # Owner / Manager
+    """Force all customer-side staff to their own organization."""
+    if current_user.organization_id is None:
+        raise HTTPException(status_code=400, detail="User has no organization")
     if provided_org_id is not None and provided_org_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Cannot create users outside your organization")
     return current_user.organization_id
@@ -161,8 +155,7 @@ def create_owner(
     _require_role(current_user, UserRole.ADMIN)
 
     payload.role = UserRole.OWNER
-    if payload.organization_id is None:
-        raise HTTPException(status_code=400, detail="organization_id is required")
+    payload.organization_id = _scoped_org_id(current_user, payload.organization_id)
 
     try:
         return auth_logic.create_user(db, payload)
@@ -193,7 +186,7 @@ def list_users(
     q = db.query(User)
 
     if current_user.role == UserRole.ADMIN:
-        pass  # no filter
+        q = q.filter(User.organization_id == current_user.organization_id)
 
     elif current_user.role == UserRole.OWNER:
         q = q.filter(User.organization_id == current_user.organization_id)
@@ -233,6 +226,8 @@ def get_user(
     _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
 
     if current_user.role == UserRole.ADMIN:
+        if target.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Not in your organization")
         return target
 
     if current_user.role == UserRole.OWNER:
@@ -268,7 +263,7 @@ def update_user(
 
     # Users can edit their own basic info
     if target.id == current_user.id:
-        allowed_fields = {"first_name", "last_name", "phone"}
+        allowed_fields = {"first_name", "last_name", "phone", "profile_photo_url"}
         updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if k in allowed_fields}
         for field, value in updates.items():
             setattr(target, field, value)
@@ -279,7 +274,8 @@ def update_user(
     _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
 
     if current_user.role == UserRole.ADMIN:
-        pass
+        if target.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Not in your organization")
     elif current_user.role == UserRole.OWNER:
         if target.organization_id != current_user.organization_id:
             raise HTTPException(status_code=403, detail="Not in your organization")
@@ -287,8 +283,22 @@ def update_user(
         if target.organization_id != current_user.organization_id or target.role != UserRole.CREW:
             raise HTTPException(status_code=403, detail="Managers can only update crew in their organization")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "is_active" in updates and updates["is_active"] is None:
+        raise HTTPException(status_code=400, detail="is_active must be true or false")
+    if updates.get("is_active") is True and target.deleted_at is not None:
+        raise HTTPException(status_code=409, detail="A deleted user cannot be reactivated through profile editing")
+    prior_active = target.is_active
+    for field, value in updates.items():
         setattr(target, field, value)
+    if "is_active" in updates and target.is_active != prior_active:
+        append_audit_log(
+            db, user_id=current_user.id, organization_id=current_user.organization_id,
+            entity_type="user", entity_id=target.id,
+            action="activated" if target.is_active else "deactivated",
+            old_value={"is_active": prior_active},
+            new_value={"is_active": target.is_active},
+        )
 
     db.commit()
     db.refresh(target)
@@ -314,10 +324,16 @@ def deactivate_user(
     if target.id == current_user.id:
         raise HTTPException(status_code=400, detail="You cannot deactivate yourself")
 
-    if current_user.role == UserRole.OWNER and target.organization_id != current_user.organization_id:
+    if target.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Not in your organization")
 
-    target.is_active = False
+    if target.is_active:
+        target.is_active = False
+        append_audit_log(
+            db, user_id=current_user.id, organization_id=current_user.organization_id,
+            entity_type="user", entity_id=target.id, action="deactivated",
+            old_value={"is_active": True}, new_value={"is_active": False},
+        )
     db.commit()
     return None
 
@@ -341,26 +357,7 @@ def assign_user_to_property(
     """
     _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
 
-    prop = db.query(Property).filter(Property.id == property_id).first()
-    if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
-
-    # Permission check on the property
-    if current_user.role == UserRole.OWNER and prop.organization_id != current_user.organization_id:
-        raise HTTPException(status_code=403, detail="Not your property")
-
-    if current_user.role == UserRole.MANAGER:
-        existing = (
-            db.query(PropertyAssignment)
-            .filter(
-                PropertyAssignment.property_id == property_id,
-                PropertyAssignment.user_id == current_user.id,
-                PropertyAssignment.is_active == True,  # noqa: E712
-            )
-            .first()
-        )
-        if not existing:
-            raise HTTPException(status_code=403, detail="You are not assigned to this property")
+    prop = check_property_access(db, current_user, property_id)
 
     # Target user must exist and be manager or crew
     target = auth_logic.get_user_by_id(db, user_id)
@@ -369,6 +366,10 @@ def assign_user_to_property(
 
     if target.role not in (UserRole.MANAGER, UserRole.CREW):
         raise HTTPException(status_code=400, detail="Can only assign managers and crew to properties")
+    if target.organization_id != prop.organization_id:
+        raise HTTPException(status_code=403, detail="User is not in this organization")
+    if not target.is_active or target.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="Cannot assign an inactive or deleted user")
 
     # Already assigned?
     existing = (
@@ -380,7 +381,30 @@ def assign_user_to_property(
         .first()
     )
     if existing:
+        before = {
+            "property_id": property_id,
+            "user_id": target.id,
+            "role": existing.role.value,
+            "is_active": existing.is_active,
+            "deleted_at": existing.deleted_at.isoformat() if existing.deleted_at else None,
+        }
+        # Explicit reactivation must clear the stale deletion marker.
         existing.is_active = True
+        existing.deleted_at = None
+        existing.role = target.role
+        after = {
+            "property_id": property_id,
+            "user_id": target.id,
+            "role": target.role.value,
+            "is_active": True,
+            "deleted_at": None,
+        }
+        if before != after:
+            append_audit_log(
+                db, user_id=current_user.id, organization_id=prop.organization_id,
+                entity_type="property_assignment", entity_id=existing.id,
+                action="reactivated", old_value=before, new_value=after,
+            )
         db.commit()
         return {"status": "already_assigned", "assignment_id": existing.id}
 
@@ -390,6 +414,14 @@ def assign_user_to_property(
         role=target.role,
     )
     db.add(assignment)
+    db.flush()
+    append_audit_log(
+        db, user_id=current_user.id, organization_id=prop.organization_id,
+        entity_type="property_assignment", entity_id=assignment.id,
+        action="created",
+        new_value={"property_id": property_id, "user_id": target.id,
+                   "role": target.role.value, "is_active": True},
+    )
     db.commit()
     db.refresh(assignment)
 
@@ -405,18 +437,14 @@ def list_assignments(
     """List all people assigned to a property."""
     _require_role(current_user, UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER)
 
-    prop = db.query(Property).filter(Property.id == property_id).first()
-    if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
-
-    if current_user.role == UserRole.OWNER and prop.organization_id != current_user.organization_id:
-        raise HTTPException(status_code=403, detail="Not your property")
+    prop = check_property_access(db, current_user, property_id)
 
     assignments = (
         db.query(PropertyAssignment)
         .filter(
             PropertyAssignment.property_id == property_id,
             PropertyAssignment.is_active == True,  # noqa: E712
+            PropertyAssignment.deleted_at.is_(None),
         )
         .all()
     )
@@ -424,7 +452,11 @@ def list_assignments(
     result = []
     for a in assignments:
         u = auth_logic.get_user_by_id(db, a.user_id)
-        if u:
+        # Do not disclose a foreign or revoked staff record through
+        # an inconsistent historic assignment relationship.
+        if (u and u.organization_id == prop.organization_id
+                and u.is_active and u.deleted_at is None
+                and u.role in (UserRole.MANAGER, UserRole.CREW)):
             result.append({
                 "assignment_id": a.id,
                 "user_id": u.id,
@@ -447,7 +479,18 @@ def remove_assignment(
     assignment = db.query(PropertyAssignment).filter(PropertyAssignment.id == assignment_id).first()
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
+    prop = check_property_access(db, current_user, assignment.property_id)
 
-    assignment.is_active = False
+    if assignment.is_active:
+        previous = {"property_id": prop.id, "user_id": assignment.user_id,
+                    "role": assignment.role.value, "is_active": True}
+        assignment.is_active = False
+        append_audit_log(
+            db, user_id=current_user.id, organization_id=prop.organization_id,
+            entity_type="property_assignment", entity_id=assignment.id,
+            action="revoked", old_value=previous,
+            new_value={"property_id": prop.id, "user_id": assignment.user_id,
+                       "role": assignment.role.value, "is_active": False},
+        )
     db.commit()
     return None

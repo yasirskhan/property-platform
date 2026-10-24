@@ -12,12 +12,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, formatDate } from "@/lib/money";
+import Flag from "@/components/features/Flag";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useDisplay } from "@/contexts/DisplayContext";
 import {
   listBills,
   getBill,
   payBill,
   reverseBill,
+  deleteBill,
   BILL_STATUS_LABELS,
   BILL_STATUS_COLORS,
   type Bill,
@@ -31,6 +35,7 @@ interface Me {
 }
 
 export default function BillsPage() {
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [rows, setRows] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +61,9 @@ export default function BillsPage() {
     { id: number; gl_number: string; name: string }[]
   >([]);
   const [paySaving, setPaySaving] = useState(false);
+  const [confirmReverseOpen, setConfirmReverseOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     apiGet("/auth/me").then((u) => setMe(u as Me)).catch(() => setMe(null));
@@ -90,6 +98,7 @@ export default function BillsPage() {
     try {
       const detail = await getBill(billId);
       setOpenBill(detail);
+      setPayCash(detail.cash_gl_account_id ?? "");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not load bill.");
     } finally {
@@ -145,21 +154,32 @@ export default function BillsPage() {
 
   async function submitReverse() {
     if (!openBill) return;
-    if (
-      !confirm(
-        `Reverse bill ${openBill.bill_number || openBill.id}?`
-      )
-    )
-      return;
     setError(null);
     try {
       const updated = await reverseBill(openBill.id, {
         reversal_date: new Date().toISOString().slice(0, 10),
       });
       setOpenBill(updated);
+      setConfirmReverseOpen(false);
       await load();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not reverse bill.");
+    }
+  }
+
+  async function submitDelete() {
+    if (!openBill) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteBill(openBill.id, new Date().toISOString().slice(0, 10));
+      setConfirmDeleteOpen(false);
+      setOpenBill(null);
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not delete bill.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -175,17 +195,21 @@ export default function BillsPage() {
   );
 
   return (
-    <div className="p-6">
+    <div className="p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-xl font-semibold text-slate-900">Bills</h1>
-        {me && me.role !== "TENANT" && (
-          <Link
-            href="/dashboard/accounting/bills/new"
-            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-          >
-            + New Bill
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Flag name="release.accounting.bills.recurring"><Link href="/dashboard/accounting/bills/recurring" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Recurring Bills</Link></Flag>
+          <Flag name="release.accounting.write_checks"><Link href="/dashboard/accounting/checks/write" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Write Checks</Link></Flag>\n          <Flag name="release.accounting.write_checks"><Link href="/dashboard/accounting/checks" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Checks</Link></Flag>
+          <Flag name="release.accounting.vendor_credits"><Link href="/dashboard/accounting/bills/credits/new" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Enter Credit</Link></Flag>
+          <Flag name="release.accounting.bills.manual_post"><Link href="/dashboard/accounting/bills/recurring" className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm hover:bg-slate-50">Manually Post Bills</Link></Flag>
+          <Flag name="release.accounting.owner_draw"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Owner Draw</button></Flag>
+          <Flag name="release.accounting.tenant_payable"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Tenant Payable</button></Flag>
+          <Flag name="release.maintenance.work_order_to_bill"><button type="button" disabled className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-500 text-sm disabled:opacity-60">Work Order to Bill</button></Flag>
+          {me && me.role !== "TENANT" && (
+            <Link href="/dashboard/accounting/bills/new" className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">+ New Bill</Link>
+          )}
+        </div>
       </div>
       <p className="text-sm text-slate-500 mb-6">
         Payables. Enter, pay, and reverse vendor bills.
@@ -290,8 +314,8 @@ export default function BillsPage() {
                     {b.bill_number || `#${b.id}`}
                   </td>
                   <td className="px-4 py-2">{b.payee_name}</td>
-                  <td className="px-4 py-2">{b.bill_date}</td>
-                  <td className="px-4 py-2">{b.due_date || "—"}</td>
+                  <td className="px-4 py-2">{formatDate(b.bill_date)}</td>
+                  <td className="px-4 py-2">{b.due_date ? formatDate(b.due_date) : "—"}</td>
                   <td className="px-4 py-2 text-right font-mono">
                     {formatMoney(b.amount)}
                   </td>
@@ -350,8 +374,8 @@ export default function BillsPage() {
                       {openBill.bill_number || `#${openBill.id}`}
                     </h2>
                     <div className="text-sm text-slate-500">
-                      {openBill.payee_name} · {openBill.bill_date}
-                      {openBill.due_date && ` · due ${openBill.due_date}`}
+                      {openBill.payee_name} · {formatDate(openBill.bill_date)}
+                      {openBill.due_date && ` · due ${formatDate(openBill.due_date)}`}
                     </div>
                   </div>
                   <button
@@ -525,6 +549,7 @@ export default function BillsPage() {
                   </div>
                 )}
 
+                <span hidden aria-hidden="true" data-compat-slot="bills.reverse-after-partial-payment" />
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2">
                     {!openBill.is_reversed &&
@@ -532,7 +557,10 @@ export default function BillsPage() {
                       openBill.status !== "VOID" && (
                         <button
                           onClick={() => {
-                            if (!payOpen) loadCashAccounts();
+                            if (!payOpen) {
+                              loadCashAccounts();
+                              setPayCash(openBill.cash_gl_account_id ?? "");
+                            }
                             setPayAmount(
                               (
                                 parseFloat(openBill.amount) -
@@ -548,12 +576,22 @@ export default function BillsPage() {
                       )}
                     {!openBill.is_reversed && openBill.status !== "PAID" && (
                       <button
-                        onClick={submitReverse}
+                        onClick={() => setConfirmReverseOpen(true)}
                         className="px-3 py-1.5 rounded-md border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50"
                       >
                         Reverse
                       </button>
                     )}
+                    {!openBill.is_reversed &&
+                      openBill.status === "UNPAID" &&
+                      parseFloat(openBill.amount_paid) === 0 && (
+                        <button
+                          onClick={() => setConfirmDeleteOpen(true)}
+                          className="px-3 py-1.5 rounded-md border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      )}
                   </div>
                   <Link
                     href="/dashboard/accounting/bills"
@@ -567,6 +605,25 @@ export default function BillsPage() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmDeleteOpen}
+        title="Delete unpaid bill?"
+        description={openBill ? `Bill ${openBill.bill_number || openBill.id} will be hidden and its accrual will be reversed. The accounting audit trail remains.` : ""}
+        confirmLabel="Delete bill"
+        busy={deleting}
+        danger
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={submitDelete}
+      />
+      <ConfirmModal
+        open={confirmReverseOpen}
+        title="Reverse bill?"
+        description={openBill ? `Bill ${openBill.bill_number || openBill.id} will be reversed with a reversing accounting entry. This cannot be undone.` : ""}
+        confirmLabel="Reverse bill"
+        danger
+        onCancel={() => setConfirmReverseOpen(false)}
+        onConfirm={submitReverse}
+      />
     </div>
   );
 }

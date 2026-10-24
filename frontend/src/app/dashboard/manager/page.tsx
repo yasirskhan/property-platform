@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import Link from "next/link";
 
 export default function ManagerDashboard() {
   const [stats, setStats] = useState({ properties: 0, workOrders: 0, crew: 0 });
@@ -13,7 +14,7 @@ export default function ManagerDashboard() {
     ]).then(([properties, workOrders, crew]) => {
       setStats({
         properties: properties.length,
-        workOrders: workOrders.length,
+        workOrders: workOrders.filter((row: {status: string}) => row.status !== "closed" && row.status !== "cancelled").length,
         crew: crew.length,
       });
     });
@@ -27,6 +28,8 @@ export default function ManagerDashboard() {
         <StatCard label="Open Work Orders" value={stats.workOrders} />
         <StatCard label="My Crew" value={stats.crew} />
       </div>
+      <Link href="/dashboard/maintenance/work-orders" className="mt-5 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">View work order queue</Link>
+      <Link href="/dashboard/maintenance/work-orders/new" className="ml-3 inline-block rounded-lg border px-4 py-2 text-sm">Create maintenance request</Link>
     </div>
   );
 }

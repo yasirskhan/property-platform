@@ -10,7 +10,7 @@
 // All calls go through lib/api.ts for auth + error handling.
 // ============================================================
 
-import { apiGet, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPost } from "@/lib/api";
 
 // ------------------------------------------------------------
 // Shapes (mirror backend schemas)
@@ -50,6 +50,10 @@ export type Bill = {
   payable_gl_account_id: number;
   payable_gl_account_number: string | null;
   payable_gl_account_name: string | null;
+
+  cash_gl_account_id: number | null;
+  cash_gl_account_number: string | null;
+  cash_gl_account_name: string | null;
 
   remarks: string | null;
   notes: string | null;
@@ -98,6 +102,7 @@ export type BillCreateIn = {
   bill_number?: string | null;
 
   payable_gl_account_id?: number | null;
+  cash_gl_account_id?: number | null;
 
   property_id?: number | null;
   unit_id?: number | null;
@@ -113,7 +118,7 @@ export type BillCreateIn = {
 
 export type BillPayIn = {
   payment_date: string;
-  cash_gl_account_id: number;
+  cash_gl_account_id?: number | null;
   amount: number | string;
   reference_number?: string | null;
   remarks?: string | null;
@@ -180,6 +185,12 @@ export function reverseBill(
   return apiPost(`/api/accounting/bills/${id}/reverse`, payload);
 }
 
+export function deleteBill(id: number, reversalDate: string): Promise<null> {
+  return apiDelete(
+    `/api/accounting/bills/${id}?reversal_date=${encodeURIComponent(reversalDate)}`
+  );
+}
+
 // ------------------------------------------------------------
 // Display helpers
 // ------------------------------------------------------------
@@ -200,3 +211,136 @@ export const BILL_STATUS_COLORS: Record<string, string> = {
   PAID: "bg-green-50 text-green-700",
   VOID: "bg-red-50 text-red-700",
 };
+
+// ------------------------------------------------------------
+// Recurring bills and vendor credits
+// ------------------------------------------------------------
+
+export type RecurringBillLine = {
+  id: number;
+  gl_account_id: number;
+  property_id: number | null;
+  unit_id: number | null;
+  description: string | null;
+  amount: string;
+};
+
+export type RecurringBill = {
+  id: number;
+  organization_id: number;
+  entry_type: "BILL" | "CREDIT";
+  payee_name: string;
+  payee_user_id: number | null;
+  start_date: string;
+  end_date: string | null;
+  bill_day: number;
+  due_day: number | null;
+  post_code: string | null;
+  next_post_date: string;
+  last_posted_date: string | null;
+  reference_number: string | null;
+  remarks: string | null;
+  payable_gl_account_id: number;
+  cash_gl_account_id: number | null;
+  property_id: number | null;
+  unit_id: number | null;
+  owner_id: number | null;
+  is_active: boolean;
+  created_by_id: number | null;
+  created_at: string;
+  updated_at: string;
+  lines: RecurringBillLine[];
+};
+
+export type RecurringBillCreateIn = {
+  entry_type: "BILL" | "CREDIT";
+  payee_name: string;
+  start_date: string;
+  end_date?: string | null;
+  bill_day: number;
+  due_day?: number | null;
+  post_code?: string | null;
+  reference_number?: string | null;
+  remarks?: string | null;
+  cash_gl_account_id?: number | null;
+  property_id?: number | null;
+  unit_id?: number | null;
+  owner_id?: number | null;
+  lines: BillLineIn[];
+};
+
+export type RecurringBillPostResult = {
+  posted_bills: number;
+  posted_credits: number;
+  skipped_disabled: number;
+  failed: number;
+};
+
+export type VendorCredit = {
+  id: number;
+  organization_id: number;
+  credit_number: string | null;
+  payee_name: string;
+  credit_date: string;
+  reference_number: string | null;
+  amount: string;
+  property_id: number | null;
+  unit_id: number | null;
+  owner_id: number | null;
+  payable_gl_account_id: number;
+  remarks: string | null;
+  gl_transaction_id: number | null;
+  status: string;
+  is_reversed: boolean;
+  is_active: boolean;
+  lines: Array<{
+    id: number;
+    gl_account_id: number;
+    property_id: number | null;
+    unit_id: number | null;
+    description: string | null;
+    amount: string;
+  }>;
+};
+
+export type VendorCreditCreateIn = {
+  payee_name: string;
+  credit_date: string;
+  reference_number?: string | null;
+  credit_number?: string | null;
+  property_id?: number | null;
+  unit_id?: number | null;
+  owner_id?: number | null;
+  remarks?: string | null;
+  lines: BillLineIn[];
+};
+
+export function listRecurringBills(): Promise<RecurringBill[]> {
+  return apiGet("/api/accounting/bills/recurring/schedules");
+}
+
+export function createRecurringBill(
+  payload: RecurringBillCreateIn
+): Promise<RecurringBill> {
+  return apiPost("/api/accounting/bills/recurring/schedules", payload);
+}
+
+export function postRecurringBills(
+  asOf: string,
+  scheduleIds: number[]
+): Promise<RecurringBillPostResult> {
+  return apiPost("/api/accounting/bills/recurring/post", {
+    as_of: asOf,
+    schedule_ids: scheduleIds,
+  });
+}
+
+export function listVendorCredits(): Promise<VendorCredit[]> {
+  return apiGet("/api/accounting/bills/credits/list");
+}
+
+export function createVendorCredit(
+  payload: VendorCreditCreateIn
+): Promise<VendorCredit> {
+  return apiPost("/api/accounting/bills/credits", payload);
+}

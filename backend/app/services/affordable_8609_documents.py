@@ -1,0 +1,267 @@
+"""Restricted encrypted staff Form 8609 scan archive.
+
+A staff confirmation is NOT proof that an agency signed/issued the form,
+that IRS received it, or that credits may be claimed. Files never enter
+general attachment storage, browser logs, outgoing email, or GL.
+"""
+from __future__ import annotations
+from datetime import date
+import json
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.config import settings
+from app.models.affordable_8609_document import Affordable8609Document
+from app.models.user import User, UserRole
+from app.routers.affordable_8609_readiness import _building
+from app.schemas.affordable_8609_document import Affordable8609DocumentOut
+from app.services.audit import append_audit_log
+
+MAX_8609_BYTES = 5 * 1024 * 1024
+
+
+def _crypto() -> MultiFernet:
+    key = settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY
+    if not key or key in (
+        settings.ENCRYPTION_KEY, settings.TAX_PROFILE_ENCRYPTION_KEY,
+        settings.APPLICATION_ENCRYPTION_KEY,
+    ):
+        raise HTTPException(status_code=503, detail="Dedicated compliance document encryption is not configured.")
+    try:
+        old = json.loads(settings.COMPLIANCE_DOCUMENT_PREVIOUS_KEYS_JSON)
+        if not isinstance(old, list) or len(old) > 8:
+            raise ValueError("Invalid compliance key history")
+        prohibited = {settings.ENCRYPTION_KEY, settings.TAX_PROFILE_ENCRYPTION_KEY,
+                      settings.APPLICATION_ENCRYPTION_KEY, key}
+        if len(set(old)) != len(old) or any(
+            not isinstance(item, str) or not item or item in prohibited for item in old
+        ):
+            raise ValueError("Compliance keys must remain independent")
+        return MultiFernet([Fernet(item.encode("utf-8")) for item in [key, *old]])
+    except (ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=503, detail="Compliance document encryption is unavailable.") from exc
+
+
+def _scope(db: Session, *, property_id: int, program_id: int, building_id: int,
+           user: User, write: bool):
+    # For sensitive agency form scans, manager/crew/tenant do not inherit
+    # access from the less-sensitive staff BIN/readiness registers.
+    prop, building = _building(db, property_id=property_id, program_id=program_id,
+                               building_id=building_id, user=user, write=write)
+    if user.role not in {UserRole.ADMIN, UserRole.OWNER}:
+        raise HTTPException(status_code=403, detail="Restricted Form 8609 document access required.")
+    return prop, building
+
+
+def _valid_pdf(contents: bytes) -> None:
+    if len(contents) > MAX_8609_BYTES:
+        raise HTTPException(status_code=413, detail="Form 8609 scan must be 5 MB or smaller.")
+    if len(contents) < 32 or not contents.startswith(b"%PDF-") or b"%%EOF" not in contents[-2048:]:
+        raise HTTPException(status_code=422, detail="A PDF scan is required.")
+
+
+def _out(document: Affordable8609Document) -> Affordable8609DocumentOut:
+    return Affordable8609DocumentOut.model_validate(document)
+
+
+def archive_8609(
+    db: Session, *, current_user: User, property_id: int, program_id: int,
+    building_id: int, contents: bytes, received_on: date, signed_copy_reviewed: bool,
+) -> Affordable8609DocumentOut:
+    prop, building = _scope(db, property_id=property_id, program_id=program_id,
+                            building_id=building_id, user=current_user, write=True)
+    crypto = _crypto()
+    if not signed_copy_reviewed:
+        raise HTTPException(status_code=422, detail="Staff scan-review confirmation required.")
+    if received_on > date.today():
+        raise HTTPException(status_code=422, detail="Received date cannot be in the future.")
+    _valid_pdf(contents)
+    doc = Affordable8609Document(
+        organization_id=prop.organization_id, property_id=prop.id,
+        program_id=program_id, building_id=building.id,
+        encrypted_pdf=crypto.encrypt(contents), size_bytes=len(contents),
+        received_on=received_on, uploaded_by_id=current_user.id,
+    )
+    db.add(doc)
+    db.flush()
+    append_audit_log(
+        db, organization_id=prop.organization_id, user_id=current_user.id,
+        entity_type="affordable_8609_document", entity_id=doc.id,
+        action="archived",
+        new_value={"building_id": building.id, "received_on": received_on.isoformat(),
+                   "size_bytes": doc.size_bytes, "staff_reviewed_scan": True},
+    )
+    db.commit()
+    db.refresh(doc)
+    return _out(doc)
+
+
+def list_8609(
+    db: Session, *, current_user: User, property_id: int, program_id: int,
+    building_id: int,
+) -> list[Affordable8609DocumentOut]:
+    prop, building = _scope(db, property_id=property_id, program_id=program_id,
+                            building_id=building_id, user=current_user, write=False)
+    _crypto()
+    rows = db.query(Affordable8609Document).filter(
+        Affordable8609Document.organization_id == prop.organization_id,
+        Affordable8609Document.property_id == prop.id,
+        Affordable8609Document.program_id == program_id,
+        Affordable8609Document.building_id == building.id,
+    ).order_by(Affordable8609Document.uploaded_at.desc(),
+               Affordable8609Document.id.desc()).limit(101).all()
+    if len(rows) > 100:
+        raise HTTPException(status_code=422, detail="Archive list exceeds preview limit.")
+    append_audit_log(
+        db, organization_id=prop.organization_id, user_id=current_user.id,
+        entity_type="affordable_8609_document", entity_id=building.id,
+        action="metadata_listed", new_value={"building_id": building.id, "count": len(rows)},
+    )
+    db.commit()
+    return [_out(row) for row in rows]
+
+
+def download_8609(
+    db: Session, *, current_user: User, property_id: int, program_id: int,
+    building_id: int, document_id: int,
+) -> bytes:
+    prop, building = _scope(db, property_id=property_id, program_id=program_id,
+                            building_id=building_id, user=current_user, write=False)
+    crypto = _crypto()
+    doc = db.query(Affordable8609Document).filter(
+        Affordable8609Document.id == document_id,
+        Affordable8609Document.organization_id == prop.organization_id,
+        Affordable8609Document.property_id == prop.id,
+        Affordable8609Document.program_id == program_id,
+        Affordable8609Document.building_id == building.id,
+    ).first()
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Form 8609 scan not found.")
+    try:
+        plain = crypto.decrypt(doc.encrypted_pdf)
+    except (InvalidToken, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail="Form 8609 scan cannot be decrypted.") from exc
+    _valid_pdf(plain)
+    append_audit_log(
+        db, organization_id=prop.organization_id, user_id=current_user.id,
+        entity_type="affordable_8609_document", entity_id=doc.id,
+        action="downloaded", new_value={"building_id": building.id},
+    )
+    db.commit()
+    return plain
+
+
+def rotate_building_scans(
+    db: Session, *, current_user: User, property_id: int, program_id: int,
+    building_id: int, after_document_id: int = 0, limit: int = 20,
+) -> dict[str, int | bool]:
+    """Bounded org/building-scoped rewrap; no key material or PDF bytes cross the API."""
+    prop, building = _scope(db, property_id=property_id, program_id=program_id,
+                            building_id=building_id, user=current_user, write=True)
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Compliance key rotation requires an administrator.")
+    if after_document_id < 0 or limit < 1 or limit > 25:
+        raise HTTPException(status_code=422, detail="Invalid rotation batch.")
+    crypto = _crypto()
+    # Unlike MultiFernet, this single Fernet confirms the CURRENT key.
+    current = Fernet(settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY.encode("utf-8"))
+    selected = db.query(Affordable8609Document).filter(
+        Affordable8609Document.organization_id == prop.organization_id,
+        Affordable8609Document.property_id == prop.id,
+        Affordable8609Document.program_id == program_id,
+        Affordable8609Document.building_id == building.id,
+        Affordable8609Document.id > after_document_id,
+    ).order_by(Affordable8609Document.id.asc()).limit(limit + 1).all()
+    has_more = len(selected) > limit
+    selected = selected[:limit]
+    rotated = 0
+    try:
+        for row in selected:
+            try:
+                current.decrypt(row.encrypted_pdf)
+            except InvalidToken:
+                plaintext = crypto.decrypt(row.encrypted_pdf)
+                _valid_pdf(plaintext)
+                row.encrypted_pdf = current.encrypt(plaintext)
+                rotated += 1
+                append_audit_log(
+                    db, organization_id=prop.organization_id, user_id=current_user.id,
+                    entity_type="affordable_8609_document", entity_id=row.id,
+                    action="encryption_key_rotated", new_value={"building_id": building.id},
+                )
+        db.commit()
+    except (InvalidToken, ValueError, TypeError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Compliance document rotation cannot decrypt a scan.") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    return {
+        "rewrapped": rotated,
+        "next_document_id": selected[-1].id if selected else after_document_id,
+        "has_more": has_more,
+    }
+
+
+def inspect_building_rotation(
+    db: Session, *, current_user: User, property_id: int, program_id: int,
+    building_id: int, after_document_id: int = 0, limit: int = 20,
+) -> dict[str, int | bool]:
+    """Read-only bounded key-retirement preflight, never claims global completion.
+
+    An old key is NOT safe to retire merely because one page or building
+    reports zero pending scans. Inspect every page in every building first.
+    """
+    prop, building = _scope(
+        db, property_id=property_id, program_id=program_id,
+        building_id=building_id, user=current_user, write=False,
+    )
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Compliance rotation review requires an administrator.")
+    if after_document_id < 0 or not 1 <= limit <= 25:
+        raise HTTPException(status_code=422, detail="Invalid rotation preview batch.")
+    crypto = _crypto()
+    current = Fernet(settings.COMPLIANCE_DOCUMENT_ENCRYPTION_KEY.encode("utf-8"))
+    selected = db.query(Affordable8609Document).filter(
+        Affordable8609Document.organization_id == prop.organization_id,
+        Affordable8609Document.property_id == prop.id,
+        Affordable8609Document.program_id == program_id,
+        Affordable8609Document.building_id == building.id,
+        Affordable8609Document.id > after_document_id,
+    ).order_by(Affordable8609Document.id.asc()).limit(limit + 1).all()
+    has_more = len(selected) > limit
+    selected = selected[:limit]
+    pending, already_current = 0, 0
+    for document in selected:
+        try:
+            # Decrypt only to confirm the scan remains valid; no plaintext
+            # is sent or logged, and this endpoint never rewraps records.
+            try:
+                plain = current.decrypt(document.encrypted_pdf)
+                already_current += 1
+            except InvalidToken:
+                plain = crypto.decrypt(document.encrypted_pdf)
+                pending += 1
+            _valid_pdf(plain)
+        except (InvalidToken, ValueError, TypeError) as exc:
+            db.rollback()
+            raise HTTPException(status_code=503, detail="Compliance rotation preflight cannot decrypt a scan.") from exc
+    append_audit_log(
+        db, organization_id=prop.organization_id, user_id=current_user.id,
+        entity_type="affordable_8609_document", entity_id=building.id,
+        action="encryption_rotation_reviewed",
+        new_value={"building_id": building.id, "checked": len(selected),
+                   "pending_rewrap": pending, "current_key": already_current},
+    )
+    db.commit()
+    return {
+        "checked": len(selected),
+        "pending_rewrap": pending,
+        "current_key": already_current,
+        "next_document_id": selected[-1].id if selected else after_document_id,
+        "has_more": has_more,
+    }

@@ -34,7 +34,7 @@ export type ReceiptLine = {
 export type Receipt = {
   id: number;
   organization_id: number;
-  type: "TENANT" | "OWNER" | "OTHER";
+  type: "TENANT" | "OWNER" | "OTHER" | "APPLICATION_FEE";
   receipt_date: string;          // YYYY-MM-DD
   amount: string;
 
@@ -57,6 +57,8 @@ export type Receipt = {
   notes: string | null;
 
   gl_transaction_id: number | null;
+  deposit_id: number | null;
+  is_deposited: boolean;
   is_reversed: boolean;
   reversal_of_id: number | null;
   is_active: boolean;
@@ -90,10 +92,10 @@ export type ReceiptLineIn = {
 };
 
 export type ReceiptCreateIn = {
-  type: "TENANT" | "OWNER" | "OTHER";
+  type: "TENANT" | "OWNER" | "OTHER" | "APPLICATION_FEE";
   receipt_date: string;
   amount: number | string;
-  cash_gl_account_id: number;
+  cash_gl_account_id?: number | null;
 
   // TENANT
   tenant_user_id?: number | null;
@@ -120,6 +122,11 @@ export type ReceiptCreateIn = {
 
 export type ReceiptReverseIn = {
   reversal_date: string;
+  memo?: string | null;
+};
+
+export type ReceiptNSFIn = {
+  process_date: string;
   memo?: string | null;
 };
 
@@ -201,6 +208,21 @@ export function reverseReceipt(
   return apiPost(`/api/accounting/receipts/${id}/reverse`, payload);
 }
 
+export function getReceiptPrintData(id: number): Promise<ReceiptDetail> {
+  return apiGet(`/api/accounting/receipts/${id}/print-data`);
+}
+
+export function getReceiptRepeatData(id: number): Promise<ReceiptDetail> {
+  return apiGet(`/api/accounting/receipts/${id}/repeat-data`);
+}
+
+export function processReceiptNSF(
+  id: number,
+  payload: ReceiptNSFIn
+): Promise<ReceiptDetail> {
+  return apiPost(`/api/accounting/receipts/${id}/process-nsf`, payload);
+}
+
 export function listTenantOpenCharges(
   userId: number
 ): Promise<TenantOpenChargesResponse> {
@@ -215,6 +237,7 @@ export const RECEIPT_TYPE_LABELS: Record<string, string> = {
   TENANT: "Tenant",
   OWNER: "Owner",
   OTHER: "Other",
+  APPLICATION_FEE: "Application Fee",
 };
 
 export const RECEIPT_TYPE_ORDER: Array<"TENANT" | "OWNER" | "OTHER"> = [

@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import { formatMoney } from "@/lib/money";
+import { useDisplay } from "@/contexts/DisplayContext";
 import {
   previewOwnerStatement,
   generateOwnerStatement,
@@ -34,6 +35,7 @@ function personLabel(p: Person): string {
 
 export default function NewOwnerStatementPage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
 
   const [owners, setOwners] = useState<Person[]>([]);
   const [ownerId, setOwnerId] = useState<number | "">("");
@@ -113,7 +115,7 @@ export default function NewOwnerStatementPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
+    <div className="max-w-3xl mx-auto p-6" data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()} data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}>
       <h1 className="text-xl font-semibold text-slate-900 mb-1">
         New Owner Statement
       </h1>
@@ -203,11 +205,21 @@ export default function NewOwnerStatementPage() {
                 {formatMoney(preview.total_expense)}
               </div>
             </div>
-            <div className="col-span-2 border-t border-slate-200 pt-3">
-              <div className="text-xs text-slate-500">Net</div>
-              <div className="text-lg font-semibold font-mono">
-                {formatMoney(preview.total_net)}
-              </div>
+            <div>
+              <div className="text-xs text-slate-500">Required reserves</div>
+              <div className="font-mono">{formatMoney(preview.total_required_reserves)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Prepaid rent</div>
+              <div className="font-mono">{formatMoney(preview.total_prepaid_rent)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Available cash</div>
+              <div className="font-mono">{formatMoney(preview.total_available_cash)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Net movement</div>
+              <div className="font-mono">{formatMoney(preview.total_net)}</div>
             </div>
           </div>
 

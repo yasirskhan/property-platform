@@ -57,6 +57,7 @@ class PropertyAmenity(Base):
     availability_status = Column(String(30), nullable=True)
 
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
     delete_reason = Column(Text, nullable=True)
 
     created_by_id = Column(

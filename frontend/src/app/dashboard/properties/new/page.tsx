@@ -7,6 +7,7 @@ import { apiPost, apiGet } from "@/lib/api";
 import { PARKING_TYPES } from "@/lib/usStates";
 import StateAutocomplete from "@/components/StateAutocomplete";
 import AddressAutocomplete, { AddressSuggestion } from "@/components/AddressAutocomplete";
+import { useDisplay } from "@/contexts/DisplayContext";
 
 type Me = {
   role: string;
@@ -15,6 +16,7 @@ type Me = {
 
 export default function AddPropertyPage() {
   const router = useRouter();
+  const { prefs } = useDisplay();
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -44,7 +46,8 @@ export default function AddPropertyPage() {
       try {
         const meData = await apiGet("/auth/me");
         setMe(meData);
-        if (meData.role !== "admin" && meData.role !== "owner") {
+        const role = String(meData.role || "").toUpperCase();
+        if (role !== "ADMIN" && role !== "OWNER") {
           router.replace("/dashboard/properties");
         }
       } catch (err) {
@@ -61,7 +64,7 @@ export default function AddPropertyPage() {
     setSaving(true);
     try {
       if (!me) throw new Error("Not loaded");
-      if (me.role !== "admin" && !me.organization_id) {
+      if (!me.organization_id) {
         throw new Error("Your account isn't linked to an organization");
       }
 
@@ -84,7 +87,7 @@ export default function AddPropertyPage() {
         ownership_status: ownershipStatus || null,
         description: description || null,
         notes: notes || null,
-        organization_id: me.organization_id || 1,
+        organization_id: me.organization_id,
       };
 
       const created = await apiPost("/properties", body);
@@ -98,7 +101,11 @@ export default function AddPropertyPage() {
   if (loading) return <div className="text-slate-500">Loading…</div>;
 
   return (
-    <div className="max-w-2xl">
+    <div
+      className="max-w-2xl"
+      data-layout-mode={(prefs?.layout_mode ?? "TABS").toLowerCase()}
+      data-density={(prefs?.density ?? "COMFORTABLE").toLowerCase()}
+    >
       <Link
         href="/dashboard/properties"
         className="text-sm text-slate-500 hover:text-slate-900 mb-4 inline-block"

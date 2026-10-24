@@ -163,7 +163,7 @@ export default function EmailSettingsPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Email Settings</h1>
         <p className="text-slate-500 mt-1">
-          Configure your organization's email server so tenants and crew see emails from you.
+          Configure your organization&apos;s email server so tenants and crew see emails from you.
         </p>
       </div>
 

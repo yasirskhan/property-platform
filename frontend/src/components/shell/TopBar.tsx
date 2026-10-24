@@ -114,12 +114,12 @@ export default function TopBar({ user }: TopBarProps) {
               {/* dropdown */}
               <div className="absolute right-0 top-full mt-1 w-52 bg-white text-slate-800 rounded shadow-lg border border-slate-200 z-20 py-1">
                 <Link
-                  href="/dashboard/profile"
+                  href="/dashboard/settings/my"
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50"
                 >
                   <UserIcon className="w-4 h-4" />
-                  My Profile
+                  My Settings
                 </Link>
                 <Link
                   href="/dashboard/settings/company"

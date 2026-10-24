@@ -206,6 +206,7 @@ def update_appliance(
 def delete_appliance(
     property_id: int,
     appliance_id: int,
+    reason: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -228,5 +229,6 @@ def delete_appliance(
         )
 
     a.is_active = False
+    a.delete_reason = reason.strip() if reason else None
     db.commit()
     return None

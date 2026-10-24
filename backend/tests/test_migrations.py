@@ -1,0 +1,253 @@
+from __future__ import annotations
+
+import os
+import sqlite3
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "pre_alembic_1d77_schema.sql"
+EXPECTED_HEAD = "e4a19d7f6c31"
+EXPECTED_MODEL_TABLES = 222
+
+
+def _run(command: list[str], database_url: str) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["DATABASE_URL"] = database_url
+    return subprocess.run(
+        command,
+        cwd=BACKEND_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+
+def _version(db_path: Path) -> str:
+    conn = sqlite3.connect(db_path)
+    try:
+        row = conn.execute("SELECT version_num FROM alembic_version").fetchone()
+        assert row is not None
+        return row[0]
+    finally:
+        conn.close()
+
+
+@pytest.mark.integration
+def test_fresh_database_bootstrap_creates_current_schema_and_stamps_head(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "fresh.db"
+    url = f"sqlite:///{db_path.as_posix()}"
+    result = _run([sys.executable, "bootstrap_fresh_db.py"], url)
+    assert result.returncode == 0, (
+        f"Bootstrap failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert _version(db_path) == EXPECTED_HEAD
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1]: row for row in conn.execute(
+            "PRAGMA table_info(preventive_maintenance_schedules)"
+        )}
+        assert columns["end_date"][3] == 0
+        assert columns["executor_user_id"][3] == 0
+        assert any(row[3] == "executor_user_id" and row[2] == "users"
+                   for row in conn.execute("PRAGMA foreign_key_list(preventive_maintenance_schedules)"))
+
+
+    # New requester provenance is additive; older work orders and API data
+    # remain intact while nullable columns allow explicit legacy uncertainty.
+    conn = sqlite3.connect(db_path)
+    try:
+        columns = {row[1]: row for row in conn.execute("PRAGMA table_info(work_orders)")}
+        assert columns["tenant_id"][3] == 0, "staff requests cannot invent a tenant"
+        assert "request_origin" in columns
+        assert "requested_by_user_id" in columns
+        assert "source_inspection_id" in columns
+        assert columns["assignment_response"][3] == 0
+        assert columns["assignment_responded_at"][3] == 0
+        assert columns["crew_eta_at"][3] == 0
+        assert "maintenance_on_call_shifts" in {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert "maintenance_preferred_vendors" in {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert "work_order_time_corrections" in {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert "work_order_time_entries" in {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type=\u0027table\u0027")}
+        time_triggers = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='work_order_time_entries'"
+        )}
+        assert {"crew_time_no_update", "crew_time_no_delete"} <= time_triggers
+        review_columns = {row[1] for row in conn.execute(
+            "PRAGMA table_info(unit_inspection_reviews)"
+        )}
+        assert {"organization_id", "inspection_id", "reviewer_id",
+                "decision", "notes", "reviewed_at"} <= review_columns
+        review_triggers = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='unit_inspection_reviews'"
+        )}
+        assert {"unit_inspection_review_no_update", "unit_inspection_review_no_delete"} <= review_triggers
+        assert {"maintenance_material_orders", "maintenance_material_movements"} <= {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        movement_triggers = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_movements'"
+        )}
+        assert {"material_movement_no_update", "material_movement_no_delete"} <= movement_triggers
+        issue_triggers = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_issues'"
+        )}
+        assert {"material_issue_no_update", "material_issue_no_delete"} <= issue_triggers
+        batch_triggers = {item[0] for item in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_batch_lines'"
+        )}
+        assert {"material_batch_line_no_update","material_batch_line_no_delete"} <= batch_triggers
+        conn.execute("""INSERT INTO maintenance_material_batch_lines
+            (organization_id,batch_id,order_id,line_number)
+            VALUES (1,1,1,1)""")
+        with pytest.raises(sqlite3.IntegrityError,match="append-only"):
+            conn.execute("UPDATE maintenance_material_batch_lines SET line_number=2 WHERE id=1")
+        with pytest.raises(sqlite3.IntegrityError,match="append-only"):
+            conn.execute("DELETE FROM maintenance_material_batch_lines WHERE id=1")
+        # Verify the fresh path rejects SQL tampering with consumed stock too.
+        conn.execute("""INSERT INTO maintenance_material_issues
+            (organization_id, material_order_id, target_work_order_id,
+             reference, delta_qty, issued_by_id, reason, recorded_at)
+            VALUES (1,1,1,'bootstrap-issue-probe',1,1,'Test only','2026-10-22')""")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute("""UPDATE maintenance_material_issues
+                SET delta_qty=2 WHERE reference='bootstrap-issue-probe'""")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute("""DELETE FROM maintenance_material_issues
+                WHERE reference='bootstrap-issue-probe'""")
+        assert "maintenance_material_issues" in {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        for table in ("maintenance_material_variances",
+                      "maintenance_material_variance_decisions",
+                      "maintenance_material_variance_restorations"):
+            triggers = {item[0] for item in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=?",
+                (table,)
+            )}
+            assert {table+"_no_update", table+"_no_delete"} <= triggers
+        conn.execute("""INSERT INTO maintenance_material_variances
+            (organization_id,material_order_id,request_key,quantity,reason,reported_by_id,reported_at)
+            VALUES (1,1,'BOOTSTRAP-VARIANCE-TEST-001',2,'Original immutable physical count',1,'2026-10-22')""")
+        conn.execute("""INSERT INTO maintenance_material_variance_decisions
+            (organization_id,variance_id,approved,reason,reviewed_by_id,reviewed_at)
+            VALUES (1,1,1,'Independent original approval',2,'2026-10-22')""")
+        conn.execute("""INSERT INTO maintenance_material_variance_restorations
+            (organization_id,variance_id,reason,restored_by_id,restored_at)
+            VALUES (1,1,'Third party physical recovery',3,'2026-10-22')""")
+        for table in ("maintenance_material_variances",
+                      "maintenance_material_variance_decisions",
+                      "maintenance_material_variance_restorations"):
+            with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+                conn.execute("UPDATE "+table+" SET organization_id=2 WHERE id=1")
+            with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+                conn.execute("DELETE FROM "+table+" WHERE id=1")
+        # Bootstrap must enforce immutability, not merely stamp migration head.
+        # This isolated test row intentionally has no related business records.
+        conn.execute("""INSERT INTO maintenance_material_movements
+            (organization_id, order_id, reference, delta_qty, received_by_id,
+             reason, recorded_at)
+            VALUES (1, 1, 'bootstrap-trigger-probe', 1, 1,
+                    'Isolated verification record', '2026-10-22')""")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute("""UPDATE maintenance_material_movements
+                SET delta_qty=5 WHERE reference='bootstrap-trigger-probe'""")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            conn.execute("""DELETE FROM maintenance_material_movements
+                WHERE reference='bootstrap-trigger-probe'""")
+        assert columns["source_inspection_id"][3] == 0
+        assert any(
+            row[3] == "source_inspection_id"
+            and row[2] == "unit_inspection_records"
+            for row in conn.execute("PRAGMA foreign_key_list(work_orders)")
+        )
+        assert columns["request_origin"][3] == 0
+        assert columns["requested_by_user_id"][3] == 0
+    finally:
+        conn.close()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master "
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+            "AND name != 'alembic_version'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert count == EXPECTED_MODEL_TABLES
+
+    # Fresh bootstrap must seed the same data-only, unbilled HOA catalog as
+    # an upgrade; it must not accidentally grant add-on entitlements.
+    conn = sqlite3.connect(db_path)
+    try:
+        assert conn.execute(
+            "SELECT unit_price_cents, currency, is_active FROM add_ons "
+            "WHERE code='hoa_monthly'"
+        ).fetchone() == (7900, "USD", 0)
+        assert conn.execute(
+            "SELECT is_core FROM modules WHERE key='hoa'"
+        ).fetchone() == (0,)
+        assert conn.execute(
+            "SELECT stage FROM release_gates WHERE key='release.properties.hoa'"
+        ).fetchone() == ("HIDDEN",)
+        assert conn.execute("SELECT COUNT(*) FROM subscription_items").fetchone() == (0,)
+    finally:
+        conn.close()
+
+
+@pytest.mark.integration
+def test_fresh_bootstrap_refuses_nonempty_database(tmp_path: Path) -> None:
+    db_path = tmp_path / "nonempty.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE existing_business_data (id INTEGER PRIMARY KEY)")
+    conn.commit()
+    conn.close()
+
+    result = _run(
+        [sys.executable, "bootstrap_fresh_db.py"],
+        f"sqlite:///{db_path.as_posix()}",
+    )
+    assert result.returncode != 0
+    assert "Refusing fresh bootstrap" in (result.stdout + result.stderr)
+
+
+@pytest.mark.integration
+def test_legacy_schema_snapshot_upgrades_to_head(tmp_path: Path) -> None:
+    db_path = tmp_path / "legacy.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executescript(FIXTURE.read_text(encoding="utf-8"))
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = _run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        f"sqlite:///{db_path.as_posix()}",
+    )
+    assert result.returncode == 0, (
+        f"Alembic failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert _version(db_path) == EXPECTED_HEAD
+    # Upgraded historical customers must acquire the identical append-only
+    # physical shortfall protection that brand-new bootstrap installs.
+    with sqlite3.connect(db_path) as conn:
+        for table in ("maintenance_material_variances",
+                      "maintenance_material_variance_decisions",
+                      "maintenance_material_variance_restorations"):
+            triggers = {item[0] for item in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=?",
+                (table,)
+            )}
+            assert {table+"_no_update",table+"_no_delete"} <= triggers
+        batch_guard={item[0] for item in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='maintenance_material_batch_lines'"
+        )}
+        assert {"material_batch_line_no_update","material_batch_line_no_delete"} <= batch_guard
+
