@@ -14,6 +14,11 @@ type Occurrence = { id: number; schedule_id: number; due_date: string; work_orde
 type Generation = { work_order_id: number; newly_created: boolean; tenant_id: number | null };
 type CatchUp = { schedule_id: number; as_of: string; created_work_order_ids: number[]; remaining_due: boolean };
 type ExecutionStatus = { schedule_id: number; executor_user_id: number; status: string; due: boolean; block_reason?: string | null };
+type Reconciliation = {
+  schedule_id:number;verified_occurrences:number;latest_due_date:string|null;
+  latest_work_order_id:number|null;next_due_date:string;integrity_status:"VERIFIED";
+  read_only:true;work_orders_created:0;automatic_dispatch:false;financial_posted:false;
+};
 type DuePreview = { schedule_id: number; active: boolean; as_of: string; due_dates: string[]; has_more: boolean };
 
 export default function PreventiveMaintenancePage() {
@@ -43,6 +48,10 @@ export default function PreventiveMaintenancePage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [historyId, setHistoryId] = useState<number | null>(null);
+  const [reconciliation, setReconciliation] = useState<Reconciliation|null>(null);
+  const [reconcileError, setReconcileError] = useState("");
+  const [reconcileErrorId, setReconcileErrorId] = useState<number|null>(null);
+  const [reconcileBusyId, setReconcileBusyId] = useState<number|null>(null);
   const [preview, setPreview] = useState<DuePreview | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [previewErrorId, setPreviewErrorId] = useState<number | null>(null);
@@ -368,6 +377,26 @@ export default function PreventiveMaintenancePage() {
     } finally { setPreviewLoadingId(null); }
   }
 
+  async function reviewOccurrenceIntegrity(id: number) {
+    setReconcileBusyId(id); setReconcileError(""); setReconcileErrorId(null);
+    setReconciliation(null);
+    try {
+      const result=await apiGet(
+        `/api/maintenance/preventive/schedules/${id}/reconciliation`
+      ) as Reconciliation;
+      if(result.schedule_id!==id||result.integrity_status!=="VERIFIED"||
+        result.read_only!==true||result.work_orders_created!==0||
+        result.automatic_dispatch!==false||result.financial_posted!==false||
+        !Number.isSafeInteger(result.verified_occurrences))
+        throw new Error("Schedule reconciliation response failed integrity checks.");
+      setReconciliation(result);
+    } catch(cause) {
+      setReconcileErrorId(id);
+      setReconcileError(cause instanceof Error?cause.message:
+        "Occurrence reconciliation failed. Contact an administrator before recovery.");
+    } finally {setReconcileBusyId(null);}
+  }
+
   async function showHistory(id: number) {
     setHistoryId(id); setHistoryError(""); setHistoryMoreError("");
     try {
@@ -544,11 +573,26 @@ export default function PreventiveMaintenancePage() {
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Take over schedule execution
           </button>
+          <button type="button" disabled={busyId !== null||reconcileBusyId!==null}
+            onClick={() => void reviewOccurrenceIntegrity(row.id)}
+            className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
+            {reconcileBusyId===row.id?"Checking original occurrence evidence…":"Reconcile original occurrence evidence"}
+          </button>
           <button disabled={busyId !== null} onClick={() => void showHistory(row.id)}
             className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">
             Occurrence history
           </button>
         </div>
+        {reconciliation?.schedule_id===row.id&&<div role="status"
+          aria-label="Verified preventive original occurrence reconciliation"
+          className="rounded border p-3 text-sm">
+          Verified {reconciliation.verified_occurrences} original occurrences for schedule #{row.id}.
+          {reconciliation.latest_due_date?" Latest due "+reconciliation.latest_due_date+" · Work order #"+reconciliation.latest_work_order_id:" No original work orders yet."}
+          {" "}Next due {reconciliation.next_due_date}. Read-only check; no work order, dispatch or finance action.
+        </div>}
+        {reconcileErrorId===row.id&&reconcileError&&<p role="alert" className="text-sm text-red-700">
+          Reconciliation not verified: {reconcileError}. Do not rely on filtered history for recovery.
+        </p>}
         {batchHealth[row.id] && <p className="text-sm" aria-label={`Batch execution health ${row.id}`}>
           Execution health: {batchHealth[row.id].status}{batchHealth[row.id].due ? " · Due now" : ""}{batchHealth[row.id].status === "blocked" && batchHealth[row.id].block_reason ? ` · ${batchHealth[row.id].block_reason?.replaceAll("_", " ").toLowerCase()}` : ""}
         </p>}
