@@ -1,3 +1,9 @@
+## 2026-10-24 | P5-PM-05 full-history worker integrity: genuine E2E locator failure and repair | SIX CI REQUIRED
+- Commit `25ac92088ee143b0743b1c7d96971d1fb889b436`, run `40087600243`: backend (1652 passed / 38 deselected), security, frontend, platform-admin, staging-config SUCCESS; E2E **37 passed, one FAILED**. Exact failure: test `test_corrupt_earlier_preventive_original_blocks_execution_in_staff_browser` used broad `get_by_role("alert")`, matching evidence alert AND Next.js route announcer. The full-history fail-closed worker/service gate itself passed backend/PostgreSQL checks.
+- A narrow E2E repair selects the page-level server alert specifically. Do NOT call that repair VERIFIED until its own six hosted jobs succeed. No weaker security/audit checks and no production flags were introduced. P5-INSP-04 offline integrity successor saved separately and not yet published.
+
+---
+
 ## 2026-10-24 | Previously detached source VERIFIED; P5-PM-05 worker integrity gate requires own CI
 - Branch `8d00c6623c09eb3674953faacd56cdef9433218c` / Actions `40071893735`: backend/frontend/platform-admin/security/e2e/staging-config ALL SUCCESS. Previous detached PM recovery receipts, foreign/orphan audit checks and inspection same-account cross-tab drafts are already ancestors and published. Original Playwright red `150af7a`/`40062693766`, first failed repair `330d615`/`40070095207`, final green `8d00c66`/`40071893735`.
 - New candidate: P5-PM-05 manual AND worker generation fails closed on historical missing/corrupt/orphan original proof, not just latest occurrence. Live role-scoped execution-health inbox blocks affected schedules, with staff UI explanation and authenticated browser+unit tests. Its OWN six CI jobs are required. Beyond-500 original histories deliberately need operator reconciliation; no production release or operator signoff implied. Phase 5 remains OPEN.
