@@ -64,3 +64,26 @@ def test_recovery_receipt_does_not_certify_changed_original_pointer():
         db.rollback()
     finally:
         db.close();engine.dispose()
+
+
+def test_recovery_receipt_rejects_forged_foreign_operator_identity():
+    db,engine,actors,_,units=seeded()
+    try:
+        admin,manager,_,outsider=actors
+        row=pm.create_schedule(db,admin,unit_id=units[0].id,
+            title="Operator identity evidence",
+            description="Verify original reviewer belongs to the actual service organization",
+            interval_days=1,next_due_date=date.today())
+        pm.catch_up_due(db,manager,row.id,as_of=date.today(),
+            expected_next_due_date=row.next_due_date,
+            recovery_reason="Operator original identity and service reason must be retained")
+        entry=db.query(AuditLog).filter_by(action="operator_recovery_initiated").one()
+        entry.user_id=outsider.id
+        with db.no_autoflush:
+            with pytest.raises(HTTPException) as wrong:
+                pm.recovery_receipts(db,admin,row.id)
+        assert wrong.value.status_code==409
+        db.rollback()
+        assert len(pm.recovery_receipts(db,admin,row.id))==1
+    finally:
+        db.close();engine.dispose()

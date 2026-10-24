@@ -554,6 +554,14 @@ def recovery_receipts(db: Session, actor: User, schedule_id: int) -> list[dict]:
             data = None
         if not isinstance(data, dict):
             raise HTTPException(status_code=409, detail="Recovery original audit is unreadable")
+        # Even historical/revoked operators must have belonged to this exact
+        # organization. Never expose unrelated user identities from forged
+        # private recovery history.
+        if (record.user_id is None or db.query(User.id).filter(
+                User.id == record.user_id,
+                User.organization_id == schedule.organization_id,
+        ).first() is None):
+            raise HTTPException(status_code=409, detail="Recovery operator provenance is invalid")
         work_order_id = data.get("work_order_id", data.get("first_work_order_id"))
         root_id = data.get("root_work_order_id", data.get("first_work_order_id"))
         if (not isinstance(root_id, int) or root_id < 1
