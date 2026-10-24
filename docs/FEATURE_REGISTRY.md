@@ -1,3 +1,9 @@
+## Current evidence | 2026-10-23 | P5-PROC-06 nonposting material usage cost visibility
+- Multi-line internal purchasing and independent batch approval VERIFIED at `671b821ae` / run `40018778408` all SIX SUCCESS. Earlier `56817203b` / run `39927949907` failed E2E and was repaired through actual supplier re-selection in browser.
+- New source-validated GET `/api/maintenance/materials/cost-preview?work_order_id=...` and `/dashboard/maintenance/material-orders` staff UI: **read-only estimated physical-use value**, per original approved source and per target work order, checked against real signed issue/reversal/receipt and immutable audit, clear no GL/no tenant liability. Authenticated UI/regressions prepared (including revoked manager, cross-property/org, audit tamper). Pending exact-SHA SIX hosted CI, not yet accepted. Never mistake this for an accounting post, invoice, inventory GL ledger, payable or provider receipt.
+- Full P5-PROC-06 and Phase 5 remain OPEN; production and external provider/financial execution OFF.
+
+---
 ## 2026-10-23 | P5-PROC-06 internal multi-line materials request and independent whole-batch approval. Saved detached: existing purchasing staff page gains editable 2-20-line request, single batch review and per-line immutable source IDs; backend verifies live role/org/property/vendor, estimated total, original audit binding, idempotent retry and all-or-nothing PostgreSQL review. New batch and immutable line tables, Alembic e4a19d7f6c31 (222 tables), regression and browser test. No provider delivery/financial postings. Current parent physical variance run39924753728 pending six-green; successor needs its own exact six CI.
 
 ---
